@@ -73,10 +73,31 @@
       font-size: 18px;
       text-align: center;
     }
+
+    #error {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: #ff4444;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+      max-width: 400px;
+    }
   </style>
 </head>
 <body>
   <div id="loading">Loading Avatar Generator...</div>
+  
+  <div id="error" style="display: none;">
+    <h3>Setup Required</h3>
+    <p>Three.js libraries need to be downloaded locally.</p>
+    <p>Please run the setup script:</p>
+    <code>./scripts/setup-local-threejs.sh</code>
+    <p>Or download manually to the libs/ folder.</p>
+  </div>
   
   <div id="controls" style="display: none;">
     <h3>Body Measurements</h3>
@@ -131,22 +152,26 @@
     Adjust sliders to modify avatar
   </div>
 
-  <!-- Load Three.js and OrbitControls using the older, more compatible method -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r148/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.148.0/examples/js/controls/OrbitControls.js"></script>
+  <!-- Load Three.js locally to avoid CORB issues -->
+  <script src="libs/three.min.js"></script>
+  <script src="libs/OrbitControls.js"></script>
 
   <script>
     // Wait for everything to load
     window.addEventListener('load', function() {
       // Check if THREE is available
       if (typeof THREE === 'undefined') {
-        document.getElementById('loading').innerHTML = 'Error: Three.js failed to load. Please check your internet connection.';
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('error').style.display = 'block';
+        console.error('Three.js failed to load. Please run the setup script to download libraries locally.');
         return;
       }
 
       // Check if OrbitControls is available
       if (typeof THREE.OrbitControls === 'undefined') {
-        document.getElementById('loading').innerHTML = 'Error: OrbitControls failed to load. Please check your internet connection.';
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('error').style.display = 'block';
+        console.error('OrbitControls failed to load. Please run the setup script to download libraries locally.');
         return;
       }
 
@@ -154,6 +179,8 @@
       document.getElementById('loading').style.display = 'none';
       document.getElementById('controls').style.display = 'block';
       document.getElementById('info').style.display = 'block';
+
+      console.log('✅ Three.js and OrbitControls loaded successfully!');
 
       // Scene setup
       const scene = new THREE.Scene();
@@ -168,7 +195,7 @@
       renderer.shadowMap.type = THREE.PCFSoftShadowMap;
       document.body.appendChild(renderer.domElement);
       
-      // Controls - Using the traditional THREE.OrbitControls
+      // Controls
       const controls = new THREE.OrbitControls(camera, renderer.domElement);
       controls.target.set(0, 1, 0);
       controls.enableDamping = true;
@@ -356,7 +383,7 @@
         setupControls();
         updateAvatar();
         animate();
-        console.log('Avatar Generator loaded successfully!');
+        console.log('🎉 Avatar Generator initialized successfully!');
       } catch (error) {
         console.error('Error initializing avatar:', error);
         document.getElementById('loading').innerHTML = 'Error initializing avatar. Check console for details.';
