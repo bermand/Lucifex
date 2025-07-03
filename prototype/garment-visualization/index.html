@@ -235,6 +235,28 @@
     .tab-content.active {
       display: block;
     }
+
+    input[type="file"] {
+      width: 100%;
+      padding: 8px;
+      border: 2px dashed #ddd;
+      border-radius: 8px;
+      background: #f9f9f9;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    input[type="file"]:hover {
+      border-color: #667eea;
+      background: #f0f4ff;
+    }
+
+    .file-info {
+      padding: 5px;
+      background: #f0f0f0;
+      border-radius: 4px;
+      margin-top: 5px;
+    }
   </style>
 </head>
 <body>
@@ -303,6 +325,12 @@
         <div class="garment-item" onclick="selectGarment('skirt')" data-garment="skirt">
           Skirt
         </div>
+      </div>
+
+      <div class="control-group">
+        <label>Load CLO3D Garment:</label>
+        <input type="file" id="garment-file" accept=".glb,.gltf,.fbx,.obj" onchange="loadGarmentFile(event)" />
+        <div class="file-info" id="file-info" style="font-size: 11px; color: #666; margin-top: 5px;"></div>
       </div>
 
       <div class="control-group">
@@ -564,9 +592,16 @@
       }
     }
     
-    function createGarment(type) {
+    function createGarment(type, fileData = null) {
       garmentGroup.clear();
       
+      if (fileData) {
+        // Load from CLO3D file
+        loadCLO3DGarment(fileData);
+        return;
+      }
+      
+      // Existing geometric garment creation code remains the same
       const material = createGarmentMaterial();
       let geometry;
       
@@ -658,10 +693,25 @@
         hips: parseInt(document.getElementById('hips').value) / 95
       };
       
-      garmentGroup.children.forEach(garment => {
-        garment.scale.x = measurements.chest * fitScale;
-        garment.scale.z = measurements.chest * fitScale;
-      });
+      // For CLO3D garments, apply more sophisticated fitting
+      if (currentGarment.startsWith('clo3d_')) {
+        garmentGroup.children.forEach(garment => {
+          garment.traverse(function(child) {
+            if (child.isMesh) {
+              // Apply non-uniform scaling for better fit
+              child.scale.x = measurements.chest * fitScale;
+              child.scale.z = measurements.chest * fitScale;
+              child.scale.y = 1.0; // Preserve length
+            }
+          });
+        });
+      } else {
+        // Original geometric garment fitting
+        garmentGroup.children.forEach(garment => {
+          garment.scale.x = measurements.chest * fitScale;
+          garment.scale.z = measurements.chest * fitScale;
+        });
+      }
     }
     
     function setupMouseControls() {
@@ -820,6 +870,73 @@
       
       updateStatus('Look exported successfully');
     }
+
+    function loadGarmentFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      const fileInfo = document.getElementById('file-info');
+      fileInfo.textContent = `Loading: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+      
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const arrayBuffer = e.target.result;
+        loadCLO3DGarment(arrayBuffer, file.name);
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    function loadCLO3DGarment(data, filename = 'garment') {
+      const loader = new THREE.GLTFLoader();
+      
+      // Handle different file types
+      if (filename.endsWith('.glb') || filename.endsWith('.gltf')) {
+        loader.parse(data, '', function(gltf) {
+          processCLO3DModel(gltf.scene, filename);
+        }, function(error) {
+          console.error('Error loading CLO3D garment:', error);
+          updateStatus('❌ Failed to load garment file');
+        });
+      } else {
+        updateStatus('❌ Unsupported file format. Please use .glb or .gltf files from CLO3D');
+      }
+    }
+
+    function processCLO3DModel(model, filename) {
+      garmentGroup.clear();
+      
+      // Scale and position the CLO3D model to fit our avatar
+      model.scale.setScalar(0.01); // CLO3D models are often in cm, we need meters
+      model.position.y = 0; // Adjust as needed
+      
+      // Apply current material settings to all meshes
+      model.traverse(function(child) {
+        if (child.isMesh) {
+          // Preserve original geometry but apply our material system
+          const originalMaterial = child.material;
+          const newMaterial = createGarmentMaterial();
+          
+          // Try to preserve some original properties if available
+          if (originalMaterial.map) {
+            newMaterial.map = originalMaterial.map;
+          }
+          if (originalMaterial.normalMap) {
+            newMaterial.normalMap = originalMaterial.normalMap;
+          }
+          
+          child.material = newMaterial;
+          child.castShadow = true;
+          child.receiveShadow = true;
+        }
+      });
+      
+      garmentGroup.add(model);
+      garmentVisible = true;
+      currentGarment = 'clo3d_' + filename;
+      
+      updateStatus(`✅ Loaded CLO3D garment: ${filename}`);
+      document.getElementById('file-info').textContent = `Loaded: ${filename}`;
+    }
     
     function animate() {
       requestAnimationFrame(animate);
@@ -842,6 +959,9 @@
     window.selectColor = selectColor;
     window.toggleGarment = toggleGarment;
     window.exportLook = exportLook;
+    window.loadGarmentFile = loadGarmentFile;
+    window.loadCLO3DGarment = loadCLO3DGarment;
   </script>
+  <script src="https://unpkg.com/three@0.158.0/examples/js/loaders/GLTFLoader.js"></script>
 </body>
 </html>
