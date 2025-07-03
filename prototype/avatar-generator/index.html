@@ -16,35 +16,93 @@
       position: absolute;
       top: 20px;
       left: 20px;
-      background: rgba(255, 255, 255, 0.9);
+      background: rgba(255, 255, 255, 0.95);
       padding: 20px;
-      border-radius: 10px;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-      width: 300px;
-      max-height: 80vh;
+      border-radius: 15px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+      backdrop-filter: blur(10px);
+      width: 320px;
+      max-height: 85vh;
       overflow-y: auto;
     }
     
     .control-group {
-      margin-bottom: 15px;
+      margin-bottom: 20px;
     }
     
     label {
       display: block;
-      margin-bottom: 5px;
-      font-weight: bold;
+      margin-bottom: 8px;
+      font-weight: 600;
       color: #333;
+      font-size: 14px;
     }
     
     input[type="range"] {
       width: 100%;
-      margin-bottom: 5px;
+      margin-bottom: 8px;
+      height: 6px;
+      border-radius: 3px;
+      background: #ddd;
+      outline: none;
+      -webkit-appearance: none;
+    }
+    
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #667eea;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    }
+    
+    input[type="range"]::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #667eea;
+      cursor: pointer;
+      border: none;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
     }
     
     .value-display {
-      font-size: 12px;
+      font-size: 13px;
       color: #666;
       text-align: right;
+      font-weight: 500;
+    }
+    
+    .preset-buttons {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    
+    .preset-btn {
+      padding: 8px 12px;
+      border: none;
+      border-radius: 8px;
+      background: #f0f0f0;
+      color: #333;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    
+    .preset-btn:hover {
+      background: #667eea;
+      color: white;
+    }
+    
+    .preset-btn.active {
+      background: #667eea;
+      color: white;
     }
     
     #info {
@@ -52,16 +110,20 @@
       bottom: 20px;
       left: 20px;
       color: white;
-      background: rgba(0, 0, 0, 0.5);
-      padding: 10px;
-      border-radius: 5px;
+      background: rgba(0, 0, 0, 0.6);
+      padding: 15px;
+      border-radius: 10px;
+      backdrop-filter: blur(10px);
+      font-size: 13px;
     }
     
     h3 {
       margin-top: 0;
+      margin-bottom: 15px;
       color: #333;
       border-bottom: 2px solid #667eea;
-      padding-bottom: 5px;
+      padding-bottom: 8px;
+      font-size: 18px;
     }
 
     #loading {
@@ -74,33 +136,65 @@
       text-align: center;
     }
 
-    #error {
+    #status {
       position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      color: #ff4444;
-      background: rgba(255, 255, 255, 0.9);
-      padding: 20px;
-      border-radius: 10px;
-      text-align: center;
-      max-width: 400px;
+      top: 20px;
+      right: 20px;
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 10px 15px;
+      border-radius: 8px;
+      font-family: monospace;
+      font-size: 11px;
+      max-width: 250px;
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .action-btn {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      background: #667eea;
+      color: white;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+
+    .action-btn:hover {
+      background: #5a67d8;
+      transform: translateY(-1px);
+    }
+
+    .action-btn:active {
+      transform: translateY(0);
     }
   </style>
 </head>
 <body>
   <div id="loading">Loading Avatar Generator...</div>
   
-  <div id="error" style="display: none;">
-    <h3>Setup Required</h3>
-    <p>Three.js libraries need to be downloaded locally.</p>
-    <p>Please run the setup script:</p>
-    <code>./scripts/setup-local-threejs.sh</code>
-    <p>Or download manually to the libs/ folder.</p>
+  <div id="status" style="display: none;">
+    <div id="status-content">Initializing...</div>
   </div>
   
   <div id="controls" style="display: none;">
     <h3>Body Measurements</h3>
+    
+    <div class="preset-buttons">
+      <button class="preset-btn" onclick="applyPreset('xs')">XS</button>
+      <button class="preset-btn" onclick="applyPreset('s')">S</button>
+      <button class="preset-btn" onclick="applyPreset('m')" id="preset-m">M</button>
+      <button class="preset-btn" onclick="applyPreset('l')">L</button>
+      <button class="preset-btn" onclick="applyPreset('xl')">XL</button>
+    </div>
     
     <div class="control-group">
       <label for="height">Height</label>
@@ -143,63 +237,107 @@
       <input type="range" id="legLength" min="70" max="110" value="90" />
       <div class="value-display"><span id="legLength-value">90</span> cm</div>
     </div>
+
+    <div class="action-buttons">
+      <button class="action-btn" onclick="resetAvatar()">Reset</button>
+      <button class="action-btn" onclick="saveAvatar()">Save</button>
+      <button class="action-btn" onclick="exportMeasurements()">Export</button>
+    </div>
   </div>
   
   <div id="info" style="display: none;">
     <strong>Controls:</strong><br>
-    Mouse: Rotate view<br>
-    Scroll: Zoom<br>
-    Adjust sliders to modify avatar
+    • Drag to rotate view<br>
+    • Scroll to zoom<br>
+    • Use presets for quick setup<br>
+    • Adjust sliders for custom fit
   </div>
 
-  <!-- Load Three.js locally to avoid CORB issues -->
-  <script src="libs/three.min.js"></script>
-  <script src="libs/OrbitControls.js"></script>
-
   <script>
-    // Wait for everything to load
-    window.addEventListener('load', function() {
-      // Check if THREE is available
-      if (typeof THREE === 'undefined') {
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('error').style.display = 'block';
-        console.error('Three.js failed to load. Please run the setup script to download libraries locally.');
-        return;
+    let threeLoaded = false;
+    let scene, camera, renderer, avatarGroup;
+    let isMouseDown = false;
+    let mouseX = 0, mouseY = 0;
+    let avatarParts = {};
+    
+    // Preset measurements
+    const presets = {
+      xs: { height: 155, chest: 78, waist: 65, hips: 85, shoulders: 36, armLength: 58, legLength: 75 },
+      s:  { height: 162, chest: 85, waist: 70, hips: 92, shoulders: 39, armLength: 62, legLength: 82 },
+      m:  { height: 170, chest: 90, waist: 75, hips: 95, shoulders: 42, armLength: 65, legLength: 90 },
+      l:  { height: 175, chest: 98, waist: 82, hips: 105, shoulders: 45, armLength: 68, legLength: 95 },
+      xl: { height: 180, chest: 108, waist: 92, hips: 115, shoulders: 48, armLength: 72, legLength: 100 }
+    };
+    
+    function updateStatus(message) {
+      const statusContent = document.getElementById('status-content');
+      if (statusContent) {
+        statusContent.innerHTML = message;
       }
-
-      // Check if OrbitControls is available
-      if (typeof THREE.OrbitControls === 'undefined') {
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('error').style.display = 'block';
-        console.error('OrbitControls failed to load. Please run the setup script to download libraries locally.');
-        return;
+      console.log('STATUS:', message);
+    }
+    
+    function loadThreeJS() {
+      const cdnSources = [
+        'https://unpkg.com/three@0.158.0/build/three.min.js',
+        'https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js',
+        'https://cdnjs.cloudflare.com/ajax/libs/three.js/r158/three.min.js'
+      ];
+      
+      let loadAttempts = 0;
+      
+      function tryLoad() {
+        if (loadAttempts >= cdnSources.length) {
+          document.getElementById('loading').innerHTML = 'Failed to load Three.js.<br>Please check your internet connection.';
+          return;
+        }
+        
+        const script = document.createElement('script');
+        script.src = cdnSources[loadAttempts];
+        
+        updateStatus(`Loading Three.js (${loadAttempts + 1}/${cdnSources.length})`);
+        
+        script.onload = function() {
+          if (typeof THREE !== 'undefined') {
+            threeLoaded = true;
+            updateStatus('✅ Three.js loaded successfully!');
+            initializeApp();
+          } else {
+            loadAttempts++;
+            tryLoad();
+          }
+        };
+        
+        script.onerror = function() {
+          loadAttempts++;
+          tryLoad();
+        };
+        
+        document.head.appendChild(script);
       }
-
-      // Hide loading, show controls
+      
+      tryLoad();
+    }
+    
+    function initializeApp() {
       document.getElementById('loading').style.display = 'none';
       document.getElementById('controls').style.display = 'block';
       document.getElementById('info').style.display = 'block';
-
-      console.log('✅ Three.js and OrbitControls loaded successfully!');
-
+      document.getElementById('status').style.display = 'block';
+      
       // Scene setup
-      const scene = new THREE.Scene();
+      scene = new THREE.Scene();
       scene.background = new THREE.Color(0xf0f0f0);
       
-      const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+      camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
       camera.position.set(0, 1.6, 4);
+      camera.lookAt(0, 1, 0);
       
-      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer = new THREE.WebGLRenderer({ antialias: true });
       renderer.setSize(window.innerWidth, window.innerHeight);
       renderer.shadowMap.enabled = true;
       renderer.shadowMap.type = THREE.PCFSoftShadowMap;
       document.body.appendChild(renderer.domElement);
-      
-      // Controls
-      const controls = new THREE.OrbitControls(camera, renderer.domElement);
-      controls.target.set(0, 1, 0);
-      controls.enableDamping = true;
-      controls.dampingFactor = 0.05;
       
       // Lighting
       const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
@@ -224,174 +362,281 @@
       ground.receiveShadow = true;
       scene.add(ground);
       
-      // Avatar parts
-      const avatarGroup = new THREE.Group();
+      // Avatar group
+      avatarGroup = new THREE.Group();
       scene.add(avatarGroup);
       
-      // Materials
+      // Mouse controls
+      setupMouseControls();
+      
+      // Setup measurement controls
+      setupMeasurementControls();
+      
+      // Create and update avatar
+      createAvatar();
+      updateAvatar();
+      
+      // Start animation loop
+      animate();
+      
+      // Set default preset
+      applyPreset('m');
+      
+      updateStatus('✅ Avatar Generator ready!');
+    }
+    
+    function createAvatar() {
+      avatarGroup.clear();
+      avatarParts = {};
+      
       const skinMaterial = new THREE.MeshLambertMaterial({ color: 0xffdbac });
       
-      // Body parts
-      let head, torso, leftArm, rightArm, leftLeg, rightLeg;
+      // Head
+      const headGeometry = new THREE.SphereGeometry(0.12, 16, 16);
+      avatarParts.head = new THREE.Mesh(headGeometry, skinMaterial);
+      avatarParts.head.position.y = 1.65;
+      avatarParts.head.castShadow = true;
+      avatarGroup.add(avatarParts.head);
       
-      function createAvatar() {
-        // Clear existing avatar
-        avatarGroup.clear();
+      // Torso
+      const torsoGeometry = new THREE.CylinderGeometry(0.15, 0.12, 0.6, 12);
+      avatarParts.torso = new THREE.Mesh(torsoGeometry, skinMaterial);
+      avatarParts.torso.position.y = 1.2;
+      avatarParts.torso.castShadow = true;
+      avatarGroup.add(avatarParts.torso);
+      
+      // Arms
+      const armGeometry = new THREE.CylinderGeometry(0.04, 0.04, 0.5, 8);
+      
+      avatarParts.leftArm = new THREE.Mesh(armGeometry, skinMaterial);
+      avatarParts.leftArm.position.set(-0.25, 1.3, 0);
+      avatarParts.leftArm.rotation.z = Math.PI / 6;
+      avatarParts.leftArm.castShadow = true;
+      avatarGroup.add(avatarParts.leftArm);
+      
+      avatarParts.rightArm = new THREE.Mesh(armGeometry, skinMaterial);
+      avatarParts.rightArm.position.set(0.25, 1.3, 0);
+      avatarParts.rightArm.rotation.z = -Math.PI / 6;
+      avatarParts.rightArm.castShadow = true;
+      avatarGroup.add(avatarParts.rightArm);
+      
+      // Legs
+      const legGeometry = new THREE.CylinderGeometry(0.06, 0.05, 0.8, 8);
+      
+      avatarParts.leftLeg = new THREE.Mesh(legGeometry, skinMaterial);
+      avatarParts.leftLeg.position.set(-0.1, 0.5, 0);
+      avatarParts.leftLeg.castShadow = true;
+      avatarGroup.add(avatarParts.leftLeg);
+      
+      avatarParts.rightLeg = new THREE.Mesh(legGeometry, skinMaterial);
+      avatarParts.rightLeg.position.set(0.1, 0.5, 0);
+      avatarParts.rightLeg.castShadow = true;
+      avatarGroup.add(avatarParts.rightLeg);
+    }
+    
+    function updateAvatar() {
+      const measurements = getCurrentMeasurements();
+      
+      // Scale avatar based on height
+      const heightScale = measurements.height / 170;
+      avatarGroup.scale.y = heightScale;
+      
+      // Adjust torso based on chest/waist
+      const chestScale = measurements.chest / 90;
+      const waistScale = measurements.waist / 75;
+      
+      if (avatarParts.torso) {
+        avatarParts.torso.scale.x = chestScale;
+        avatarParts.torso.scale.z = chestScale;
         
-        // Head
-        const headGeometry = new THREE.SphereGeometry(0.12, 16, 16);
-        head = new THREE.Mesh(headGeometry, skinMaterial);
-        head.position.y = 1.65;
-        head.castShadow = true;
-        avatarGroup.add(head);
-        
-        // Torso
-        const torsoGeometry = new THREE.CylinderGeometry(0.15, 0.12, 0.6, 12);
-        torso = new THREE.Mesh(torsoGeometry, skinMaterial);
-        torso.position.y = 1.2;
-        torso.castShadow = true;
-        avatarGroup.add(torso);
-        
-        // Arms
-        const armGeometry = new THREE.CylinderGeometry(0.04, 0.04, 0.5, 8);
-        
-        leftArm = new THREE.Mesh(armGeometry, skinMaterial);
-        leftArm.position.set(-0.25, 1.3, 0);
-        leftArm.rotation.z = Math.PI / 6;
-        leftArm.castShadow = true;
-        avatarGroup.add(leftArm);
-        
-        rightArm = new THREE.Mesh(armGeometry, skinMaterial);
-        rightArm.position.set(0.25, 1.3, 0);
-        rightArm.rotation.z = -Math.PI / 6;
-        rightArm.castShadow = true;
-        avatarGroup.add(rightArm);
-        
-        // Legs
-        const legGeometry = new THREE.CylinderGeometry(0.06, 0.05, 0.8, 8);
-        
-        leftLeg = new THREE.Mesh(legGeometry, skinMaterial);
-        leftLeg.position.set(-0.1, 0.5, 0);
-        leftLeg.castShadow = true;
-        avatarGroup.add(leftLeg);
-        
-        rightLeg = new THREE.Mesh(legGeometry, skinMaterial);
-        rightLeg.position.set(0.1, 0.5, 0);
-        rightLeg.castShadow = true;
-        avatarGroup.add(rightLeg);
+        // Recreate tapered torso
+        avatarParts.torso.geometry.dispose();
+        avatarParts.torso.geometry = new THREE.CylinderGeometry(
+          0.15 * chestScale, 
+          0.12 * waistScale, 
+          0.6, 
+          12
+        );
       }
       
-      function updateAvatar() {
-        const measurements = {
-          height: parseInt(document.getElementById('height').value),
-          chest: parseInt(document.getElementById('chest').value),
-          waist: parseInt(document.getElementById('waist').value),
-          hips: parseInt(document.getElementById('hips').value),
-          shoulders: parseInt(document.getElementById('shoulders').value),
-          armLength: parseInt(document.getElementById('armLength').value),
-          legLength: parseInt(document.getElementById('legLength').value)
-        };
+      // Adjust shoulder width
+      const shoulderScale = measurements.shoulders / 42;
+      if (avatarParts.leftArm && avatarParts.rightArm) {
+        avatarParts.leftArm.position.x = -0.25 * shoulderScale;
+        avatarParts.rightArm.position.x = 0.25 * shoulderScale;
         
-        // Scale avatar based on height (170cm = baseline)
-        const heightScale = measurements.height / 170;
-        avatarGroup.scale.y = heightScale;
-        
-        // Adjust torso based on chest/waist measurements
-        const chestScale = measurements.chest / 90; // 90cm baseline
-        const waistScale = measurements.waist / 75; // 75cm baseline
-        
-        if (torso) {
-          torso.scale.x = chestScale;
-          torso.scale.z = chestScale;
-          
-          // Create tapered torso effect
-          torso.geometry.dispose(); // Clean up old geometry
-          torso.geometry = new THREE.CylinderGeometry(
-            0.15 * chestScale, 
-            0.12 * waistScale, 
-            0.6, 
-            12
-          );
-        }
-        
-        // Adjust shoulder width
-        const shoulderScale = measurements.shoulders / 42; // 42cm baseline
-        if (leftArm && rightArm) {
-          leftArm.position.x = -0.25 * shoulderScale;
-          rightArm.position.x = 0.25 * shoulderScale;
-          
-          // Adjust arm length
-          const armScale = measurements.armLength / 65; // 65cm baseline
-          leftArm.scale.y = armScale;
-          rightArm.scale.y = armScale;
-        }
-        
-        // Adjust leg length
-        const legScale = measurements.legLength / 90; // 90cm baseline
-        if (leftLeg && rightLeg) {
-          leftLeg.scale.y = legScale;
-          rightLeg.scale.y = legScale;
-          leftLeg.position.y = 0.5 * legScale;
-          rightLeg.position.y = 0.5 * legScale;
-        }
-        
-        // Adjust hip width
-        const hipScale = measurements.hips / 95; // 95cm baseline
-        if (leftLeg && rightLeg) {
-          leftLeg.position.x = -0.1 * hipScale;
-          rightLeg.position.x = 0.1 * hipScale;
-          leftLeg.scale.x = hipScale * 0.8;
-          rightLeg.scale.x = hipScale * 0.8;
-          leftLeg.scale.z = hipScale * 0.8;
-          rightLeg.scale.z = hipScale * 0.8;
-        }
+        // Adjust arm length
+        const armScale = measurements.armLength / 65;
+        avatarParts.leftArm.scale.y = armScale;
+        avatarParts.rightArm.scale.y = armScale;
       }
       
-      // Event listeners for controls
-      function setupControls() {
-        const sliders = ['height', 'chest', 'waist', 'hips', 'shoulders', 'armLength', 'legLength'];
-        
-        sliders.forEach(id => {
-          const slider = document.getElementById(id);
-          const valueDisplay = document.getElementById(id + '-value');
+      // Adjust leg length
+      const legScale = measurements.legLength / 90;
+      if (avatarParts.leftLeg && avatarParts.rightLeg) {
+        avatarParts.leftLeg.scale.y = legScale;
+        avatarParts.rightLeg.scale.y = legScale;
+        avatarParts.leftLeg.position.y = 0.5 * legScale;
+        avatarParts.rightLeg.position.y = 0.5 * legScale;
+      }
+      
+      // Adjust hip width
+      const hipScale = measurements.hips / 95;
+      if (avatarParts.leftLeg && avatarParts.rightLeg) {
+        avatarParts.leftLeg.position.x = -0.1 * hipScale;
+        avatarParts.rightLeg.position.x = 0.1 * hipScale;
+        avatarParts.leftLeg.scale.x = hipScale * 0.8;
+        avatarParts.rightLeg.scale.x = hipScale * 0.8;
+        avatarParts.leftLeg.scale.z = hipScale * 0.8;
+        avatarParts.rightLeg.scale.z = hipScale * 0.8;
+      }
+    }
+    
+    function getCurrentMeasurements() {
+      return {
+        height: parseInt(document.getElementById('height').value),
+        chest: parseInt(document.getElementById('chest').value),
+        waist: parseInt(document.getElementById('waist').value),
+        hips: parseInt(document.getElementById('hips').value),
+        shoulders: parseInt(document.getElementById('shoulders').value),
+        armLength: parseInt(document.getElementById('armLength').value),
+        legLength: parseInt(document.getElementById('legLength').value)
+      };
+    }
+    
+    function setupMouseControls() {
+      let previousMousePosition = { x: 0, y: 0 };
+      
+      function onMouseMove(event) {
+        if (isMouseDown) {
+          const deltaMove = {
+            x: event.offsetX - previousMousePosition.x,
+            y: event.offsetY - previousMousePosition.y
+          };
           
-          slider.addEventListener('input', (e) => {
-            valueDisplay.textContent = e.target.value;
-            updateAvatar();
-          });
+          const deltaRotationQuaternion = new THREE.Quaternion()
+            .setFromEuler(new THREE.Euler(
+              toRadians(deltaMove.y * 1),
+              toRadians(deltaMove.x * 1),
+              0,
+              'XYZ'
+            ));
+          
+          avatarGroup.quaternion.multiplyQuaternions(deltaRotationQuaternion, avatarGroup.quaternion);
+        }
+        
+        previousMousePosition = { x: event.offsetX, y: event.offsetY };
+      }
+      
+      function toRadians(angle) {
+        return angle * (Math.PI / 180);
+      }
+      
+      renderer.domElement.addEventListener('mousemove', onMouseMove);
+      renderer.domElement.addEventListener('mousedown', (event) => {
+        isMouseDown = true;
+        previousMousePosition = { x: event.offsetX, y: event.offsetY };
+      });
+      renderer.domElement.addEventListener('mouseup', () => isMouseDown = false);
+      
+      // Zoom with mouse wheel
+      renderer.domElement.addEventListener('wheel', (event) => {
+        event.preventDefault();
+        const zoomSpeed = 0.1;
+        const zoom = event.deltaY > 0 ? 1 + zoomSpeed : 1 - zoomSpeed;
+        camera.position.multiplyScalar(zoom);
+        camera.position.clampLength(2, 10);
+      });
+    }
+    
+    function setupMeasurementControls() {
+      const sliders = ['height', 'chest', 'waist', 'hips', 'shoulders', 'armLength', 'legLength'];
+      
+      sliders.forEach(id => {
+        const slider = document.getElementById(id);
+        const valueDisplay = document.getElementById(id + '-value');
+        
+        slider.addEventListener('input', (e) => {
+          valueDisplay.textContent = e.target.value;
+          updateAvatar();
+          clearPresetSelection();
         });
-      }
+      });
+    }
+    
+    function applyPreset(size) {
+      const preset = presets[size];
+      if (!preset) return;
       
-      // Handle window resize
-      function onWindowResize() {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-      }
-      window.addEventListener('resize', onWindowResize);
+      // Clear previous selection
+      document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
       
-      // Animation loop
-      function animate() {
-        requestAnimationFrame(animate);
-        controls.update();
-        renderer.render(scene, camera);
-      }
+      // Set active preset
+      event.target.classList.add('active');
       
-      // Initialize
-      try {
-        createAvatar();
-        setupControls();
-        updateAvatar();
-        animate();
-        console.log('🎉 Avatar Generator initialized successfully!');
-      } catch (error) {
-        console.error('Error initializing avatar:', error);
-        document.getElementById('loading').innerHTML = 'Error initializing avatar. Check console for details.';
-        document.getElementById('loading').style.display = 'block';
-        document.getElementById('controls').style.display = 'none';
-        document.getElementById('info').style.display = 'none';
-      }
-    });
+      // Apply measurements
+      Object.keys(preset).forEach(key => {
+        const slider = document.getElementById(key);
+        const valueDisplay = document.getElementById(key + '-value');
+        if (slider && valueDisplay) {
+          slider.value = preset[key];
+          valueDisplay.textContent = preset[key];
+        }
+      });
+      
+      updateAvatar();
+      updateStatus(`Applied ${size.toUpperCase()} preset`);
+    }
+    
+    function clearPresetSelection() {
+      document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
+    }
+    
+    function resetAvatar() {
+      applyPreset('m');
+      avatarGroup.rotation.set(0, 0, 0);
+      camera.position.set(0, 1.6, 4);
+      camera.lookAt(0, 1, 0);
+      updateStatus('Avatar reset to default');
+    }
+    
+    function saveAvatar() {
+      const measurements = getCurrentMeasurements();
+      localStorage.setItem('lucifex-avatar', JSON.stringify(measurements));
+      updateStatus('Avatar saved to browser storage');
+    }
+    
+    function exportMeasurements() {
+      const measurements = getCurrentMeasurements();
+      const dataStr = JSON.stringify(measurements, null, 2);
+      const dataBlob = new Blob([dataStr], {type: 'application/json'});
+      const url = URL.createObjectURL(dataBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'avatar-measurements.json';
+      link.click();
+      updateStatus('Measurements exported');
+    }
+    
+    function animate() {
+      requestAnimationFrame(animate);
+      renderer.render(scene, camera);
+    }
+    
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+    
+    window.addEventListener('resize', onWindowResize);
+    window.addEventListener('load', loadThreeJS);
+    
+    // Make functions global for button access
+    window.applyPreset = applyPreset;
+    window.resetAvatar = resetAvatar;
+    window.saveAvatar = saveAvatar;
+    window.exportMeasurements = exportMeasurements;
   </script>
 </body>
 </html>
