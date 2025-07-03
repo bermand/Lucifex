@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Avatar Generator - Debug Version</title>
+  <style>
+    body { 
+      margin: 0; 
+      overflow: hidden; 
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    #controls {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background: rgba(255, 255, 255, 0.9);
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      width: 300px;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    
+    .control-group {
+      margin-bottom: 15px;
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+      color: #333;
+    }
+    
+    input[type="range"] {
+      width: 100%;
+      margin-bottom: 5px;
+    }
+    
+    .value-display {
+      font-size: 12px;
+      color: #666;
+      text-align: right;
+    }
+    
+    h3 {
+      margin-top: 0;
+      color: #333;
+      border-bottom: 2px solid #667eea;
+      padding-bottom: 5px;
+    }
+
+    #loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: white;
+      font-size: 18px;
+      text-align: center;
+    }
+
+    #debug {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 10px;
+      border-radius: 5px;
+      font-family: monospace;
+      font-size: 12px;
+      max-width: 300px;
+    }
+  </style>
+</head>
+<body>
+  <div id="loading">Loading Avatar Generator...</div>
+  
+  <div id="debug" style="display: none;">
+    <strong>Debug Info:</strong><br>
+    <div id="debug-content"></div>
+  </div>
+  
+  <div id="controls" style="display: none;">
+    <h3>Body Measurements</h3>
+    
+    <div class="control-group">
+      <label for="height">Height</label>
+      <input type="range" id="height" min="150" max="200" value="170" />
+      <div class="value-display"><span id="height-value">170</span> cm</div>
+    </div>
+    
+    <div class="control-group">
+      <label for="chest">Chest/Bust</label>
+      <input type="range" id="chest" min="70" max="120" value="90" />
+      <div class="value-display"><span id="chest-value">90</span> cm</div>
+    </div>
+    
+    <div class="control-group">
+      <label for="waist">Waist</label>
+      <input type="range" id="waist" min="60" max="110" value="75" />
+      <div class="value-display"><span id="waist-value">75</span> cm</div>
+    </div>
+    
+    <div class="control-group">
+      <label for="hips">Hips</label>
+      <input type="range" id="hips" min="70" max="130" value="95" />
+      <div class="value-display"><span id="hips-value">95</span> cm</div>
+    </div>
+
+    <button onclick="resetCamera()">Reset Camera</button>
+    <button onclick="toggleWireframe()">Toggle Wireframe</button>
+  </div>
+
+  <!-- Use a working CDN combination -->
+  <script src="https://threejs.org/build/three.min.js"></script>
+  
+  <script>
+    let scene, camera, renderer, avatarGroup;
+    let mouseX = 0, mouseY = 0;
+    let isMouseDown = false;
+    let wireframeMode = false;
+    
+    function updateDebug(message) {
+      const debugContent = document.getElementById('debug-content');
+      if (debugContent) {
+        debugContent.innerHTML += message + '<br>';
+        console.log('DEBUG:', message);
+      }
+    }
+    
+    function resetCamera() {
+      camera.position.set(0, 1.6, 4);
+      camera.lookAt(0, 1, 0);
+      avatarGroup.rotation.set(0, 0, 0);
+      updateDebug('Camera reset');
+    }
+    
+    function toggleWireframe() {
+      wireframeMode = !wireframeMode;
+      avatarGroup.children.forEach(child => {
+        if (child.material) {
+          child.material.wireframe = wireframeMode;
+        }
+      });
+      updateDebug('Wireframe: ' + wireframeMode);
+    }
+    
+    window.addEventListener('load', function() {
+      updateDebug('Window loaded');
+      
+      if (typeof THREE === 'undefined') {
+        document.getElementById('loading').innerHTML = 'Error: Three.js failed to load from CDN.<br>Please check your internet connection.';
+        updateDebug('THREE.js not loaded');
+        return;
+      }
+      
+      updateDebug('THREE.js version: ' + THREE.REVISION);
+
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('controls').style.display = 'block';
+      document.getElementById('debug').style.display = 'block';
+
+      // Scene setup
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x87CEEB); // Sky blue for visibility
+      updateDebug('Scene created');
+      
+      camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+      camera.position.set(0, 1.6, 4);
+      camera.lookAt(0, 1, 0);
+      updateDebug('Camera positioned at: ' + camera.position.x + ', ' + camera.position.y + ', ' + camera.position.z);
+      
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setClearColor(0x87CEEB);
+      document.body.appendChild(renderer.domElement);
+      updateDebug('Renderer created and added to DOM');
+      
+      // Lighting
+      const ambientLight = new THREE.AmbientLight(0x404040, 0.8);
+      scene.add(ambientLight);
+      updateDebug('Ambient light added');
+      
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
+      directionalLight.position.set(5, 10, 5);
+      scene.add(directionalLight);
+      updateDebug('Directional light added');
+      
+      // Add a test cube first to verify rendering works
+      const testGeometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+      const testMaterial = new THREE.MeshLambertMaterial({ color: 0xff0000 });
+      const testCube = new THREE.Mesh(testGeometry, testMaterial);
+      testCube.position.set(2, 1, 0);
+      scene.add(testCube);
+      updateDebug('Test cube added at (2, 1, 0)');
+      
+      // Avatar parts
+      avatarGroup = new THREE.Group();
+      scene.add(avatarGroup);
+      updateDebug('Avatar group created');
+      
+      // Materials
+      const skinMaterial = new THREE.MeshLambertMaterial({ color: 0xffdbac });
+      updateDebug('Skin material created');
+      
+      // Body parts
+      let head, torso, leftArm, rightArm, leftLeg, rightLeg;
+      
+      function createAvatar() {
+        updateDebug('Creating avatar...');
+        avatarGroup.clear();
+        
+        // Head
+        const headGeometry = new THREE.SphereGeometry(0.12, 16, 16);
+        head = new THREE.Mesh(headGeometry, skinMaterial);
+        head.position.y = 1.65;
+        avatarGroup.add(head);
+        updateDebug('Head added at y: 1.65');
+        
+        // Torso
+        const torsoGeometry = new THREE.CylinderGeometry(0.15, 0.12, 0.6, 12);
+        torso = new THREE.Mesh(torsoGeometry, skinMaterial);
+        torso.position.y = 1.2;
+        avatarGroup.add(torso);
+        updateDebug('Torso added at y: 1.2');
+        
+        // Arms
+        const armGeometry = new THREE.CylinderGeometry(0.04, 0.04, 0.5, 8);
+        
+        leftArm = new THREE.Mesh(armGeometry, skinMaterial);
+        leftArm.position.set(-0.25, 1.3, 0);
+        leftArm.rotation.z = Math.PI / 6;
+        avatarGroup.add(leftArm);
+        updateDebug('Left arm added');
+        
+        rightArm = new THREE.Mesh(armGeometry, skinMaterial);
+        rightArm.position.set(0.25, 1.3, 0);
+        rightArm.rotation.z = -Math.PI / 6;
+        avatarGroup.add(rightArm);
+        updateDebug('Right arm added');
+        
+        // Legs
+        const legGeometry = new THREE.CylinderGeometry(0.06, 0.05, 0.8, 8);
+        
+        leftLeg = new THREE.Mesh(legGeometry, skinMaterial);
+        leftLeg.position.set(-0.1, 0.5, 0);
+        avatarGroup.add(leftLeg);
+        updateDebug('Left leg added');
+        
+        rightLeg = new THREE.Mesh(legGeometry, skinMaterial);
+        rightLeg.position.set(0.1, 0.5, 0);
+        avatarGroup.add(rightLeg);
+        updateDebug('Right leg added');
+        
+        updateDebug('Avatar created with ' + avatarGroup.children.length + ' parts');
+      }
+      
+      function updateAvatar() {
+        const measurements = {
+          height: parseInt(document.getElementById('height').value),
+          chest: parseInt(document.getElementById('chest').value),
+          waist: parseInt(document.getElementById('waist').value),
+          hips: parseInt(document.getElementById('hips').value)
+        };
+        
+        updateDebug('Updating avatar with measurements: H:' + measurements.height + ' C:' + measurements.chest + ' W:' + measurements.waist + ' H:' + measurements.hips);
+        
+        // Scale avatar based on height
+        const heightScale = measurements.height / 170;
+        avatarGroup.scale.y = heightScale;
+        
+        // Adjust torso
+        const chestScale = measurements.chest / 90;
+        const waistScale = measurements.waist / 75;
+        
+        if (torso) {
+          torso.scale.x = chestScale;
+          torso.scale.z = chestScale;
+        }
+        
+        // Adjust hip width
+        const hipScale = measurements.hips / 95;
+        if (leftLeg && rightLeg) {
+          leftLeg.position.x = -0.1 * hipScale;
+          rightLeg.position.x = 0.1 * hipScale;
+        }
+      }
+      
+      // Simple mouse controls
+      function onMouseMove(event) {
+        if (isMouseDown) {
+          mouseX = (event.clientX / window.innerWidth) * 2 - 1;
+          mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
+          
+          avatarGroup.rotation.y = mouseX * Math.PI;
+          avatarGroup.rotation.x = mouseY * 0.5;
+        }
+      }
+      
+      function onMouseDown(event) {
+        isMouseDown = true;
+        updateDebug('Mouse down');
+      }
+      
+      function onMouseUp(event) {
+        isMouseDown = false;
+        updateDebug('Mouse up');
+      }
+      
+      // Event listeners
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mousedown', onMouseDown);
+      document.addEventListener('mouseup', onMouseUp);
+      
+      // Setup controls
+      const sliders = ['height', 'chest', 'waist', 'hips'];
+      sliders.forEach(id => {
+        const slider = document.getElementById(id);
+        const valueDisplay = document.getElementById(id + '-value');
+        
+        slider.addEventListener('input', (e) => {
+          valueDisplay.textContent = e.target.value;
+          updateAvatar();
+        });
+      });
+      
+      // Handle window resize
+      function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        updateDebug('Window resized');
+      }
+      window.addEventListener('resize', onWindowResize);
+      
+      // Animation loop
+      function animate() {
+        requestAnimationFrame(animate);
+        
+        // Rotate test cube for visual confirmation
+        if (scene.children.find(child => child.geometry && child.geometry.type === 'BoxGeometry')) {
+          scene.children.find(child => child.geometry && child.geometry.type === 'BoxGeometry').rotation.x += 0.01;
+          scene.children.find(child => child.geometry && child.geometry.type === 'BoxGeometry').rotation.y += 0.01;
+        }
+        
+        renderer.render(scene, camera);
+      }
+      
+      // Initialize
+      try {
+        createAvatar();
+        updateAvatar();
+        animate();
+        
+        updateDebug('✅ Avatar Generator initialized successfully!');
+        updateDebug('Scene children: ' + scene.children.length);
+        updateDebug('Avatar group children: ' + avatarGroup.children.length);
+        
+      } catch (error) {
+        updateDebug('❌ Error: ' + error.message);
+        console.error('Error initializing avatar:', error);
+      }
+    });
+    
+    // Make functions global for button access
+    window.resetCamera = resetCamera;
+    window.toggleWireframe = toggleWireframe;
+  </script>
+</body>
+</html>
