@@ -131,18 +131,22 @@
     Adjust sliders to modify avatar
   </div>
 
-  <!-- Load Three.js -->
-  <script src="https://unpkg.com/three@0.158.0/build/three.min.js"></script>
-  
-  <script type="module">
-    // Import OrbitControls as ES6 module
-    import { OrbitControls } from 'https://unpkg.com/three@0.158.0/examples/jsm/controls/OrbitControls.js';
-    
+  <!-- Load Three.js and OrbitControls using the older, more compatible method -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r148/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.148.0/examples/js/controls/OrbitControls.js"></script>
+
+  <script>
     // Wait for everything to load
     window.addEventListener('load', function() {
       // Check if THREE is available
       if (typeof THREE === 'undefined') {
         document.getElementById('loading').innerHTML = 'Error: Three.js failed to load. Please check your internet connection.';
+        return;
+      }
+
+      // Check if OrbitControls is available
+      if (typeof THREE.OrbitControls === 'undefined') {
+        document.getElementById('loading').innerHTML = 'Error: OrbitControls failed to load. Please check your internet connection.';
         return;
       }
 
@@ -164,8 +168,8 @@
       renderer.shadowMap.type = THREE.PCFSoftShadowMap;
       document.body.appendChild(renderer.domElement);
       
-      // Controls - Now using imported OrbitControls
-      const controls = new OrbitControls(camera, renderer.domElement);
+      // Controls - Using the traditional THREE.OrbitControls
+      const controls = new THREE.OrbitControls(camera, renderer.domElement);
       controls.target.set(0, 1, 0);
       controls.enableDamping = true;
       controls.dampingFactor = 0.05;
