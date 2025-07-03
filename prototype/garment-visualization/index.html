@@ -2,36 +2,846 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Garment Visualizer</title>
-  <style>body { margin: 0; overflow: hidden; }</style>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Garment Visualizer - Lucifex</title>
+  <style>
+    body { 
+      margin: 0; 
+      overflow: hidden; 
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    #controls {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background: rgba(255, 255, 255, 0.95);
+      padding: 20px;
+      border-radius: 15px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+      backdrop-filter: blur(10px);
+      width: 320px;
+      max-height: 85vh;
+      overflow-y: auto;
+    }
+    
+    .control-group {
+      margin-bottom: 20px;
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #333;
+      font-size: 14px;
+    }
+    
+    input[type="range"] {
+      width: 100%;
+      margin-bottom: 8px;
+      height: 6px;
+      border-radius: 3px;
+      background: #ddd;
+      outline: none;
+      -webkit-appearance: none;
+    }
+    
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #667eea;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    }
+    
+    .value-display {
+      font-size: 13px;
+      color: #666;
+      text-align: right;
+      font-weight: 500;
+    }
+    
+    .garment-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    
+    .garment-item {
+      padding: 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 10px;
+      background: #f8f8f8;
+      cursor: pointer;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    
+    .garment-item:hover {
+      border-color: #667eea;
+      background: #f0f4ff;
+    }
+    
+    .garment-item.active {
+      border-color: #667eea;
+      background: #667eea;
+      color: white;
+    }
+    
+    .material-options {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 15px;
+      flex-wrap: wrap;
+    }
+    
+    .material-btn {
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background: white;
+      cursor: pointer;
+      font-size: 11px;
+      transition: all 0.2s;
+    }
+    
+    .material-btn:hover {
+      border-color: #667eea;
+    }
+    
+    .material-btn.active {
+      background: #667eea;
+      color: white;
+      border-color: #667eea;
+    }
+    
+    .color-picker {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 15px;
+      flex-wrap: wrap;
+    }
+    
+    .color-option {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 3px solid transparent;
+      transition: all 0.2s;
+    }
+    
+    .color-option:hover {
+      transform: scale(1.1);
+    }
+    
+    .color-option.active {
+      border-color: #333;
+      transform: scale(1.1);
+    }
+    
+    h3 {
+      margin-top: 0;
+      margin-bottom: 15px;
+      color: #333;
+      border-bottom: 2px solid #667eea;
+      padding-bottom: 8px;
+      font-size: 18px;
+    }
+
+    #loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: white;
+      font-size: 18px;
+      text-align: center;
+    }
+
+    #status {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 10px 15px;
+      border-radius: 8px;
+      font-family: monospace;
+      font-size: 11px;
+      max-width: 250px;
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .action-btn {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      background: #667eea;
+      color: white;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+
+    .action-btn:hover {
+      background: #5a67d8;
+      transform: translateY(-1px);
+    }
+
+    .tabs {
+      display: flex;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #f0f0f0;
+    }
+
+    .tab {
+      flex: 1;
+      padding: 10px;
+      background: #f0f0f0;
+      border: none;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+
+    .tab.active {
+      background: #667eea;
+      color: white;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+  </style>
 </head>
 <body>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r148/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.148/examples/js/loaders/GLTFLoader.js"></script>
+  <div id="loading">Loading Garment Visualizer...</div>
+  
+  <div id="status" style="display: none;">
+    <div id="status-content">Initializing...</div>
+  </div>
+  
+  <div id="controls" style="display: none;">
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('avatar')">Avatar</button>
+      <button class="tab" onclick="switchTab('garments')">Garments</button>
+      <button class="tab" onclick="switchTab('materials')">Materials</button>
+    </div>
+
+    <!-- Avatar Tab -->
+    <div id="avatar-tab" class="tab-content active">
+      <h3>Body Measurements</h3>
+      
+      <div class="control-group">
+        <label for="height">Height</label>
+        <input type="range" id="height" min="150" max="200" value="170" />
+        <div class="value-display"><span id="height-value">170</span> cm</div>
+      </div>
+      
+      <div class="control-group">
+        <label for="chest">Chest/Bust</label>
+        <input type="range" id="chest" min="70" max="120" value="90" />
+        <div class="value-display"><span id="chest-value">90</span> cm</div>
+      </div>
+      
+      <div class="control-group">
+        <label for="waist">Waist</label>
+        <input type="range" id="waist" min="60" max="110" value="75" />
+        <div class="value-display"><span id="waist-value">75</span> cm</div>
+      </div>
+      
+      <div class="control-group">
+        <label for="hips">Hips</label>
+        <input type="range" id="hips" min="70" max="130" value="95" />
+        <div class="value-display"><span id="hips-value">95</span> cm</div>
+      </div>
+    </div>
+
+    <!-- Garments Tab -->
+    <div id="garments-tab" class="tab-content">
+      <h3>Select Garment</h3>
+      
+      <div class="garment-grid">
+        <div class="garment-item" onclick="selectGarment('corset')" data-garment="corset">
+          Corset
+        </div>
+        <div class="garment-item" onclick="selectGarment('bodysuit')" data-garment="bodysuit">
+          Bodysuit
+        </div>
+        <div class="garment-item" onclick="selectGarment('dress')" data-garment="dress">
+          Dress
+        </div>
+        <div class="garment-item" onclick="selectGarment('jacket')" data-garment="jacket">
+          Jacket
+        </div>
+        <div class="garment-item" onclick="selectGarment('pants')" data-garment="pants">
+          Pants
+        </div>
+        <div class="garment-item" onclick="selectGarment('skirt')" data-garment="skirt">
+          Skirt
+        </div>
+      </div>
+
+      <div class="control-group">
+        <label for="garment-fit">Fit Adjustment</label>
+        <input type="range" id="garment-fit" min="0.8" max="1.2" step="0.1" value="1.0" />
+        <div class="value-display"><span id="garment-fit-value">1.0</span>x</div>
+      </div>
+    </div>
+
+    <!-- Materials Tab -->
+    <div id="materials-tab" class="tab-content">
+      <h3>Material & Color</h3>
+      
+      <label>Material Type:</label>
+      <div class="material-options">
+        <button class="material-btn active" onclick="selectMaterial('latex')" data-material="latex">Latex</button>
+        <button class="material-btn" onclick="selectMaterial('leather')" data-material="leather">Leather</button>
+        <button class="material-btn" onclick="selectMaterial('pvc')" data-material="pvc">PVC</button>
+        <button class="material-btn" onclick="selectMaterial('fabric')" data-material="fabric">Fabric</button>
+      </div>
+
+      <label>Color:</label>
+      <div class="color-picker">
+        <div class="color-option active" style="background: #000000" onclick="selectColor('#000000')" data-color="#000000"></div>
+        <div class="color-option" style="background: #ff0000" onclick="selectColor('#ff0000')" data-color="#ff0000"></div>
+        <div class="color-option" style="background: #ffffff; border: 1px solid #ccc" onclick="selectColor('#ffffff')" data-color="#ffffff"></div>
+        <div class="color-option" style="background: #0066cc" onclick="selectColor('#0066cc')" data-color="#0066cc"></div>
+        <div class="color-option" style="background: #8b4513" onclick="selectColor('#8b4513')" data-color="#8b4513"></div>
+        <div class="color-option" style="background: #800080" onclick="selectColor('#800080')" data-color="#800080"></div>
+      </div>
+
+      <div class="control-group">
+        <label for="material-shine">Shine/Gloss</label>
+        <input type="range" id="material-shine" min="0" max="1" step="0.1" value="0.8" />
+        <div class="value-display"><span id="material-shine-value">0.8</span></div>
+      </div>
+
+      <div class="control-group">
+        <label for="material-roughness">Roughness</label>
+        <input type="range" id="material-roughness" min="0" max="1" step="0.1" value="0.2" />
+        <div class="value-display"><span id="material-roughness-value">0.2</span></div>
+      </div>
+    </div>
+
+    <div class="action-buttons">
+      <button class="action-btn" onclick="toggleGarment()">Toggle Garment</button>
+      <button class="action-btn" onclick="exportLook()">Export Look</button>
+    </div>
+  </div>
+
   <script>
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(50, window.innerWidth/window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 1.5, 3);
-
-    const renderer = new THREE.WebGLRenderer();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    document.body.appendChild(renderer.domElement);
-
-    const light = new THREE.HemisphereLight(0xffffff, 0x444444);
-    scene.add(light);
-
-    const loader = new THREE.GLTFLoader();
-    loader.load('../assets/garments/sample_garment.glb', function(gltf) {
-      scene.add(gltf.scene);
-    }, undefined, function(error) {
-      console.error(error);
-    });
-
+    let scene, camera, renderer, avatarGroup, garmentGroup;
+    let currentGarment = null;
+    let currentMaterial = 'latex';
+    let currentColor = '#000000';
+    let avatarParts = {};
+    let garmentVisible = false;
+    
+    function updateStatus(message) {
+      const statusContent = document.getElementById('status-content');
+      if (statusContent) {
+        statusContent.innerHTML = message;
+      }
+      console.log('STATUS:', message);
+    }
+    
+    function loadThreeJS() {
+      const cdnSources = [
+        'https://unpkg.com/three@0.158.0/build/three.min.js',
+        'https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js'
+      ];
+      
+      let loadAttempts = 0;
+      
+      function tryLoad() {
+        if (loadAttempts >= cdnSources.length) {
+          document.getElementById('loading').innerHTML = 'Failed to load Three.js.';
+          return;
+        }
+        
+        const script = document.createElement('script');
+        script.src = cdnSources[loadAttempts];
+        
+        script.onload = function() {
+          if (typeof THREE !== 'undefined') {
+            updateStatus('✅ Three.js loaded!');
+            initializeApp();
+          } else {
+            loadAttempts++;
+            tryLoad();
+          }
+        };
+        
+        script.onerror = function() {
+          loadAttempts++;
+          tryLoad();
+        };
+        
+        document.head.appendChild(script);
+      }
+      
+      tryLoad();
+    }
+    
+    function initializeApp() {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('controls').style.display = 'block';
+      document.getElementById('status').style.display = 'block';
+      
+      // Scene setup
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0xf0f0f0);
+      
+      camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+      camera.position.set(0, 1.6, 4);
+      camera.lookAt(0, 1, 0);
+      
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      document.body.appendChild(renderer.domElement);
+      
+      // Lighting setup
+      setupLighting();
+      
+      // Create groups
+      avatarGroup = new THREE.Group();
+      garmentGroup = new THREE.Group();
+      scene.add(avatarGroup);
+      scene.add(garmentGroup);
+      
+      // Setup controls
+      setupMouseControls();
+      setupMeasurementControls();
+      
+      // Create avatar and initial garment
+      createAvatar();
+      updateAvatar();
+      
+      // Start animation
+      animate();
+      
+      updateStatus('✅ Garment Visualizer ready!');
+    }
+    
+    function setupLighting() {
+      // Ambient light
+      const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+      scene.add(ambientLight);
+      
+      // Main directional light
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+      directionalLight.position.set(5, 10, 5);
+      directionalLight.castShadow = true;
+      directionalLight.shadow.mapSize.width = 2048;
+      directionalLight.shadow.mapSize.height = 2048;
+      scene.add(directionalLight);
+      
+      // Fill light
+      const fillLight = new THREE.DirectionalLight(0xffffff, 0.3);
+      fillLight.position.set(-5, 5, -5);
+      scene.add(fillLight);
+      
+      // Rim light for materials
+      const rimLight = new THREE.DirectionalLight(0xffffff, 0.4);
+      rimLight.position.set(0, 5, -5);
+      scene.add(rimLight);
+      
+      // Ground plane
+      const groundGeometry = new THREE.PlaneGeometry(10, 10);
+      const groundMaterial = new THREE.MeshLambertMaterial({ color: 0xcccccc });
+      const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+      ground.rotation.x = -Math.PI / 2;
+      ground.receiveShadow = true;
+      scene.add(ground);
+    }
+    
+    function createAvatar() {
+      avatarGroup.clear();
+      avatarParts = {};
+      
+      const skinMaterial = new THREE.MeshLambertMaterial({ color: 0xffdbac });
+      
+      // Head
+      const headGeometry = new THREE.SphereGeometry(0.12, 16, 16);
+      avatarParts.head = new THREE.Mesh(headGeometry, skinMaterial);
+      avatarParts.head.position.y = 1.65;
+      avatarParts.head.castShadow = true;
+      avatarGroup.add(avatarParts.head);
+      
+      // Torso
+      const torsoGeometry = new THREE.CylinderGeometry(0.15, 0.12, 0.6, 12);
+      avatarParts.torso = new THREE.Mesh(torsoGeometry, skinMaterial);
+      avatarParts.torso.position.y = 1.2;
+      avatarParts.torso.castShadow = true;
+      avatarGroup.add(avatarParts.torso);
+      
+      // Arms
+      const armGeometry = new THREE.CylinderGeometry(0.04, 0.04, 0.5, 8);
+      
+      avatarParts.leftArm = new THREE.Mesh(armGeometry, skinMaterial);
+      avatarParts.leftArm.position.set(-0.25, 1.3, 0);
+      avatarParts.leftArm.rotation.z = Math.PI / 6;
+      avatarParts.leftArm.castShadow = true;
+      avatarGroup.add(avatarParts.leftArm);
+      
+      avatarParts.rightArm = new THREE.Mesh(armGeometry, skinMaterial);
+      avatarParts.rightArm.position.set(0.25, 1.3, 0);
+      avatarParts.rightArm.rotation.z = -Math.PI / 6;
+      avatarParts.rightArm.castShadow = true;
+      avatarGroup.add(avatarParts.rightArm);
+      
+      // Legs
+      const legGeometry = new THREE.CylinderGeometry(0.06, 0.05, 0.8, 8);
+      
+      avatarParts.leftLeg = new THREE.Mesh(legGeometry, skinMaterial);
+      avatarParts.leftLeg.position.set(-0.1, 0.5, 0);
+      avatarParts.leftLeg.castShadow = true;
+      avatarGroup.add(avatarParts.leftLeg);
+      
+      avatarParts.rightLeg = new THREE.Mesh(legGeometry, skinMaterial);
+      avatarParts.rightLeg.position.set(0.1, 0.5, 0);
+      avatarParts.rightLeg.castShadow = true;
+      avatarGroup.add(avatarParts.rightLeg);
+    }
+    
+    function updateAvatar() {
+      const measurements = {
+        height: parseInt(document.getElementById('height').value),
+        chest: parseInt(document.getElementById('chest').value),
+        waist: parseInt(document.getElementById('waist').value),
+        hips: parseInt(document.getElementById('hips').value)
+      };
+      
+      // Scale avatar based on height
+      const heightScale = measurements.height / 170;
+      avatarGroup.scale.y = heightScale;
+      
+      // Adjust torso
+      const chestScale = measurements.chest / 90;
+      const waistScale = measurements.waist / 75;
+      
+      if (avatarParts.torso) {
+        avatarParts.torso.scale.x = chestScale;
+        avatarParts.torso.scale.z = chestScale;
+      }
+      
+      // Adjust hip width
+      const hipScale = measurements.hips / 95;
+      if (avatarParts.leftLeg && avatarParts.rightLeg) {
+        avatarParts.leftLeg.position.x = -0.1 * hipScale;
+        avatarParts.rightLeg.position.x = 0.1 * hipScale;
+      }
+      
+      // Update garment if visible
+      if (garmentVisible && currentGarment) {
+        updateGarmentFit();
+      }
+    }
+    
+    function createGarment(type) {
+      garmentGroup.clear();
+      
+      const material = createGarmentMaterial();
+      let geometry;
+      
+      switch(type) {
+        case 'corset':
+          geometry = new THREE.CylinderGeometry(0.16, 0.13, 0.4, 16);
+          break;
+        case 'bodysuit':
+          geometry = new THREE.CylinderGeometry(0.16, 0.13, 0.8, 16);
+          break;
+        case 'dress':
+          geometry = new THREE.CylinderGeometry(0.16, 0.25, 1.0, 16);
+          break;
+        case 'jacket':
+          geometry = new THREE.CylinderGeometry(0.18, 0.15, 0.5, 16);
+          break;
+        case 'pants':
+          // Create two leg cylinders
+          const legGeo = new THREE.CylinderGeometry(0.07, 0.06, 0.8, 12);
+          const leftLeg = new THREE.Mesh(legGeo, material);
+          leftLeg.position.set(-0.11, 0.5, 0);
+          garmentGroup.add(leftLeg);
+          const rightLeg = new THREE.Mesh(legGeo, material);
+          rightLeg.position.set(0.11, 0.5, 0);
+          garmentGroup.add(rightLeg);
+          return;
+        case 'skirt':
+          geometry = new THREE.CylinderGeometry(0.13, 0.22, 0.4, 16);
+          break;
+        default:
+          geometry = new THREE.CylinderGeometry(0.16, 0.13, 0.6, 16);
+      }
+      
+      const garment = new THREE.Mesh(geometry, material);
+      garment.position.y = type === 'skirt' ? 0.9 : 1.2;
+      garment.castShadow = true;
+      garment.receiveShadow = true;
+      garmentGroup.add(garment);
+    }
+    
+    function createGarmentMaterial() {
+      const color = new THREE.Color(currentColor);
+      const shine = parseFloat(document.getElementById('material-shine').value);
+      const roughness = parseFloat(document.getElementById('material-roughness').value);
+      
+      let material;
+      
+      switch(currentMaterial) {
+        case 'latex':
+          material = new THREE.MeshPhysicalMaterial({
+            color: color,
+            metalness: 0.1,
+            roughness: roughness,
+            clearcoat: shine,
+            clearcoatRoughness: 0.1
+          });
+          break;
+        case 'leather':
+          material = new THREE.MeshStandardMaterial({
+            color: color,
+            metalness: 0.0,
+            roughness: 0.8,
+            normalScale: new THREE.Vector2(0.5, 0.5)
+          });
+          break;
+        case 'pvc':
+          material = new THREE.MeshPhysicalMaterial({
+            color: color,
+            metalness: 0.0,
+            roughness: 0.1,
+            clearcoat: 1.0,
+            clearcoatRoughness: 0.0
+          });
+          break;
+        default:
+          material = new THREE.MeshLambertMaterial({ color: color });
+      }
+      
+      return material;
+    }
+    
+    function updateGarmentFit() {
+      if (!garmentVisible || !currentGarment) return;
+      
+      const fitScale = parseFloat(document.getElementById('garment-fit').value);
+      const measurements = {
+        chest: parseInt(document.getElementById('chest').value) / 90,
+        waist: parseInt(document.getElementById('waist').value) / 75,
+        hips: parseInt(document.getElementById('hips').value) / 95
+      };
+      
+      garmentGroup.children.forEach(garment => {
+        garment.scale.x = measurements.chest * fitScale;
+        garment.scale.z = measurements.chest * fitScale;
+      });
+    }
+    
+    function setupMouseControls() {
+      let isMouseDown = false;
+      let previousMousePosition = { x: 0, y: 0 };
+      
+      function onMouseMove(event) {
+        if (isMouseDown) {
+          const deltaMove = {
+            x: event.offsetX - previousMousePosition.x,
+            y: event.offsetY - previousMousePosition.y
+          };
+          
+          const deltaRotationQuaternion = new THREE.Quaternion()
+            .setFromEuler(new THREE.Euler(
+              toRadians(deltaMove.y * 1),
+              toRadians(deltaMove.x * 1),
+              0,
+              'XYZ'
+            ));
+          
+          avatarGroup.quaternion.multiplyQuaternions(deltaRotationQuaternion, avatarGroup.quaternion);
+          garmentGroup.quaternion.copy(avatarGroup.quaternion);
+        }
+        
+        previousMousePosition = { x: event.offsetX, y: event.offsetY };
+      }
+      
+      function toRadians(angle) {
+        return angle * (Math.PI / 180);
+      }
+      
+      renderer.domElement.addEventListener('mousemove', onMouseMove);
+      renderer.domElement.addEventListener('mousedown', (event) => {
+        isMouseDown = true;
+        previousMousePosition = { x: event.offsetX, y: event.offsetY };
+      });
+      renderer.domElement.addEventListener('mouseup', () => isMouseDown = false);
+      
+      // Zoom
+      renderer.domElement.addEventListener('wheel', (event) => {
+        event.preventDefault();
+        const zoomSpeed = 0.1;
+        const zoom = event.deltaY > 0 ? 1 + zoomSpeed : 1 - zoomSpeed;
+        camera.position.multiplyScalar(zoom);
+        camera.position.clampLength(2, 10);
+      });
+    }
+    
+    function setupMeasurementControls() {
+      const sliders = ['height', 'chest', 'waist', 'hips', 'garment-fit', 'material-shine', 'material-roughness'];
+      
+      sliders.forEach(id => {
+        const slider = document.getElementById(id);
+        const valueDisplay = document.getElementById(id + '-value');
+        
+        if (slider && valueDisplay) {
+          slider.addEventListener('input', (e) => {
+            valueDisplay.textContent = e.target.value;
+            if (['height', 'chest', 'waist', 'hips'].includes(id)) {
+              updateAvatar();
+            } else if (id === 'garment-fit') {
+              updateGarmentFit();
+            } else if (['material-shine', 'material-roughness'].includes(id)) {
+              updateGarmentMaterial();
+            }
+          });
+        }
+      });
+    }
+    
+    function updateGarmentMaterial() {
+      if (!garmentVisible || !currentGarment) return;
+      
+      const newMaterial = createGarmentMaterial();
+      garmentGroup.children.forEach(garment => {
+        garment.material = newMaterial;
+      });
+    }
+    
+    function switchTab(tabName) {
+      // Update tab buttons
+      document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+      event.target.classList.add('active');
+      
+      // Update tab content
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+      document.getElementById(tabName + '-tab').classList.add('active');
+    }
+    
+    function selectGarment(type) {
+      // Update UI
+      document.querySelectorAll('.garment-item').forEach(item => item.classList.remove('active'));
+      document.querySelector(`[data-garment="${type}"]`).classList.add('active');
+      
+      currentGarment = type;
+      createGarment(type);
+      garmentVisible = true;
+      
+      updateStatus(`Selected ${type} garment`);
+    }
+    
+    function selectMaterial(material) {
+      // Update UI
+      document.querySelectorAll('.material-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelector(`[data-material="${material}"]`).classList.add('active');
+      
+      currentMaterial = material;
+      updateGarmentMaterial();
+      
+      updateStatus(`Selected ${material} material`);
+    }
+    
+    function selectColor(color) {
+      // Update UI
+      document.querySelectorAll('.color-option').forEach(option => option.classList.remove('active'));
+      document.querySelector(`[data-color="${color}"]`).classList.add('active');
+      
+      currentColor = color;
+      updateGarmentMaterial();
+      
+      updateStatus(`Selected color: ${color}`);
+    }
+    
+    function toggleGarment() {
+      garmentVisible = !garmentVisible;
+      garmentGroup.visible = garmentVisible;
+      updateStatus(`Garment ${garmentVisible ? 'shown' : 'hidden'}`);
+    }
+    
+    function exportLook() {
+      const lookData = {
+        avatar: {
+          height: parseInt(document.getElementById('height').value),
+          chest: parseInt(document.getElementById('chest').value),
+          waist: parseInt(document.getElementById('waist').value),
+          hips: parseInt(document.getElementById('hips').value)
+        },
+        garment: {
+          type: currentGarment,
+          material: currentMaterial,
+          color: currentColor,
+          fit: parseFloat(document.getElementById('garment-fit').value),
+          shine: parseFloat(document.getElementById('material-shine').value),
+          roughness: parseFloat(document.getElementById('material-roughness').value)
+        }
+      };
+      
+      const dataStr = JSON.stringify(lookData, null, 2);
+      const dataBlob = new Blob([dataStr], {type: 'application/json'});
+      const url = URL.createObjectURL(dataBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'garment-look.json';
+      link.click();
+      
+      updateStatus('Look exported successfully');
+    }
+    
     function animate() {
       requestAnimationFrame(animate);
       renderer.render(scene, camera);
     }
-    animate();
+    
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+    
+    window.addEventListener('resize', onWindowResize);
+    window.addEventListener('load', loadThreeJS);
+    
+    // Make functions global
+    window.switchTab = switchTab;
+    window.selectGarment = selectGarment;
+    window.selectMaterial = selectMaterial;
+    window.selectColor = selectColor;
+    window.toggleGarment = toggleGarment;
+    window.exportLook = exportLook;
   </script>
 </body>
 </html>
