@@ -131,25 +131,13 @@
     Adjust sliders to modify avatar
   </div>
 
-  <!-- Load Three.js from multiple CDN sources for reliability -->
+  <!-- Load Three.js -->
   <script src="https://unpkg.com/three@0.158.0/build/three.min.js"></script>
-  <script>
-    // Fallback CDN if first one fails
-    if (typeof THREE === 'undefined') {
-      document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r158/three.min.js"><\/script>');
-    }
-  </script>
   
-  <!-- OrbitControls -->
-  <script src="https://unpkg.com/three@0.158.0/examples/js/controls/OrbitControls.js"></script>
-  <script>
-    // Fallback for OrbitControls
-    if (typeof THREE === 'undefined' || !THREE.OrbitControls) {
-      document.write('<script src="https://cdn.jsdelivr.net/npm/three@0.158.0/examples/js/controls/OrbitControls.js"><\/script>');
-    }
-  </script>
-
-  <script>
+  <script type="module">
+    // Import OrbitControls as ES6 module
+    import { OrbitControls } from 'https://unpkg.com/three@0.158.0/examples/jsm/controls/OrbitControls.js';
+    
     // Wait for everything to load
     window.addEventListener('load', function() {
       // Check if THREE is available
@@ -176,8 +164,8 @@
       renderer.shadowMap.type = THREE.PCFSoftShadowMap;
       document.body.appendChild(renderer.domElement);
       
-      // Controls
-      const controls = new THREE.OrbitControls(camera, renderer.domElement);
+      // Controls - Now using imported OrbitControls
+      const controls = new OrbitControls(camera, renderer.domElement);
       controls.target.set(0, 1, 0);
       controls.enableDamping = true;
       controls.dampingFactor = 0.05;
@@ -286,7 +274,6 @@
           torso.scale.z = chestScale;
           
           // Create tapered torso effect
-          const taperRatio = waistScale / chestScale;
           torso.geometry.dispose(); // Clean up old geometry
           torso.geometry = new THREE.CylinderGeometry(
             0.15 * chestScale, 
