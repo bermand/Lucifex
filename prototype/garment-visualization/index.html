@@ -329,8 +329,10 @@
 
       <div class="control-group">
         <label>Load CLO3D Garment:</label>
-        <input type="file" id="garment-file" accept=".glb,.gltf,.fbx,.obj" onchange="loadGarmentFile(event)" />
-        <div class="file-info" id="file-info" style="font-size: 11px; color: #666; margin-top: 5px;"></div>
+        <input type="file" id="garment-file" accept=".glb,.gltf" onchange="loadGarmentFile(event)" />
+        <div class="file-info" id="file-info" style="font-size: 11px; color: #666; margin-top: 5px;">
+          Supports GLB/GLTF files from CLO3D
+        </div>
       </div>
 
       <div class="control-group">
@@ -388,6 +390,7 @@
     let currentColor = '#000000';
     let avatarParts = {};
     let garmentVisible = false;
+    let gltfLoader = null;
     
     function updateStatus(message) {
       const statusContent = document.getElementById('status-content');
@@ -398,49 +401,200 @@
     }
     
     function loadThreeJS() {
-      const threeJSUrl = 'https://unpkg.com/three@0.158.0/build/three.min.js';
-      const gltfLoaderUrl = 'https://unpkg.com/three@0.158.0/examples/js/loaders/GLTFLoader.js';
+      const cdnSources = [
+        'https://unpkg.com/three@0.158.0/build/three.min.js',
+        'https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js'
+      ];
       
-      // Load Three.js first
-      const threeScript = document.createElement('script');
-      threeScript.src = threeJSUrl;
+      let loadAttempts = 0;
       
-      threeScript.onload = function() {
-        if (typeof THREE !== 'undefined') {
-          updateStatus('✅ Three.js loaded!');
-          
-          // Now load GLTFLoader
-          const gltfScript = document.createElement('script');
-          gltfScript.src = gltfLoaderUrl;
-          
-          gltfScript.onload = function() {
-            if (THREE.GLTFLoader) {
-              updateStatus('✅ GLTFLoader loaded!');
-              initializeApp();
-            } else {
-              updateStatus('❌ GLTFLoader failed to load');
-              initializeApp(); // Continue without GLTF support
-            }
-          };
-          
-          gltfScript.onerror = function() {
-            updateStatus('❌ GLTFLoader failed to load');
-            initializeApp(); // Continue without GLTF support
-          };
-          
-          document.head.appendChild(gltfScript);
-        } else {
-          updateStatus('❌ Three.js failed to load');
+      function tryLoad() {
+        if (loadAttempts >= cdnSources.length) {
           document.getElementById('loading').innerHTML = 'Failed to load Three.js.';
+          return;
+        }
+        
+        const script = document.createElement('script');
+        script.src = cdnSources[loadAttempts];
+        
+        script.onload = function() {
+          if (typeof THREE !== 'undefined') {
+            updateStatus('✅ Three.js loaded!');
+            // Now embed GLTFLoader directly
+            embedGLTFLoader();
+          } else {
+            loadAttempts++;
+            tryLoad();
+          }
+        };
+        
+        script.onerror = function() {
+          loadAttempts++;
+          tryLoad();
+        };
+        
+        document.head.appendChild(script);
+      }
+      
+      tryLoad();
+    }
+
+    function embedGLTFLoader() {
+      // Embed GLTFLoader directly - simplified version for GLB files
+      THREE.GLTFLoader = function() {
+        this.manager = THREE.DefaultLoadingManager;
+      };
+
+      THREE.GLTFLoader.prototype = {
+        load: function(url, onLoad, onProgress, onError) {
+          const loader = new THREE.FileLoader(this.manager);
+          loader.setResponseType('arraybuffer');
+          loader.load(url, (data) => {
+            try {
+              this.parse(data, '', onLoad, onError);
+            } catch (e) {
+              if (onError) onError(e);
+            }
+          }, onProgress, onError);
+        },
+
+        parse: function(data, path, onLoad, onError) {
+          try {
+            if (data instanceof ArrayBuffer) {
+              const result = this.parseGLB(data);
+              if (onLoad) onLoad(result);
+            } else {
+              if (onError) onError(new Error('Only GLB format supported'));
+            }
+          } catch (e) {
+            if (onError) onError(e);
+          }
+        },
+
+        parseGLB: function(data) {
+          const view = new DataView(data);
+          
+          // Check GLB header
+          const magic = view.getUint32(0, true);
+          if (magic !== 0x46546C67) {
+            throw new Error('Invalid GLB file');
+          }
+          
+          const version = view.getUint32(4, true);
+          const length = view.getUint32(8, true);
+          
+          // Read JSON chunk
+          const jsonChunkLength = view.getUint32(12, true);
+          const jsonChunkType = view.getUint32(16, true);
+          
+          if (jsonChunkType !== 0x4E4F534A) {
+            throw new Error('Invalid JSON chunk');
+          }
+          
+          const jsonData = new Uint8Array(data, 20, jsonChunkLength);
+          const jsonString = new TextDecoder().decode(jsonData);
+          const gltf = JSON.parse(jsonString);
+          
+          // Read binary chunk if present
+          let binaryData = null;
+          if (20 + jsonChunkLength < length) {
+            const binaryChunkLength = view.getUint32(20 + jsonChunkLength, true);
+            const binaryChunkType = view.getUint32(20 + jsonChunkLength + 4, true);
+            
+            if (binaryChunkType === 0x004E4942) {
+              binaryData = new Uint8Array(data, 20 + jsonChunkLength + 8, binaryChunkLength);
+            }
+          }
+          
+          // Create scene from GLTF data
+          const scene = this.createScene(gltf, binaryData);
+          
+          return {
+            scene: scene,
+            scenes: [scene],
+            asset: gltf.asset || {}
+          };
+        },
+
+        createScene: function(gltf, binaryData) {
+          const scene = new THREE.Group();
+          
+          // Simple mesh creation from GLTF data
+          if (gltf.meshes && gltf.meshes.length > 0) {
+            for (let i = 0; i < gltf.meshes.length; i++) {
+              const mesh = this.createMesh(gltf, gltf.meshes[i], binaryData);
+              if (mesh) {
+                scene.add(mesh);
+              }
+            }
+          }
+          
+          return scene;
+        },
+
+        createMesh: function(gltf, meshData, binaryData) {
+          if (!meshData.primitives || meshData.primitives.length === 0) {
+            return null;
+          }
+          
+          const primitive = meshData.primitives[0];
+          const geometry = new THREE.BufferGeometry();
+          
+          // Get position data
+          if (primitive.attributes && primitive.attributes.POSITION !== undefined) {
+            const positionAccessor = gltf.accessors[primitive.attributes.POSITION];
+            const positionBufferView = gltf.bufferViews[positionAccessor.bufferView];
+            
+            if (binaryData && positionBufferView) {
+              const positions = new Float32Array(
+                binaryData.buffer,
+                binaryData.byteOffset + positionBufferView.byteOffset,
+                positionAccessor.count * 3
+              );
+              geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            }
+          }
+          
+          // Get normal data if available
+          if (primitive.attributes && primitive.attributes.NORMAL !== undefined) {
+            const normalAccessor = gltf.accessors[primitive.attributes.NORMAL];
+            const normalBufferView = gltf.bufferViews[normalAccessor.bufferView];
+            
+            if (binaryData && normalBufferView) {
+              const normals = new Float32Array(
+                binaryData.buffer,
+                binaryData.byteOffset + normalBufferView.byteOffset,
+                normalAccessor.count * 3
+              );
+              geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+            }
+          }
+          
+          // Get indices if available
+          if (primitive.indices !== undefined) {
+            const indexAccessor = gltf.accessors[primitive.indices];
+            const indexBufferView = gltf.bufferViews[indexAccessor.bufferView];
+            
+            if (binaryData && indexBufferView) {
+              const indices = new Uint16Array(
+                binaryData.buffer,
+                binaryData.byteOffset + indexBufferView.byteOffset,
+                indexAccessor.count
+              );
+              geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+            }
+          }
+          
+          // Create basic material
+          const material = new THREE.MeshLambertMaterial({ color: 0xcccccc });
+          
+          return new THREE.Mesh(geometry, material);
         }
       };
-      
-      threeScript.onerror = function() {
-        updateStatus('❌ Three.js failed to load');
-        document.getElementById('loading').innerHTML = 'Failed to load Three.js.';
-      };
-      
-      document.head.appendChild(threeScript);
+
+      gltfLoader = new THREE.GLTFLoader();
+      updateStatus('✅ GLTFLoader embedded!');
+      initializeApp();
     }
     
     function initializeApp() {
@@ -600,16 +754,9 @@
       }
     }
     
-    function createGarment(type, fileData = null) {
+    function createGarment(type) {
       garmentGroup.clear();
       
-      if (fileData) {
-        // Load from CLO3D file
-        loadCLO3DGarment(fileData);
-        return;
-      }
-      
-      // Existing geometric garment creation code remains the same
       const material = createGarmentMaterial();
       let geometry;
       
@@ -895,23 +1042,23 @@
     }
 
     function loadCLO3DGarment(data, filename = 'garment') {
-      if (!THREE.GLTFLoader) {
-        updateStatus('❌ GLTFLoader not available. Cannot load 3D files.');
+      if (!gltfLoader) {
+        updateStatus('❌ GLTFLoader not available');
         return;
       }
       
-      const loader = new THREE.GLTFLoader();
+      updateStatus('Loading CLO3D garment...');
       
       // Handle different file types
-      if (filename.endsWith('.glb') || filename.endsWith('.gltf')) {
-        loader.parse(data, '', function(gltf) {
+      if (filename.endsWith('.glb')) {
+        gltfLoader.parse(data, '', function(gltf) {
           processCLO3DModel(gltf.scene, filename);
         }, function(error) {
           console.error('Error loading CLO3D garment:', error);
-          updateStatus('❌ Failed to load garment file');
+          updateStatus('❌ Failed to load garment file: ' + error.message);
         });
       } else {
-        updateStatus('❌ Unsupported file format. Please use .glb or .gltf files from CLO3D');
+        updateStatus('❌ Only GLB files supported currently');
       }
     }
 
@@ -925,18 +1072,8 @@
       // Apply current material settings to all meshes
       model.traverse(function(child) {
         if (child.isMesh) {
-          // Preserve original geometry but apply our material system
-          const originalMaterial = child.material;
+          // Apply our material system
           const newMaterial = createGarmentMaterial();
-          
-          // Try to preserve some original properties if available
-          if (originalMaterial.map) {
-            newMaterial.map = originalMaterial.map;
-          }
-          if (originalMaterial.normalMap) {
-            newMaterial.normalMap = originalMaterial.normalMap;
-          }
-          
           child.material = newMaterial;
           child.castShadow = true;
           child.receiveShadow = true;
@@ -948,7 +1085,7 @@
       currentGarment = 'clo3d_' + filename;
       
       updateStatus(`✅ Loaded CLO3D garment: ${filename}`);
-      document.getElementById('file-info').textContent = `Loaded: ${filename}`;
+      document.getElementById('file-info').textContent = `✅ Loaded: ${filename}`;
     }
     
     function animate() {
@@ -973,7 +1110,6 @@
     window.toggleGarment = toggleGarment;
     window.exportLook = exportLook;
     window.loadGarmentFile = loadGarmentFile;
-    window.loadCLO3DGarment = loadCLO3DGarment;
   </script>
 </body>
 </html>
