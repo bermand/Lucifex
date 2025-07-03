@@ -23,13 +23,13 @@ This repository contains the MVP implementation plan, detailed documentation, an
 
 ## 🗂 Project Structure
 
-```
+\`\`\`
 app/            # Frontend (React Native or Web)
 backend/        # Backend logic, APIs, services
 docs/           # All documentation in Markdown
 scripts/        # Dev/admin tools
 public/         # Static assets and 3D models
-```
+\`\`\`
 
 ---
 
