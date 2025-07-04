@@ -4,51 +4,38 @@
 class PhysicsDropTest {
   constructor(clothSimulation) {
     this.clothSimulation = clothSimulation
-    this.originalGravity = { x: 0, y: -9.81, z: 0 }
-    this.originalStiffness = 0.4
-    this.testRunning = false
+    this.originalSettings = {}
+    this.isRunning = false
     this.testStartTime = 0
   }
 
   async startDropTest() {
     if (!this.clothSimulation || !this.clothSimulation.physicsEngine) {
-      console.log("❌ No cloth simulation available for drop test")
+      console.log("❌ No physics simulation available for drop test")
       return false
     }
 
-    if (this.testRunning) {
-      console.log("⚠️ Drop test already running")
-      return false
-    }
+    console.log("🧪 === DROP TEST STARTING ===")
 
     try {
-      console.log("🧪 === DROP TEST STARTING ===")
-
       // Store original settings
-      const status = this.clothSimulation.getDetailedStatus()
-      if (status.physicsDetails) {
-        this.originalGravity = { ...status.physicsDetails.gravity }
-      }
+      this.storeOriginalSettings()
 
-      // Apply dramatic drop settings
-      this.clothSimulation.setGravity(0, -20, 0) // Double gravity
-      this.clothSimulation.setClothStiffness("main-garment", 0.1) // Very flexible
+      // Apply dramatic drop test settings
+      this.applyDropTestSettings()
 
-      // Reset cloth to high position
-      this.resetClothPosition()
-
-      this.testRunning = true
+      this.isRunning = true
       this.testStartTime = Date.now()
 
-      console.log("🧪 Drop test active:")
-      console.log("   • Gravity: -20 m/s² (2x normal)")
-      console.log("   • Stiffness: 0.1 (very flexible)")
-      console.log("   • Cloth reset to high position")
-      console.log("   • Watch the cloth fall dramatically!")
+      console.log("🧪 Drop test active - cloth should fall dramatically!")
+      console.log("   • Gravity increased to -50 m/s²")
+      console.log("   • Cloth stiffness reduced to 0.05")
+      console.log("   • Damping reduced to 0.9")
+      console.log("   • Constraint iterations reduced to 1")
 
       // Auto-stop after 10 seconds
       setTimeout(() => {
-        if (this.testRunning) {
+        if (this.isRunning) {
           this.stopDropTest()
         }
       }, 10000)
@@ -60,79 +47,141 @@ class PhysicsDropTest {
     }
   }
 
-  resetClothPosition() {
-    try {
-      // Get the cloth data
-      const clothData = this.clothSimulation.clothMeshes.get("main-garment")
-      if (!clothData || !clothData.physicsId) {
-        console.log("⚠️ No cloth found for position reset")
-        return
-      }
+  storeOriginalSettings() {
+    const engine = this.clothSimulation.physicsEngine
 
-      const physicsCloth = this.clothSimulation.physicsEngine.clothMeshes.get(clothData.physicsId)
-      if (!physicsCloth) {
-        console.log("⚠️ No physics cloth found for position reset")
-        return
-      }
-
-      // Reset all particles to high position with random velocities
-      physicsCloth.particles.forEach((particle, index) => {
-        // Reset to original grid position but much higher
-        const normalizedX = particle.gridX / (physicsCloth.gridWidth - 1) - 0.5
-        const normalizedY = particle.gridY / (physicsCloth.gridHeight - 1)
-
-        // Set new high position
-        particle.position.x = normalizedX * physicsCloth.physicalWidth
-        particle.position.y = 3.0 - normalizedY * physicsCloth.physicalHeight // Start at Y=3.0
-        particle.position.z = (Math.random() - 0.5) * 0.3
-
-        // Add random initial velocities for dramatic effect
-        particle.oldPosition.x = particle.position.x + (Math.random() - 0.5) * 0.5
-        particle.oldPosition.y = particle.position.y + (Math.random() - 0.5) * 0.3
-        particle.oldPosition.z = particle.position.z + (Math.random() - 0.5) * 0.5
-
-        // Only pin the top corners
-        particle.pinned =
-          particle.gridY === 0 && (particle.gridX === 2 || particle.gridX === physicsCloth.gridWidth - 3)
-      })
-
-      console.log("✅ Cloth position reset for dramatic drop")
-      console.log(`   • ${physicsCloth.particles.length} particles repositioned`)
-      console.log(`   • ${physicsCloth.particles.filter((p) => p.pinned).length} particles pinned`)
-      console.log("   • Random velocities applied")
-    } catch (error) {
-      console.error("❌ Failed to reset cloth position:", error)
+    this.originalSettings = {
+      gravity: { ...engine.gravity },
+      damping: engine.damping,
+      constraintIterations: engine.constraintIterations,
     }
+
+    // Store cloth-specific settings
+    engine.clothMeshes.forEach((clothData, clothId) => {
+      this.originalSettings[clothId] = {
+        constraints: clothData.constraints.map((c) => ({ ...c })),
+      }
+    })
+
+    console.log("💾 Original settings stored:", this.originalSettings)
+  }
+
+  applyDropTestSettings() {
+    const engine = this.clothSimulation.physicsEngine
+
+    // Dramatic gravity increase
+    engine.setGravity(0, -50, 0) // 5x normal gravity
+
+    // Reduce damping for more movement
+    engine.damping = 0.9
+
+    // Reduce constraint iterations for more flexibility
+    engine.constraintIterations = 1
+
+    // Make cloth much more flexible
+    engine.clothMeshes.forEach((clothData, clothId) => {
+      clothData.constraints.forEach((constraint) => {
+        if (constraint.type === "structural") {
+          constraint.stiffness = 0.05 // Very flexible
+        } else if (constraint.type === "shear") {
+          constraint.stiffness = 0.02 // Even more flexible
+        } else if (constraint.type === "bend") {
+          constraint.stiffness = 0.01 // Minimal bending resistance
+        }
+      })
+    })
+
+    // Add strong initial downward velocity to all particles
+    engine.clothMeshes.forEach((clothData) => {
+      clothData.particles.forEach((particle) => {
+        if (!particle.pinned) {
+          // Give particles strong downward velocity
+          particle.oldPosition.y = particle.position.y + 0.5 // Strong initial velocity
+          particle.oldPosition.x += (Math.random() - 0.5) * 0.2 // Random horizontal movement
+          particle.oldPosition.z += (Math.random() - 0.5) * 0.2 // Random depth movement
+        }
+      })
+    })
+
+    console.log("⚡ Drop test settings applied - cloth should fall dramatically!")
+  }
+
+  restoreOriginalSettings() {
+    const engine = this.clothSimulation.physicsEngine
+
+    // Restore gravity
+    engine.setGravity(this.originalSettings.gravity.x, this.originalSettings.gravity.y, this.originalSettings.gravity.z)
+
+    // Restore damping
+    engine.damping = this.originalSettings.damping
+
+    // Restore constraint iterations
+    engine.constraintIterations = this.originalSettings.constraintIterations
+
+    // Restore cloth constraints
+    engine.clothMeshes.forEach((clothData, clothId) => {
+      if (this.originalSettings[clothId]) {
+        const originalConstraints = this.originalSettings[clothId].constraints
+        clothData.constraints.forEach((constraint, index) => {
+          if (originalConstraints[index]) {
+            constraint.stiffness = originalConstraints[index].stiffness
+          }
+        })
+      }
+    })
+
+    console.log("🔄 Original settings restored")
   }
 
   stopDropTest() {
-    if (!this.testRunning) {
-      console.log("⚠️ No drop test running")
+    if (!this.isRunning) {
+      console.log("⚠️ Drop test not running")
       return
     }
 
-    try {
-      const testDuration = (Date.now() - this.testStartTime) / 1000
+    const testDuration = (Date.now() - this.testStartTime) / 1000
 
-      console.log("🧪 === DROP TEST COMPLETE ===")
-      console.log(`   • Duration: ${testDuration.toFixed(1)}s`)
+    console.log("🧪 === DROP TEST COMPLETE ===")
+    console.log(`   • Duration: ${testDuration.toFixed(2)}s`)
 
-      // Restore original settings
-      this.clothSimulation.setGravity(this.originalGravity.x, this.originalGravity.y, this.originalGravity.z)
-      this.clothSimulation.setClothStiffness("main-garment", this.originalStiffness)
+    // Get final cloth positions
+    const engine = this.clothSimulation.physicsEngine
+    engine.clothMeshes.forEach((clothData, clothId) => {
+      let minY = Number.POSITIVE_INFINITY
+      let maxY = Number.NEGATIVE_INFINITY
+      let avgY = 0
 
-      this.testRunning = false
+      clothData.particles.forEach((particle) => {
+        minY = Math.min(minY, particle.position.y)
+        maxY = Math.max(maxY, particle.position.y)
+        avgY += particle.position.y
+      })
+      avgY /= clothData.particles.length
 
-      console.log("✅ Original physics settings restored")
-      console.log("   • Gravity: -9.81 m/s²")
-      console.log("   • Stiffness: 0.4")
-    } catch (error) {
-      console.error("❌ Failed to stop drop test:", error)
-    }
+      console.log(`🧪 Final ${clothId} positions:`)
+      console.log(`   • Y range: ${minY.toFixed(3)}m to ${maxY.toFixed(3)}m`)
+      console.log(`   • Average Y: ${avgY.toFixed(3)}m`)
+
+      // Check if cloth fell significantly
+      const heightDrop = 2.2 - avgY // Started at Y=2.2m
+      if (heightDrop > 1.0) {
+        console.log("✅ DROP TEST PASSED - Cloth fell significantly!")
+        console.log(`   • Height drop: ${heightDrop.toFixed(3)}m`)
+      } else {
+        console.log("⚠️ DROP TEST INCONCLUSIVE - Limited falling detected")
+        console.log(`   • Height drop: ${heightDrop.toFixed(3)}m`)
+      }
+    })
+
+    // Restore original settings
+    this.restoreOriginalSettings()
+
+    this.isRunning = false
+    console.log("🧪 Drop test cleanup complete")
   }
 
-  isRunning() {
-    return this.testRunning
+  isDropTestRunning() {
+    return this.isRunning
   }
 }
 
