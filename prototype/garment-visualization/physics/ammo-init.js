@@ -30,10 +30,9 @@ class AmmoPhysics {
 
       const tryLoadAmmo = () => {
         if (currentSourceIndex >= ammoSources.length) {
-          // If all CDN sources fail, try to create a simple physics fallback
-          console.warn("All Ammo.js CDN sources failed, creating fallback physics")
-          this.createFallbackPhysics()
-          resolve(this.AmmoLib)
+          // If all CDN sources fail, reject to fall back to simple physics
+          console.warn("All Ammo.js CDN sources failed")
+          reject(new Error("All Ammo.js sources failed"))
           return
         }
 
@@ -88,87 +87,12 @@ class AmmoPhysics {
     })
   }
 
-  createFallbackPhysics() {
-    // Create a simple fallback physics system when Ammo.js fails to load
-    console.log("🔄 Creating fallback physics system...")
-
-    this.AmmoLib = {
-      // Mock Ammo.js objects for basic cloth simulation
-      btVector3: function (x, y, z) {
-        this.x = () => x
-        this.y = () => y
-        this.z = () => z
-        return this
-      },
-      btSoftBodyRigidBodyCollisionConfiguration: () => ({}),
-      btCollisionDispatcher: () => ({}),
-      btDbvtBroadphase: () => ({}),
-      btSequentialImpulseConstraintSolver: () => ({}),
-      btDefaultSoftBodySolver: () => ({}),
-      btSoftRigidDynamicsWorld: () => ({
-        setGravity: () => {},
-        getWorldInfo: () => ({
-          set_m_gravity: () => {},
-          set_air_density: () => {},
-          set_water_density: () => {},
-          set_water_offset: () => {},
-          set_water_normal: () => {},
-        }),
-        stepSimulation: () => {},
-        addSoftBody: () => {},
-        addRigidBody: () => {},
-        removeSoftBody: () => {},
-        removeRigidBody: () => {},
-      }),
-      btCapsuleShape: () => ({}),
-      btTransform: () => ({
-        setIdentity: () => {},
-        setOrigin: () => {},
-      }),
-      btDefaultMotionState: () => ({}),
-      btRigidBodyConstructionInfo: () => ({}),
-      btRigidBody: () => ({
-        setFriction: () => {},
-        setRestitution: () => {},
-      }),
-      btVector3Vector: () => ({
-        push_back: () => {},
-      }),
-      btIntArray: () => ({
-        push_back: () => {},
-      }),
-      btSoftBodyHelpers: {
-        CreateFromTriMesh: () => ({
-          get_m_materials: () => ({
-            at: () => ({
-              set_m_kLST: () => {},
-              set_m_kAST: () => {},
-              set_m_kVST: () => {},
-            }),
-          }),
-          setTotalMass: () => {},
-          setFriction: () => {},
-          get_m_cfg: () => ({
-            set_piterations: () => {},
-            set_viterations: () => {},
-            set_diterations: () => {},
-            set_collisions: () => {},
-          }),
-          get_m_nodes: () => ({
-            at: (i) => ({
-              get_m_x: () => new this.btVector3(0, 0, 0),
-            }),
-          }),
-        }),
-      },
-    }
-
-    console.log("✅ Fallback physics system created")
-  }
-
   async initPhysicsWorld() {
-    if (!this.AmmoLib) {
+    try {
       await this.loadAmmo()
+    } catch (error) {
+      console.log("🔄 Ammo.js failed to load, will use simple physics fallback")
+      return false
     }
 
     try {
@@ -201,10 +125,10 @@ class AmmoPhysics {
       worldInfo.set_water_normal(new this.AmmoLib.btVector3(0, 0, 0))
 
       this.isInitialized = true
-      console.log("✅ Physics world initialized")
+      console.log("✅ Ammo.js physics world initialized")
       return true
     } catch (error) {
-      console.error("❌ Failed to initialize physics world:", error)
+      console.error("❌ Failed to initialize Ammo.js physics world:", error)
       return false
     }
   }
@@ -302,10 +226,10 @@ class AmmoPhysics {
         vertexCount: vertices.length / 3,
       })
 
-      console.log("✅ Cloth body created with", vertices.length / 3, "vertices")
+      console.log("✅ Ammo.js cloth body created with", vertices.length / 3, "vertices")
       return { id: clothId, body: softBody }
     } catch (error) {
-      console.error("❌ Failed to create cloth body:", error)
+      console.error("❌ Failed to create Ammo.js cloth body:", error)
       return null
     }
   }
@@ -317,7 +241,7 @@ class AmmoPhysics {
       // Step simulation with smaller substeps for stability
       this.physicsWorld.stepSimulation(deltaTime, 10, 1 / 120)
     } catch (error) {
-      console.error("❌ Physics update error:", error)
+      console.error("❌ Ammo.js physics update error:", error)
     }
   }
 
@@ -342,8 +266,26 @@ class AmmoPhysics {
 
       return updatedVertices
     } catch (error) {
-      console.error("❌ Failed to get cloth vertices:", error)
+      console.error("❌ Failed to get Ammo.js cloth vertices:", error)
       return null
+    }
+  }
+
+  setGravity(x, y, z) {
+    if (this.physicsWorld) {
+      const gravity = new this.AmmoLib.btVector3(x, y, z)
+      this.physicsWorld.setGravity(gravity)
+      this.physicsWorld.getWorldInfo().set_m_gravity(gravity)
+    }
+  }
+
+  setClothStiffness(clothId, stiffness) {
+    const clothData = this.clothBodies.get(clothId)
+    if (clothData) {
+      const material = clothData.body.get_m_materials().at(0)
+      material.set_m_kLST(stiffness)
+      material.set_m_kAST(stiffness)
+      material.set_m_kVST(stiffness)
     }
   }
 
@@ -373,7 +315,7 @@ class AmmoPhysics {
     }
 
     this.isInitialized = false
-    console.log("✅ Physics cleanup completed")
+    console.log("✅ Ammo.js physics cleanup completed")
   }
 }
 
