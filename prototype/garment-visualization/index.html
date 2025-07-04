@@ -473,9 +473,10 @@
       <div class="control-group">
         <label>Combination Method:</label>
         <div class="preset-buttons">
-          <button class="preset-btn active" onclick="setCombinationMethod('merge')" id="merge-method">Merge Models</button>
-          <button class="preset-btn" onclick="setCombinationMethod('overlay')" id="overlay-method">Overlay</button>
+          <button class="preset-btn active" onclick="setCombinationMethod('merge')" id="merge-method">Overlay</button>
+          <button class="preset-btn" onclick="setCombinationMethod('offset')" id="offset-method">Offset</button>
           <button class="preset-btn" onclick="setCombinationMethod('separate')" id="separate-method">Side by Side</button>
+          <button class="preset-btn" onclick="setCombinationMethod('alternating')" id="alternating-method">Auto Switch</button>
         </div>
       </div>
 
@@ -738,8 +739,8 @@
               </div>
             </div>
           `;
-        } else {
-          // Overlay/merge view - both models in same space
+        } else if (combinationMethod === 'offset') {
+          // Offset view - models positioned side by side in same viewer
           combinedContainer.innerHTML = `
             <div style="position: relative; width: 100%; height: 100%;">
               <model-viewer 
@@ -754,6 +755,8 @@
                 shadow-softness="0.5"
                 exposure="1"
                 tone-mapping="aces"
+                camera-orbit="45deg 75deg 5m"
+                camera-target="-1m 1m 0m"
                 environment-image="${environments[currentEnv]}"
                 skybox-image="${environments[currentEnv]}"
                 style="position: absolute; width: 100%; height: 100%; opacity: ${avatarOpacity}; z-index: 1; background-color: #f0f0f0;">
@@ -762,18 +765,125 @@
               <model-viewer 
                 id="combined-garment-viewer"
                 src="${currentGarment}"
-                shadow-intensity="0.5"
+                shadow-intensity="0.8"
                 exposure="1"
                 tone-mapping="aces"
+                camera-orbit="-45deg 75deg 5m"
+                camera-target="1m 1m 0m"
                 environment-image="${environments[currentEnv]}"
                 skybox-image="${environments[currentEnv]}"
-                style="position: absolute; width: 100%; height: 100%; opacity: ${garmentOpacity}; z-index: 2; pointer-events: none; transform: translate(${offsetX * 100}px, ${offsetY * 100}px); background-color: transparent;">
+                style="position: absolute; width: 100%; height: 100%; opacity: ${garmentOpacity}; z-index: 2; pointer-events: none; background-color: transparent;">
                 <div slot="progress-bar" style="display: none;"></div>
               </model-viewer>
-              <div style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: white; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: bold; z-index: 10;">Combined View (${combinationMethod})</div>
+              <div style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: white; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: bold; z-index: 10;">
+                Offset View - Both models visible
+              </div>
             </div>
           `;
-        }
+        } else if (combinationMethod === 'alternating') {
+          // Alternating view - switch between models every few seconds
+          combinedContainer.innerHTML = `
+    <div style="position: relative; width: 100%; height: 100%;">
+      <model-viewer 
+        id="combined-avatar-viewer"
+        src="${currentAvatar}"
+        camera-controls 
+        touch-action="pan-y"
+        auto-rotate
+        auto-rotate-delay="3000"
+        rotation-per-second="30deg"
+        shadow-intensity="1"
+        shadow-softness="0.5"
+        exposure="1"
+        tone-mapping="aces"
+        environment-image="${environments[currentEnv]}"
+        skybox-image="${environments[currentEnv]}"
+        style="position: absolute; width: 100%; height: 100%; opacity: ${avatarOpacity}; z-index: 1; background-color: #f0f0f0; transition: opacity 1s;">
+        <div slot="progress-bar" style="display: none;"></div>
+      </model-viewer>
+      <model-viewer 
+        id="combined-garment-viewer"
+        src="${currentGarment}"
+        shadow-intensity="0.8"
+        exposure="1"
+        tone-mapping="aces"
+        environment-image="${environments[currentEnv]}"
+        skybox-image="${environments[currentEnv]}"
+        style="position: absolute; width: 100%; height: 100%; opacity: 0; z-index: 2; pointer-events: none; background-color: transparent; transition: opacity 1s;">
+        <div slot="progress-bar" style="display: none;"></div>
+      </model-viewer>
+      <div style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: white; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: bold; z-index: 10;">
+        <span id="alternating-label">Showing: Avatar</span>
+      </div>
+    </div>
+  `;
+  
+  // Start alternating between models
+  let showingAvatar = true;
+  setInterval(() => {
+    const avatarViewer = document.getElementById('combined-avatar-viewer');
+    const garmentViewer = document.getElementById('combined-garment-viewer');
+    const label = document.getElementById('alternating-label');
+    
+    if (avatarViewer && garmentViewer && label) {
+      if (showingAvatar) {
+        avatarViewer.style.opacity = '0';
+        garmentViewer.style.opacity = garmentOpacity;
+        label.textContent = 'Showing: Garment';
+      } else {
+        avatarViewer.style.opacity = avatarOpacity;
+        garmentViewer.style.opacity = '0';
+        label.textContent = 'Showing: Avatar';
+      }
+      showingAvatar = !showingAvatar;
+    }
+  }, 4000);
+} else {
+  // Overlay/merge view - both models in same space with better positioning
+  combinedContainer.innerHTML = `
+    <div style="position: relative; width: 100%; height: 100%;">
+      <model-viewer 
+        id="combined-avatar-viewer"
+        src="${currentAvatar}"
+        camera-controls 
+        touch-action="pan-y"
+        auto-rotate
+        auto-rotate-delay="3000"
+        rotation-per-second="30deg"
+        shadow-intensity="1"
+        shadow-softness="0.5"
+        exposure="1"
+        tone-mapping="aces"
+        camera-orbit="0deg 75deg 4m"
+        camera-target="0m 1m 0m"
+        environment-image="${environments[currentEnv]}"
+        skybox-image="${environments[currentEnv]}"
+        style="position: absolute; width: 100%; height: 100%; opacity: ${avatarOpacity}; z-index: 1; background-color: #f0f0f0;">
+        <div slot="progress-bar" style="display: none;"></div>
+      </model-viewer>
+      <model-viewer 
+        id="combined-garment-viewer"
+        src="${currentGarment}"
+        shadow-intensity="0.8"
+        exposure="1.2"
+        tone-mapping="aces"
+        camera-orbit="0deg 75deg 4m"
+        camera-target="0m 1m 0m"
+        environment-image="${environments[currentEnv]}"
+        skybox-image="${environments[currentEnv]}"
+        style="position: absolute; width: 100%; height: 100%; opacity: ${garmentOpacity}; z-index: 2; pointer-events: none; transform: translate(${offsetX * 100}px, ${offsetY * 100}px) scale(1.05); background-color: transparent;">
+        <div slot="progress-bar" style="display: none;"></div>
+      </model-viewer>
+      <div style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: white; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: bold; z-index: 10;">
+        Combined View (${combinationMethod})<br>
+        <small>Avatar: ${(avatarOpacity * 100).toFixed(0)}% | Garment: ${(garmentOpacity * 100).toFixed(0)}%</small>
+      </div>
+      <div style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.6); color: white; padding: 6px 10px; border-radius: 4px; font-size: 10px; z-index: 10;">
+        💡 Adjust opacity sliders to see both models
+      </div>
+    </div>
+  `;
+}
         
         combinedModel = 'combined-active';
         
