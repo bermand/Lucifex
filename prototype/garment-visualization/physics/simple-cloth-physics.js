@@ -72,7 +72,7 @@ class SimpleClothPhysics {
     // Avoid duplicate constraints
     const existing = constraints.find((c) => (c.a === indexA && c.b === indexB) || (c.a === indexB && c.b === indexA))
 
-    if (!existing && indexA < particles.length && indexB < particles.length) {
+    if (!existing) {
       const pA = particles[indexA]
       const pB = particles[indexB]
       const distance = this.distance(pA.position, pB.position)
@@ -132,8 +132,6 @@ class SimpleClothPhysics {
         const pA = particles[constraint.a]
         const pB = particles[constraint.b]
 
-        if (!pA || !pB) return // Safety check
-
         const dx = pB.position.x - pA.position.x
         const dy = pB.position.y - pA.position.y
         const dz = pB.position.z - pA.position.z
@@ -170,7 +168,7 @@ class SimpleClothPhysics {
     const { particles, vertexCount } = clothData
     const updatedVertices = new Float32Array(vertexCount * 3)
 
-    for (let i = 0; i < Math.min(particles.length, vertexCount); i++) {
+    for (let i = 0; i < particles.length; i++) {
       const particle = particles[i]
       updatedVertices[i * 3] = particle.position.x
       updatedVertices[i * 3 + 1] = particle.position.y
@@ -183,14 +181,12 @@ class SimpleClothPhysics {
   setClothStiffness(clothId, stiffness) {
     const clothData = this.clothMeshes.get(clothId)
     if (clothData) {
-      clothData.stiffness = Math.max(0.1, Math.min(1.0, stiffness))
-      console.log(`🔧 Cloth stiffness set to ${clothData.stiffness}`)
+      clothData.stiffness = stiffness
     }
   }
 
   setGravity(x, y, z) {
     this.gravity = { x, y, z }
-    console.log(`🌍 Gravity set to (${x}, ${y}, ${z})`)
   }
 
   startSimulation() {
@@ -207,26 +203,6 @@ class SimpleClothPhysics {
     this.clothMeshes.clear()
     this.isRunning = false
     console.log("✅ Simple cloth physics cleanup completed")
-  }
-
-  // Debug method
-  getSimulationInfo() {
-    const info = {
-      isRunning: this.isRunning,
-      clothCount: this.clothMeshes.size,
-      gravity: this.gravity,
-      damping: this.damping,
-    }
-
-    this.clothMeshes.forEach((clothData, clothId) => {
-      info[clothId] = {
-        particles: clothData.particles.length,
-        constraints: clothData.constraints.length,
-        stiffness: clothData.stiffness,
-      }
-    })
-
-    return info
   }
 }
 
