@@ -648,44 +648,128 @@
         return;
       }
 
-      updateStatus('🔄 Combining models with Model Viewer...');
+      updateStatus('🔄 Creating true combined view...');
 
       try {
-        // For now, we'll use a simple approach - show the garment as primary
-        // and indicate that avatar is "underneath" via UI feedback
-        switch (combinationMethod) {
-          case 'merge':
-          case 'overlay':
-            // Show garment as primary model (garment over avatar concept)
-            modelViewer.src = currentGarment;
-            updateStatus('✅ Combined view: Garment displayed (avatar as base)');
-            break;
+        // Hide main viewer
+        const mainViewer = document.getElementById('main-viewer');
+        mainViewer.style.display = 'none';
         
-          case 'separate':
-            // For separate view, we could alternate or show garment primarily
-            modelViewer.src = currentGarment;
-            updateStatus('✅ Separate view: Garment shown (switch to avatar tab to see avatar)');
-            break;
+        // Create or get combined container
+        let combinedContainer = document.getElementById('combined-container');
+        if (!combinedContainer) {
+          combinedContainer = document.createElement('div');
+          combinedContainer.id = 'combined-container';
+          combinedContainer.style.cssText = `
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            display: block;
+            z-index: 1;
+          `;
+          document.body.appendChild(combinedContainer);
         }
-
-        // Update combination status to show we're in combined mode
-        combinedModel = currentGarment; // Use garment as the "combined" result
-        setModelType('both');
-    
-        // Apply visual feedback for combination
+        
+        // Clear previous content
+        combinedContainer.innerHTML = '';
+        
+        // Get current settings
+        const avatarOpacity = parseFloat(document.getElementById('avatar-opacity').value);
+        const garmentOpacity = parseFloat(document.getElementById('garment-opacity').value);
+        const avatarScale = parseFloat(document.getElementById('avatar-scale').value);
+        const garmentScale = parseFloat(document.getElementById('garment-scale').value);
+        const offsetX = parseFloat(document.getElementById('garment-offset-x').value);
+        const offsetY = parseFloat(document.getElementById('garment-offset-y').value);
+        
+        if (combinationMethod === 'separate') {
+          // Side-by-side view
+          combinedContainer.innerHTML = `
+            <div style="display: flex; width: 100%; height: 100%;">
+              <div style="position: relative; width: 50%; height: 100%; border-right: 2px solid #667eea;">
+                <model-viewer 
+                  id="avatar-viewer"
+                  src="${currentAvatar}"
+                  camera-controls 
+                  touch-action="pan-y"
+                  auto-rotate
+                  shadow-intensity="1"
+                  shadow-softness="0.5"
+                  exposure="1"
+                  tone-mapping="aces"
+                  environment-image="${environments[document.querySelector('.env-btn.active').dataset.env]}"
+                  style="width: 100%; height: 100%; opacity: ${avatarOpacity};">
+                </model-viewer>
+                <div style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 5px 10px; border-radius: 5px; font-size: 12px; font-weight: bold;">Avatar</div>
+              </div>
+              <div style="position: relative; width: 50%; height: 100%;">
+                <model-viewer 
+                  id="garment-viewer"
+                  src="${currentGarment}"
+                  camera-controls 
+                  touch-action="pan-y"
+                  auto-rotate
+                  shadow-intensity="1"
+                  shadow-softness="0.5"
+                  exposure="1"
+                  tone-mapping="aces"
+                  environment-image="${environments[document.querySelector('.env-btn.active').dataset.env]}"
+                  style="width: 100%; height: 100%; opacity: ${garmentOpacity};">
+                </model-viewer>
+                <div style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 5px 10px; border-radius: 5px; font-size: 12px; font-weight: bold;">Garment</div>
+              </div>
+            </div>
+          `;
+        } else {
+          // Overlay/merge view - both models in same space
+          combinedContainer.innerHTML = `
+            <model-viewer 
+              id="avatar-viewer"
+              src="${currentAvatar}"
+              camera-controls 
+              touch-action="pan-y"
+              auto-rotate
+              shadow-intensity="1"
+              shadow-softness="0.5"
+              exposure="1"
+              tone-mapping="aces"
+              environment-image="${environments[document.querySelector('.env-btn.active').dataset.env]}"
+              style="position: absolute; width: 100%; height: 100%; opacity: ${avatarOpacity}; z-index: 1;">
+            </model-viewer>
+            <model-viewer 
+              id="garment-viewer"
+              src="${currentGarment}"
+              camera-controls 
+              touch-action="pan-y"
+              shadow-intensity="0.5"
+              exposure="1"
+              tone-mapping="aces"
+              environment-image="${environments[document.querySelector('.env-btn.active').dataset.env]}"
+              style="position: absolute; width: 100%; height: 100%; opacity: ${garmentOpacity}; z-index: 2; pointer-events: none; transform: translate(${offsetX * 100}px, ${offsetY * 100}px);">
+            </model-viewer>
+            <div style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 5px 10px; border-radius: 5px; font-size: 12px; font-weight: bold; z-index: 3;">Combined View</div>
+          `;
+        }
+        
+        combinedModel = 'combined-active';
+        
+        updateStatus('✅ Combined view active - both models visible!');
+        
+        // Update status display
         const statusDiv = document.getElementById('combination-status');
         statusDiv.className = 'combination-status ready';
         statusDiv.innerHTML = `
-          <strong>✅ Combined Mode Active:</strong><br>
-          Primary: Garment (${combinationMethod})<br>
-          Base: Avatar (conceptual)<br>
+          <strong>✅ Combined View Active:</strong><br>
+          Avatar: Visible (${(avatarOpacity * 100).toFixed(0)}% opacity)<br>
+          Garment: Visible (${(garmentOpacity * 100).toFixed(0)}% opacity)<br>
           Method: ${combinationMethod}<br>
-          <small>💡 Use Model Viewer controls to inspect fit</small>
+          <small>💡 Both models rendered with Model Viewer</small>
         `;
 
       } catch (error) {
-        console.error('Error in combined view:', error);
-        updateStatus('❌ Failed to create combined view');
+        console.error('Error creating combined view:', error);
+        updateStatus('❌ Failed to create combined view: ' + error.message);
       }
     }
 
@@ -701,12 +785,20 @@
     }
 
     function resetCombination() {
-      if (combinedModel) {
-        URL.revokeObjectURL(combinedModel);
-        combinedModel = null;
+      // Show main viewer
+      const mainViewer = document.getElementById('main-viewer');
+      mainViewer.style.display = 'block';
+      
+      // Hide and remove combined container
+      const combinedContainer = document.getElementById('combined-container');
+      if (combinedContainer) {
+        combinedContainer.style.display = 'none';
+        combinedContainer.remove();
       }
       
-      // Reset controls
+      combinedModel = null;
+      
+      // Reset controls to defaults
       document.getElementById('avatar-opacity').value = 1.0;
       document.getElementById('garment-opacity').value = 1.0;
       document.getElementById('garment-offset-x').value = 0;
@@ -716,495 +808,7 @@
       document.getElementById('garment-offset-x-value').textContent = '0.0';
       document.getElementById('garment-offset-y-value').textContent = '0.0';
       
-      updateStatus('Combination reset');
+      updateStatus('✅ Combined view stopped - back to single model');
       updateCombinationStatus();
-    }
-
-    function setModelType(type) {
-      const previousType = currentModelType;
-      currentModelType = type;
-      
-      // Update UI
-      document.querySelectorAll('.model-btn').forEach(btn => btn.classList.remove('active'));
-      document.getElementById(type === 'avatar' ? 'avatar-mode' : 
-                         type === 'garment' ? 'garment-mode' : 'both-mode').classList.add('active');
-      
-      updateStatus(`Switching to ${type} mode...`);
-      
-      // Update display based on mode
-      switch(type) {
-        case 'avatar':
-          if (currentAvatar) {
-            modelViewer.src = currentAvatar;
-            updateStatus(`Displaying avatar`);
-          } else {
-            updateStatus(`No avatar loaded - select an avatar first`);
-          }
-          break;
-          
-        case 'garment':
-          if (currentGarment) {
-            modelViewer.src = currentGarment;
-            updateStatus(`Displaying garment`);
-          } else {
-            updateStatus(`No garment loaded - load a garment file first`);
-          }
-          break;
-          
-        case 'both':
-          if (combinedModel) {
-            modelViewer.src = combinedModel;
-            updateStatus(`Displaying combined model`);
-          } else if (currentGarment) {
-            modelViewer.src = currentGarment;
-            updateStatus(`Displaying garment (generate combined model for full integration)`);
-          } else if (currentAvatar) {
-            modelViewer.src = currentAvatar;
-            updateStatus(`Displaying avatar (load garment and generate combined model)`);
-          } else {
-            updateStatus(`Combined mode - load avatar and garment first`);
-          }
-          break;
-      }
-      
-      // Hide fallback if we have something to show
-      if ((type === 'avatar' && currentAvatar) || 
-          (type === 'garment' && currentGarment) || 
-          (type === 'both' && (combinedModel || currentAvatar || currentGarment))) {
-        document.getElementById('fallback').style.display = 'none';
-      }
-    }
-
-    function loadAvatarPreset(presetId) {
-      // Update UI
-      document.querySelectorAll('.avatar-option').forEach(opt => opt.classList.remove('active'));
-      document.querySelector(`[data-avatar="${presetId}"]`).classList.add('active');
-      
-      const preset = avatarPresets[presetId];
-      updateStatus(`Loading ${preset.name}...`);
-      
-      // In a real implementation, you'd load the actual GLB file
-      // For now, we'll create a placeholder URL or use a sample
-      if (preset.url) {
-        currentAvatar = preset.url;
-        if (currentModelType === 'avatar' || currentModelType === 'both') {
-          modelViewer.src = currentAvatar;
-        }
-        updateStatus(`✅ ${preset.name} loaded`);
-      } else {
-        // Show placeholder message
-        updateStatus(`📋 ${preset.name} would load here - add GLB file`);
-        
-        // Hide fallback to show we're "ready"
-        document.getElementById('fallback').style.display = 'none';
-      }
-      
-      updateCombinationStatus();
-    }
-
-    function loadCustomAvatar(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-      
-      updateStatus(`Loading custom avatar: ${file.name}`);
-      
-      // Create object URL for the file
-      const objectURL = URL.createObjectURL(file);
-      currentAvatar = objectURL;
-      
-      if (currentModelType === 'avatar' || currentModelType === 'both') {
-        modelViewer.src = objectURL;
-      }
-      
-      // Hide fallback content
-      document.getElementById('fallback').style.display = 'none';
-      
-      // Update status when loaded
-      modelViewer.addEventListener('load', function() {
-        updateStatus(`✅ Custom avatar loaded: ${file.name}`);
-        updateCombinationStatus();
-      }, { once: true });
-      
-      // Handle errors
-      modelViewer.addEventListener('error', function(event) {
-        updateStatus(`❌ Error loading avatar: ${file.name}`);
-        console.error('Avatar loading error:', event);
-      }, { once: true });
-    }
-
-    function loadGarmentFile(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-      
-      const fileInfo = document.getElementById('file-info');
-      const fileName = file.name.toLowerCase();
-      
-      // Clear any previous error states
-      modelViewer.removeEventListener('error', handleGarmentError);
-      modelViewer.removeEventListener('load', handleGarmentLoad);
-      
-      // Provide format-specific guidance
-      if (fileName.endsWith('.gltf')) {
-        fileInfo.innerHTML = `
-          📁 Loading: ${file.name}<br>
-          ⚠️ GLTF format - ensure companion files are available<br>
-          💡 GLB format recommended for Model Viewer<br>
-          ⏳ Processing...
-        `;
-      } else if (fileName.endsWith('.glb')) {
-        fileInfo.innerHTML = `
-          📁 Loading: ${file.name}<br>
-          ✅ GLB format - perfect for Model Viewer<br>
-          📊 Size: ${(file.size / 1024 / 1024).toFixed(2)} MB<br>
-          ⏳ Processing with Model Viewer...
-        `;
-      }
-      
-      updateStatus(`Loading garment: ${file.name}`);
-      
-      // Create object URL for the file
-      const objectURL = URL.createObjectURL(file);
-      currentGarment = objectURL;
-      
-      // Force switch to garment mode when loading a garment
-      setModelType('garment');
-      
-      // Add event listeners before setting src
-      function handleGarmentLoad() {
-        fileInfo.innerHTML = `
-          ✅ Successfully loaded: ${file.name}<br>
-          📊 Size: ${(file.size / 1024 / 1024).toFixed(2)} MB<br>
-          🎨 Model Viewer PBR rendering active<br>
-          🔍 Materials and textures loaded<br>
-          ⚡ Hardware accelerated display
-        `;
-        
-        updateStatus(`✅ Garment loaded: ${file.name}`);
-        updateCombinationStatus();
-        
-        // Hide fallback content
-        document.getElementById('fallback').style.display = 'none';
-        
-        // Clean up the object URL after loading
-        setTimeout(() => URL.revokeObjectURL(objectURL), 5000);
-        
-        // Remove event listeners
-        modelViewer.removeEventListener('error', handleGarmentError);
-        modelViewer.removeEventListener('load', handleGarmentLoad);
-      }
-      
-      function handleGarmentError(event) {
-        console.error('Garment loading error:', event);
-        
-        if (fileName.endsWith('.gltf')) {
-          fileInfo.innerHTML = `
-            ❌ GLTF loading failed: ${file.name}<br>
-            🔍 Missing companion files (*.bin, textures)<br>
-            💡 <strong>Solution:</strong> Export as GLB from CLO3D<br>
-            📋 GLB embeds all data in one file<br>
-            🔧 Model Viewer works best with GLB format
-          `;
-        } else {
-          fileInfo.innerHTML = `
-            ❌ Error loading: ${file.name}<br>
-            🔍 File may be corrupted or incompatible<br>
-            💡 Try re-exporting from CLO3D as GLB<br>
-            📋 Ensure proper Model Viewer compatibility<br>
-            🔧 Check CLO3D export settings
-          `;
-        }
-        
-        updateStatus(`❌ Failed to load: ${file.name}`);
-        
-        // Clean up the object URL
-        setTimeout(() => URL.revokeObjectURL(objectURL), 1000);
-        
-        // Remove event listeners
-        modelViewer.removeEventListener('error', handleGarmentError);
-        modelViewer.removeEventListener('load', handleGarmentLoad);
-      }
-      
-      // Add event listeners
-      modelViewer.addEventListener('load', handleGarmentLoad, { once: true });
-      modelViewer.addEventListener('error', handleGarmentError, { once: true });
-      
-      // Set the model source - this should trigger loading
-      modelViewer.src = objectURL;
-      
-      // Add progress tracking
-      modelViewer.addEventListener('progress', function handleProgress(event) {
-        const progress = event.detail.totalProgress;
-        if (progress < 1) {
-          updateStatus(`Loading garment: ${(progress * 100).toFixed(1)}%`);
-          fileInfo.innerHTML = `
-            📁 Loading: ${file.name}<br>
-            📊 Progress: ${(progress * 100).toFixed(1)}%<br>
-            ⏳ Processing garment data...
-          `;
-        } else {
-          modelViewer.removeEventListener('progress', handleProgress);
-        }
-      });
-    }
-
-    function loadSampleGarment(type) {
-      updateStatus(`Loading sample ${type}...`);
-      
-      // Try to load sample files if they exist
-      const samplePath = `./prototype/assets/garments/${type}.glb`;
-      
-      fetch(samplePath)
-        .then(response => {
-          if (response.ok) {
-            return response.blob();
-          }
-          throw new Error('Sample file not found');
-        })
-        .then(blob => {
-          const objectURL = URL.createObjectURL(blob);
-          currentGarment = objectURL;
-          
-          if (currentModelType === 'garment' || currentModelType === 'both') {
-            modelViewer.src = objectURL;
-          }
-          
-          document.getElementById('fallback').style.display = 'none';
-          updateStatus(`✅ Sample ${type} loaded`);
-          updateCombinationStatus();
-        })
-        .catch(error => {
-          console.log('Sample file not available:', error);
-          const fileInfo = document.getElementById('file-info');
-          fileInfo.innerHTML = `
-            🎯 Sample ${type} would load here<br>
-            📁 Upload your own CLO3D files for full functionality<br>
-            ✨ Model Viewer ready for professional rendering<br>
-            🔧 Add sample GLB files to ./prototype/assets/garments/
-          `;
-          updateStatus(`📋 Sample ${type} placeholder`);
-        });
-    }
-
-    function setEnvironment(envType) {
-      // Update UI
-      document.querySelectorAll('.env-btn').forEach(btn => btn.classList.remove('active'));
-      document.querySelector(`[data-env="${envType}"]`).classList.add('active');
-      
-      // Set environment
-      const envUrl = environments[envType];
-      modelViewer.environmentImage = envUrl;
-      modelViewer.skyboxImage = envUrl;
-      
-      updateStatus(`Environment: ${envType}`);
-    }
-
-    function setAutoRotate(enabled) {
-      autoRotateEnabled = enabled;
-      
-      // Update UI
-      document.getElementById('auto-rotate-on').classList.toggle('active', enabled);
-      document.getElementById('auto-rotate-off').classList.toggle('active', !enabled);
-      
-      if (enabled) {
-        modelViewer.setAttribute('auto-rotate', '');
-      } else {
-        modelViewer.removeAttribute('auto-rotate');
-      }
-    }
-
-    function resetCamera() {
-      modelViewer.resetTurntableRotation();
-      modelViewer.jumpCameraToGoal();
-      updateStatus('Camera reset');
-    }
-
-    function takeScreenshot() {
-      modelViewer.toBlob({ idealAspect: true }).then(blob => {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `lucifex-model-${Date.now()}.png`;
-        a.click();
-        URL.revokeObjectURL(url);
-        updateStatus('Screenshot saved');
-      });
-    }
-
-    function exportScene() {
-      const sceneData = {
-        modelType: currentModelType,
-        avatar: currentAvatar ? 'loaded' : null,
-        garment: currentGarment ? 'loaded' : null,
-        combined: combinedModel ? 'generated' : null,
-        combinationMethod: combinationMethod,
-        environment: document.querySelector('.env-btn.active').dataset.env,
-        settings: {
-          exposure: modelViewer.exposure,
-          shadowIntensity: modelViewer.shadowIntensity,
-          shadowSoftness: modelViewer.shadowSoftness,
-          autoRotate: autoRotateEnabled,
-          avatarOpacity: parseFloat(document.getElementById('avatar-opacity').value),
-          garmentOpacity: parseFloat(document.getElementById('garment-opacity').value),
-          garmentOffsetX: parseFloat(document.getElementById('garment-offset-x').value),
-          garmentOffsetY: parseFloat(document.getElementById('garment-offset-y').value)
-        },
-        timestamp: new Date().toISOString()
-      };
-      
-      const dataStr = JSON.stringify(sceneData, null, 2);
-      const dataBlob = new Blob([dataStr], {type: 'application/json'});
-      const url = URL.createObjectURL(dataBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `lucifex-scene-${Date.now()}.json`;
-      link.click();
-      URL.revokeObjectURL(url);
-      
-      updateStatus('Scene exported');
-    }
-
-    function switchTab(tabName) {
-      // Update tab buttons
-      document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-      event.target.classList.add('active');
-      
-      // Update tab content
-      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-      document.getElementById(tabName + '-tab').classList.add('active');
-    }
-
-    // Setup control listeners
-    function setupControls() {
-      // Avatar scale control
-      const avatarScaleSlider = document.getElementById('avatar-scale');
-      const avatarScaleValue = document.getElementById('avatar-scale-value');
-      
-      avatarScaleSlider.addEventListener('input', (e) => {
-        const value = parseFloat(e.target.value);
-        avatarScaleValue.textContent = value.toFixed(2);
-        // Model Viewer handles scaling automatically
-        if (modelViewer.model && currentModelType !== 'garment') {
-          modelViewer.scale = `${value} ${value} ${value}`;
-        }
-      });
-
-      // Garment scale control
-      const garmentScaleSlider = document.getElementById('garment-scale');
-      const garmentScaleValue = document.getElementById('garment-scale-value');
-      
-      garmentScaleSlider.addEventListener('input', (e) => {
-        const value = parseFloat(e.target.value);
-        garmentScaleValue.textContent = value.toFixed(2);
-        // Model Viewer handles scaling automatically
-        if (modelViewer.model && currentModelType !== 'avatar') {
-          modelViewer.scale = `${value} ${value} ${value}`;
-        }
-      });
-
-      // Combined view controls
-      const avatarOpacitySlider = document.getElementById('avatar-opacity');
-      const avatarOpacityValue = document.getElementById('avatar-opacity-value');
-      
-      avatarOpacitySlider.addEventListener('input', (e) => {
-        const value = parseFloat(e.target.value);
-        avatarOpacityValue.textContent = value.toFixed(1);
-      });
-
-      const garmentOpacitySlider = document.getElementById('garment-opacity');
-      const garmentOpacityValue = document.getElementById('garment-opacity-value');
-      
-      garmentOpacitySlider.addEventListener('input', (e) => {
-        const value = parseFloat(e.target.value);
-        garmentOpacityValue.textContent = value.toFixed(1);
-      });
-
-      const garmentOffsetXSlider = document.getElementById('garment-offset-x');
-      const garmentOffsetXValue = document.getElementById('garment-offset-x-value');
-      
-      garmentOffsetXSlider.addEventListener('input', (e) => {
-        const value = parseFloat(e.target.value);
-        garmentOffsetXValue.textContent = value.toFixed(2);
-      });
-
-      const garmentOffsetYSlider = document.getElementById('garment-offset-y');
-      const garmentOffsetYValue = document.getElementById('garment-offset-y-value');
-      
-      garmentOffsetYSlider.addEventListener('input', (e) => {
-        const value = parseFloat(e.target.value);
-        garmentOffsetYValue.textContent = value.toFixed(2);
-      });
-
-      // Lighting controls
-      const exposureSlider = document.getElementById('exposure');
-      const exposureValue = document.getElementById('exposure-value');
-      
-      exposureSlider.addEventListener('input', (e) => {
-        const value = parseFloat(e.target.value);
-        exposureValue.textContent = value.toFixed(1);
-        modelViewer.exposure = value;
-      });
-
-      const shadowSlider = document.getElementById('shadow-intensity');
-      const shadowValue = document.getElementById('shadow-intensity-value');
-      
-      shadowSlider.addEventListener('input', (e) => {
-        const value = parseFloat(e.target.value);
-        shadowValue.textContent = value.toFixed(1);
-        modelViewer.shadowIntensity = value;
-      });
-
-      const softnessSlider = document.getElementById('shadow-softness');
-      const softnessValue = document.getElementById('shadow-softness-value');
-      
-      softnessSlider.addEventListener('input', (e) => {
-        const value = parseFloat(e.target.value);
-        softnessValue.textContent = value.toFixed(1);
-        modelViewer.shadowSoftness = value;
-      });
-    }
-
-    // Initialize when page loads
-    window.addEventListener('load', () => {
-      setupControls();
-      updateStatus('✅ Model Viewer ready - load avatar or garment');
-      updateCombinationStatus();
-      
-      // Load default avatar
-      loadAvatarPreset('female-s');
-    });
-
-    // Model viewer event listeners
-    modelViewer.addEventListener('load', () => {
-      updateStatus('✅ Model loaded successfully');
-    });
-
-    modelViewer.addEventListener('error', (event) => {
-      console.error('❌ Model loading error:', event);
-      updateStatus('❌ Model loading error');
-    });
-
-    modelViewer.addEventListener('progress', (event) => {
-      const progress = event.detail.totalProgress;
-      if (progress < 1) {
-        updateStatus(`Loading: ${(progress * 100).toFixed(1)}%`);
-      }
-    });
-
-    // Make functions global
-    window.setModelType = setModelType;
-    window.loadAvatarPreset = loadAvatarPreset;
-    window.loadCustomAvatar = loadCustomAvatar;
-    window.loadGarmentFile = loadGarmentFile;
-    window.loadSampleGarment = loadSampleGarment;
-    window.setEnvironment = setEnvironment;
-    window.setAutoRotate = setAutoRotate;
-    window.resetCamera = resetCamera;
-    window.takeScreenshot = takeScreenshot;
-    window.exportScene = exportScene;
-    window.switchTab = switchTab;
-    window.generateCombinedModel = generateCombinedModel;
-    window.setCombinationMethod = setCombinationMethod;
-    window.resetCombination = resetCombination;
-  </script>
-</body>
-</html>
+}
+\`\`\`
