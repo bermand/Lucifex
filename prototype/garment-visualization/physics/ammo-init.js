@@ -173,37 +173,28 @@ class AmmoPhysics {
     if (!this.isInitialized || !vertices || !indices) return null
 
     try {
-      // Create vectors using the correct Ammo.js API
-      const ammoPositions = new this.AmmoLib.btVector3Array()
-      const ammoIndices = new this.AmmoLib.btFaceArray()
+      // Use the simpler patch-based approach for cloth creation
+      // Create a rectangular cloth patch instead of complex mesh
+      const res = 10 // Resolution of cloth grid
+      const clothWidth = 1.0
+      const clothHeight = 1.2
 
-      // Convert vertices to Ammo format
-      for (let i = 0; i < vertices.length; i += 3) {
-        const v = new this.AmmoLib.btVector3(
-          vertices[i] + position.x,
-          vertices[i + 1] + position.y,
-          vertices[i + 2] + position.z,
-        )
-        ammoPositions.push_back(v)
-      }
-
-      // Convert indices to Ammo format (faces, not individual indices)
-      for (let i = 0; i < indices.length; i += 3) {
-        // Create a face with 3 indices
-        const face = new this.AmmoLib.btFace()
-        face.m_indices[0] = indices[i]
-        face.m_indices[1] = indices[i + 1]
-        face.m_indices[2] = indices[i + 2]
-        ammoIndices.push_back(face)
-      }
-
-      // Create soft body from triangle mesh using the helper
-      const softBody = this.AmmoLib.btSoftBodyHelpers.CreateFromTriMesh(
+      // Create soft body using helper function for patch
+      const softBody = this.AmmoLib.btSoftBodyHelpers.CreatePatch(
         this.physicsWorld.getWorldInfo(),
-        ammoPositions,
-        ammoIndices,
-        true, // randomizeConstraints
+        new this.AmmoLib.btVector3(position.x - clothWidth / 2, position.y, position.z - clothHeight / 2), // corner00
+        new this.AmmoLib.btVector3(position.x + clothWidth / 2, position.y, position.z - clothHeight / 2), // corner10
+        new this.AmmoLib.btVector3(position.x - clothWidth / 2, position.y, position.z + clothHeight / 2), // corner01
+        new this.AmmoLib.btVector3(position.x + clothWidth / 2, position.y, position.z + clothHeight / 2), // corner11
+        res, // resx
+        res, // resy
+        0, // fixeds (0 = no fixed points initially)
+        true, // gendiags
       )
+
+      // Pin the top corners to simulate hanging
+      softBody.setMass(0, 0) // Top-left corner
+      softBody.setMass(res - 1, 0) // Top-right corner
 
       // Configure cloth properties
       const material = softBody.get_m_materials().at(0)
@@ -228,17 +219,15 @@ class AmmoPhysics {
       this.clothBodies.set(clothId, {
         body: softBody,
         originalVertices: vertices,
-        vertexCount: vertices.length / 3,
+        vertexCount: (res + 1) * (res + 1), // Grid vertices
+        resolution: res,
       })
 
-      console.log("✅ Ammo.js cloth body created with", vertices.length / 3, "vertices")
+      console.log("✅ Ammo.js cloth patch created with", (res + 1) * (res + 1), "vertices")
       return { id: clothId, body: softBody }
     } catch (error) {
       console.error("❌ Failed to create Ammo.js cloth body:", error)
-      console.log(
-        "Available Ammo.js methods:",
-        Object.keys(this.AmmoLib).filter((k) => k.includes("Vector")),
-      )
+      console.log("Available Ammo.js helpers:", Object.keys(this.AmmoLib.btSoftBodyHelpers || {}))
       return null
     }
   }
