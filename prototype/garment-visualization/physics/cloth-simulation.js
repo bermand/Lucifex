@@ -1,5 +1,5 @@
 // Cloth Simulation Manager
-// Handles the integration between Model Viewer and Ammo.js physics
+// Handles the integration between Model Viewer and physics engines
 
 class ClothSimulation {
   constructor() {
@@ -9,24 +9,45 @@ class ClothSimulation {
     this.lastTime = 0
     this.clothMeshes = new Map()
     this.avatarCollider = null
+    this.usingFallback = false
   }
 
   async initialize() {
     try {
-      // Create AmmoPhysics instance
+      // Try to create AmmoPhysics instance first
       if (window.AmmoPhysics) {
         this.physics = new window.AmmoPhysics()
         const success = await this.physics.initPhysicsWorld()
         if (success) {
-          console.log("✅ Cloth simulation initialized")
+          console.log("✅ Cloth simulation initialized with Ammo.js")
+          this.usingFallback = false
           return true
         }
-      } else {
-        console.error("❌ AmmoPhysics not available")
       }
+
+      // If Ammo.js fails, fall back to simple physics
+      console.log("🔄 Falling back to simple cloth physics...")
+      if (window.SimpleClothPhysics) {
+        this.physics = new window.SimpleClothPhysics()
+        this.usingFallback = true
+        console.log("✅ Cloth simulation initialized with simple physics")
+        return true
+      }
+
+      console.error("❌ No physics engines available")
       return false
     } catch (error) {
       console.error("❌ Failed to initialize cloth simulation:", error)
+
+      // Try fallback physics
+      if (window.SimpleClothPhysics) {
+        console.log("🔄 Trying fallback physics after error...")
+        this.physics = new window.SimpleClothPhysics()
+        this.usingFallback = true
+        console.log("✅ Cloth simulation initialized with simple physics (fallback)")
+        return true
+      }
+
       return false
     }
   }
@@ -104,13 +125,17 @@ class ClothSimulation {
     if (!avatarViewer || !this.physics) return false
 
     try {
-      // Create avatar collider
-      this.avatarCollider = this.physics.createAvatarCollider(
-        { x: 0, y: 0, z: 0 }, // Position
-        { x: 0.4, y: 0.9, z: 0.2 }, // Scale (adjust based on avatar size)
-      )
-
-      console.log("✅ Avatar physics setup complete")
+      if (!this.usingFallback && this.physics.createAvatarCollider) {
+        // Create avatar collider for Ammo.js
+        this.avatarCollider = this.physics.createAvatarCollider(
+          { x: 0, y: 0, z: 0 }, // Position
+          { x: 0.4, y: 0.9, z: 0.2 }, // Scale (adjust based on avatar size)
+        )
+        console.log("✅ Avatar physics setup complete (Ammo.js)")
+      } else {
+        // Simple physics doesn't need avatar colliders
+        console.log("✅ Avatar physics setup complete (Simple)")
+      }
       return true
     } catch (error) {
       console.error("❌ Failed to setup avatar physics:", error)
@@ -143,7 +168,7 @@ class ClothSimulation {
           viewer: garmentViewer,
         })
 
-        console.log("✅ Garment physics setup complete")
+        console.log(`✅ Garment physics setup complete (${this.usingFallback ? "Simple" : "Ammo.js"})`)
         return true
       }
 
@@ -159,6 +184,11 @@ class ClothSimulation {
 
     this.isRunning = true
     this.lastTime = performance.now()
+
+    // Start physics engine
+    if (this.physics.startSimulation) {
+      this.physics.startSimulation()
+    }
 
     const animate = (currentTime) => {
       if (!this.isRunning) return
@@ -176,7 +206,7 @@ class ClothSimulation {
     }
 
     this.animationId = requestAnimationFrame(animate)
-    console.log("✅ Cloth simulation started")
+    console.log(`✅ Cloth simulation started (${this.usingFallback ? "Simple Physics" : "Ammo.js"})`)
   }
 
   stopSimulation() {
@@ -185,6 +215,12 @@ class ClothSimulation {
       cancelAnimationFrame(this.animationId)
       this.animationId = null
     }
+
+    // Stop physics engine
+    if (this.physics.stopSimulation) {
+      this.physics.stopSimulation()
+    }
+
     console.log("⏹️ Cloth simulation stopped")
   }
 
@@ -211,7 +247,7 @@ class ClothSimulation {
 
   cleanup() {
     this.stopSimulation()
-    if (this.physics) {
+    if (this.physics && this.physics.cleanup) {
       this.physics.cleanup()
     }
     this.clothMeshes.clear()
@@ -221,21 +257,19 @@ class ClothSimulation {
 
   // Utility methods for adjusting physics parameters
   setClothStiffness(clothId, stiffness) {
-    const clothData = this.clothMeshes.get(clothId)
-    if (clothData && this.physics && this.physics.AmmoLib) {
-      const material = clothData.body.get_m_materials().at(0)
-      material.set_m_kLST(stiffness)
-      material.set_m_kAST(stiffness)
-      material.set_m_kVST(stiffness)
+    if (this.physics && this.physics.setClothStiffness) {
+      this.physics.setClothStiffness(clothId, stiffness)
     }
   }
 
   setGravity(x, y, z) {
-    if (this.physics && this.physics.physicsWorld && this.physics.AmmoLib) {
-      const gravity = new this.physics.AmmoLib.btVector3(x, y, z)
-      this.physics.physicsWorld.setGravity(gravity)
-      this.physics.physicsWorld.getWorldInfo().set_m_gravity(gravity)
+    if (this.physics && this.physics.setGravity) {
+      this.physics.setGravity(x, y, z)
     }
+  }
+
+  getPhysicsType() {
+    return this.usingFallback ? "Simple Physics" : "Ammo.js"
   }
 }
 

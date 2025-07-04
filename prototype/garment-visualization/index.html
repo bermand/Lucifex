@@ -383,7 +383,26 @@
 // Load physics modules dynamically to avoid reference errors
 window.loadPhysicsModules = async function() {
   try {
-    // Load Ammo.js physics first
+    // Load simple physics fallback first
+    if (!window.SimpleClothPhysics) {
+      const simpleScript = document.createElement('script');
+      simpleScript.src = './physics/simple-cloth-physics.js';
+      document.head.appendChild(simpleScript);
+      
+      await new Promise((resolve, reject) => {
+        simpleScript.onload = () => {
+          if (window.SimpleClothPhysics) {
+            console.log('✅ SimpleClothPhysics loaded');
+            resolve();
+          } else {
+            reject(new Error('SimpleClothPhysics not found after loading script'));
+          }
+        };
+        simpleScript.onerror = () => reject(new Error('Failed to load simple-cloth-physics.js'));
+      });
+    }
+
+    // Load Ammo.js physics (will fallback to simple if this fails)
     if (!window.AmmoPhysics) {
       const ammoScript = document.createElement('script');
       ammoScript.src = './physics/ammo-init.js';
@@ -1272,13 +1291,13 @@ window.loadPhysicsModules = async function() {
       if (!physicsEnabled) {
         // Enable physics
         updateStatus('🔄 Loading physics modules...');
-        updatePhysicsStatus('<strong>Loading Physics Engine...</strong><br><small>Downloading Ammo.js from CDN</small>', 'loading');
+        updatePhysicsStatus('<strong>Loading Physics Engine...</strong><br><small>Trying Ammo.js, will fallback to simple physics if needed</small>', 'loading');
         
         // Load physics modules first
         const modulesLoaded = await window.loadPhysicsModules();
         if (!modulesLoaded) {
           updateStatus('❌ Failed to load physics modules');
-          updatePhysicsStatus('<strong>❌ Failed to Load:</strong><br><small>Could not download physics modules</small>', 'error');
+          updatePhysicsStatus('<strong>❌ Failed to Load:</strong><br><small>Could not load any physics modules</small>', 'error');
           return;
         }
         
@@ -1313,8 +1332,9 @@ window.loadPhysicsModules = async function() {
             toggleBtn.classList.add('active');
             controlsDiv.style.display = 'block';
             
-            updateStatus('✅ Physics simulation active - garment will interact with avatar!');
-            updatePhysicsStatus('<strong>✅ Physics Active:</strong><br><small>Cloth simulation running - garment responds to gravity and collisions</small>', 'active');
+            const physicsType = clothSimulation.getPhysicsType();
+            updateStatus(`✅ Physics simulation active using ${physicsType}!`);
+            updatePhysicsStatus(`<strong>✅ ${physicsType} Active:</strong><br><small>Cloth simulation running - garment responds to gravity and collisions</small>`, 'active');
           } else {
             updateStatus('❌ Combined view required for physics simulation');
             updatePhysicsStatus('<strong>❌ Combined View Required:</strong><br><small>Load both avatar and garment first</small>', 'error');
