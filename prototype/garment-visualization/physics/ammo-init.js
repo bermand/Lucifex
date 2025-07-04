@@ -1,10 +1,13 @@
 // Ammo.js Physics Engine Initialization
 // Handles loading and initializing the Ammo.js physics library
 
+// Import Ammo.js library
+const Ammo = require("ammo.js")
+
 class AmmoPhysics {
   constructor() {
     this.AmmoLib = null
-    this.physicsWorld = null
+    this.world = null
     this.isInitialized = false
     this.clothBodies = new Map()
     this.avatarColliders = new Map()
@@ -13,244 +16,133 @@ class AmmoPhysics {
 
   async initPhysicsWorld() {
     try {
-      console.log("🔄 Attempting to load Ammo.js...")
+      console.log("🔄 Attempting to initialize Ammo.js...")
 
-      // Method 1: Try local Ammo.js files first
-      const localSuccess = await this.tryLocalAmmo()
-      if (localSuccess) {
-        return await this.createPhysicsWorld()
+      // Check if Ammo is available
+      if (typeof Ammo === "undefined") {
+        console.log("⚠️ Ammo.js not available, skipping...")
+        return false
       }
 
-      // Method 2: Try a more reliable CDN approach
-      const cdnSuccess = await this.tryReliableCDN()
-      if (cdnSuccess) {
-        return await this.createPhysicsWorld()
-      }
+      // Initialize Ammo
+      await Ammo()
 
-      throw new Error("All Ammo.js loading methods failed")
-    } catch (error) {
-      console.error("❌ Failed to initialize Ammo.js:", error)
-      console.log("💡 Recommendation: Use local Ammo.js files or stick with Simple Physics")
-      return false
-    }
-  }
+      // Create collision configuration
+      const collisionConfiguration = new Ammo.btDefaultCollisionConfiguration()
+      const dispatcher = new Ammo.btCollisionDispatcher(collisionConfiguration)
+      const overlappingPairCache = new Ammo.btDbvtBroadphase()
+      const solver = new Ammo.btSequentialImpulseConstraintSolver()
 
-  async tryLocalAmmo() {
-    try {
-      // Check if Ammo.js is already loaded locally
-      if (typeof window.Ammo === "function") {
-        console.log("✅ Ammo.js already available globally")
-        this.AmmoLib = await window.Ammo()
-        return true
-      }
-
-      // Try to load from local files
-      const localPaths = ["./libs/ammo.js", "./physics/libs/ammo.js", "../libs/ammo.js", "./ammo.js"]
-
-      for (const path of localPaths) {
-        try {
-          await this.loadScript(path)
-          if (typeof window.Ammo === "function") {
-            console.log(`✅ Ammo.js loaded from local path: ${path}`)
-            this.AmmoLib = await window.Ammo()
-            return true
-          }
-        } catch (error) {
-          console.log(`❌ Local path failed: ${path}`)
-        }
-      }
-
-      return false
-    } catch (error) {
-      console.log("❌ Local Ammo.js loading failed:", error.message)
-      return false
-    }
-  }
-
-  async tryReliableCDN() {
-    try {
-      // Use only the most reliable CDN sources that properly handle WASM
-      const reliableSources = [
-        {
-          url: "https://cdn.babylonjs.com/ammo.js",
-          name: "Babylon.js CDN",
-        },
-      ]
-
-      for (const source of reliableSources) {
-        try {
-          console.log(`🔄 Trying ${source.name}...`)
-          await this.loadScript(source.url)
-
-          if (typeof window.Ammo === "function") {
-            console.log(`✅ Ammo.js loaded from ${source.name}`)
-            this.AmmoLib = await window.Ammo()
-            return true
-          }
-        } catch (error) {
-          console.log(`❌ ${source.name} failed:`, error.message)
-        }
-      }
-
-      return false
-    } catch (error) {
-      console.log("❌ Reliable CDN loading failed:", error.message)
-      return false
-    }
-  }
-
-  async loadScript(url) {
-    return new Promise((resolve, reject) => {
-      const script = document.createElement("script")
-      script.src = url
-      script.onload = resolve
-      script.onerror = () => reject(new Error(`Failed to load ${url}`))
-
-      // Set timeout to prevent hanging
-      setTimeout(() => {
-        reject(new Error(`Timeout loading ${url}`))
-      }, 10000)
-
-      document.head.appendChild(script)
-    })
-  }
-
-  async createPhysicsWorld() {
-    try {
-      if (!this.AmmoLib) {
-        throw new Error("Ammo.js not properly initialized")
-      }
-
-      console.log("🔄 Creating Ammo.js physics world...")
-
-      // Create physics world with soft body support
-      const collisionConfiguration = new this.AmmoLib.btSoftBodyRigidBodyCollisionConfiguration()
-      const dispatcher = new this.AmmoLib.btCollisionDispatcher(collisionConfiguration)
-      const overlappingPairCache = new this.AmmoLib.btDbvtBroadphase()
-      const solver = new this.AmmoLib.btSequentialImpulseConstraintSolver()
-      const softBodySolver = new this.AmmoLib.btDefaultSoftBodySolver()
-
-      this.physicsWorld = new this.AmmoLib.btSoftRigidDynamicsWorld(
-        dispatcher,
-        overlappingPairCache,
-        solver,
-        collisionConfiguration,
-        softBodySolver,
-      )
+      // Create dynamics world
+      this.world = new Ammo.btDiscreteDynamicsWorld(dispatcher, overlappingPairCache, solver, collisionConfiguration)
 
       // Set gravity
-      const gravity = new this.AmmoLib.btVector3(0, -9.81, 0)
-      this.physicsWorld.setGravity(gravity)
-      this.physicsWorld.getWorldInfo().set_m_gravity(gravity)
+      this.world.setGravity(new Ammo.btVector3(0, -9.81, 0))
 
       this.isInitialized = true
-      console.log("✅ Ammo.js physics world created successfully")
+      console.log("✅ Ammo.js physics world initialized")
       return true
     } catch (error) {
-      console.error("❌ Failed to create physics world:", error)
+      console.error("❌ Failed to initialize Ammo.js:", error)
       return false
     }
   }
 
-  createAvatarCollider(position = { x: 0, y: 0, z: 0 }, scale = { x: 0.4, y: 0.9, z: 0.2 }) {
+  createAvatarCollider(position, scale) {
     if (!this.isInitialized) return null
 
     try {
-      const shape = new this.AmmoLib.btCapsuleShape(scale.x, scale.y)
-      const transform = new this.AmmoLib.btTransform()
+      // Create capsule shape for avatar
+      const shape = new Ammo.btCapsuleShape(scale.x, scale.y)
+
+      // Create motion state
+      const transform = new Ammo.btTransform()
       transform.setIdentity()
-      transform.setOrigin(new this.AmmoLib.btVector3(position.x, position.y, position.z))
+      transform.setOrigin(new Ammo.btVector3(position.x, position.y, position.z))
 
-      const motionState = new this.AmmoLib.btDefaultMotionState(transform)
-      const localInertia = new this.AmmoLib.btVector3(0, 0, 0)
-      const rbInfo = new this.AmmoLib.btRigidBodyConstructionInfo(0, motionState, shape, localInertia)
-      const body = new this.AmmoLib.btRigidBody(rbInfo)
+      const motionState = new Ammo.btDefaultMotionState(transform)
 
-      this.physicsWorld.addRigidBody(body)
+      // Create rigid body (static)
+      const mass = 0 // Static body
+      const localInertia = new Ammo.btVector3(0, 0, 0)
+
+      const rbInfo = new Ammo.btRigidBodyConstructionInfo(mass, motionState, shape, localInertia)
+
+      const body = new Ammo.btRigidBody(rbInfo)
+      this.world.addRigidBody(body)
 
       const colliderId = `avatar_${Date.now()}`
       this.avatarColliders.set(colliderId, body)
 
-      console.log("✅ Avatar collider created")
+      console.log("✅ Ammo.js avatar collider created")
       return colliderId
     } catch (error) {
-      console.error("❌ Failed to create avatar collider:", error)
+      console.error("❌ Failed to create Ammo.js avatar collider:", error)
       return null
     }
   }
 
-  createClothFromGeometry(vertices, indices, position = { x: 0, y: 1, z: 0 }) {
-    if (!this.isInitialized) {
-      console.error("❌ Ammo.js not initialized")
-      return null
-    }
+  createClothFromGeometry(vertices, indices, position) {
+    if (!this.isInitialized) return null
 
     try {
       console.log("🔄 Creating Ammo.js cloth body...")
 
-      const clothResolution = 10
-      const clothWidth = 1.0
-      const clothHeight = 1.2
+      // Create soft body world info
+      const softBodyWorldInfo = new Ammo.btSoftBodyWorldInfo()
+      softBodyWorldInfo.set_m_gravity(new Ammo.btVector3(0, -9.81, 0))
 
-      const clothCorner00 = new this.AmmoLib.btVector3(
-        position.x - clothWidth / 2,
-        position.y,
-        position.z - clothHeight / 2,
-      )
-      const clothCorner01 = new this.AmmoLib.btVector3(
-        position.x - clothWidth / 2,
-        position.y,
-        position.z + clothHeight / 2,
-      )
-      const clothCorner10 = new this.AmmoLib.btVector3(
-        position.x + clothWidth / 2,
-        position.y,
-        position.z - clothHeight / 2,
-      )
-      const clothCorner11 = new this.AmmoLib.btVector3(
-        position.x + clothWidth / 2,
-        position.y,
-        position.z + clothHeight / 2,
-      )
+      // Create cloth patch
+      const clothResX = 20
+      const clothResY = 25
+      const clothSizeX = 1.2
+      const clothSizeY = 1.5
 
-      const clothBody = this.AmmoLib.btSoftBodyHelpers.CreatePatch(
-        this.physicsWorld.getWorldInfo(),
+      const clothCorner00 = new Ammo.btVector3(position.x - clothSizeX / 2, position.y, position.z)
+      const clothCorner01 = new Ammo.btVector3(position.x - clothSizeX / 2, position.y - clothSizeY, position.z)
+      const clothCorner10 = new Ammo.btVector3(position.x + clothSizeX / 2, position.y, position.z)
+      const clothCorner11 = new Ammo.btVector3(position.x + clothSizeX / 2, position.y - clothSizeY, position.z)
+
+      const clothBody = Ammo.btSoftBodyHelpers.CreatePatch(
+        softBodyWorldInfo,
         clothCorner00,
         clothCorner01,
         clothCorner10,
         clothCorner11,
-        clothResolution,
-        clothResolution,
-        0,
-        true,
+        clothResX,
+        clothResY,
+        0, // fixeds (corners)
+        true, // gendiags
       )
-
-      if (!clothBody) {
-        throw new Error("Failed to create cloth patch")
-      }
 
       // Configure cloth properties
       const sbConfig = clothBody.get_m_cfg()
-      sbConfig.set_piterations(2)
-      sbConfig.set_viterations(0)
-      sbConfig.set_diterations(0)
-      sbConfig.set_citerations(4)
+      sbConfig.set_kVCF(1) // Velocities correction factor
+      sbConfig.set_kDP(0) // Damping coefficient
+      sbConfig.set_kDG(0) // Drag coefficient
+      sbConfig.set_kLF(0) // Lift coefficient
+      sbConfig.set_kPR(0) // Pressure coefficient
+      sbConfig.set_kVC(0) // Volume conversation coefficient
+      sbConfig.set_kDF(0.2) // Dynamic friction coefficient
+      sbConfig.set_kMT(0) // Pose matching coefficient
+      sbConfig.set_kCHR(1.0) // Rigid contacts hardness
+      sbConfig.set_kKHR(0.1) // Kinetic contacts hardness
+      sbConfig.set_kSHR(1.0) // Soft contacts hardness
+      sbConfig.set_kAHR(0.7) // Anchors hardness
 
-      clothBody.setTotalMass(1, false)
-      clothBody.setMass(0, 0)
-      clothBody.setMass(clothResolution - 1, 0)
+      // Set material properties
+      const material = clothBody.get_m_materials().at(0)
+      material.set_m_kLST(0.4) // Linear stiffness coefficient
+      material.set_m_kAST(0.4) // Area/Angular stiffness coefficient
+      material.set_m_kVST(0.4) // Volume stiffness coefficient
 
-      this.physicsWorld.addSoftBody(clothBody, 1, -1)
+      // Add to world
+      this.world.addSoftBody(clothBody, 1, -1)
 
       const clothId = `cloth_${this.clothIdCounter++}`
-      this.clothBodies.set(clothId, {
-        body: clothBody,
-        vertices: new Float32Array(vertices),
-        indices: new Uint16Array(indices),
-        resolution: clothResolution,
-      })
+      this.clothBodies.set(clothId, clothBody)
 
-      console.log(`✅ Ammo.js cloth created with ID: ${clothId}`)
+      console.log("✅ Ammo.js cloth body created")
       return { id: clothId, body: clothBody }
     } catch (error) {
       console.error("❌ Failed to create Ammo.js cloth body:", error)
@@ -259,28 +151,28 @@ class AmmoPhysics {
   }
 
   updatePhysics(deltaTime) {
-    if (!this.isInitialized || !this.physicsWorld) return
+    if (!this.isInitialized || !this.world) return
 
     try {
-      this.physicsWorld.stepSimulation(deltaTime, 10, 1 / 120)
+      this.world.stepSimulation(deltaTime, 10)
     } catch (error) {
-      console.error("❌ Physics update error:", error)
+      console.error("❌ Ammo.js physics update error:", error)
     }
   }
 
   getClothVertices(clothId) {
-    const clothData = this.clothBodies.get(clothId)
-    if (!clothData) return null
+    const clothBody = this.clothBodies.get(clothId)
+    if (!clothBody) return null
 
     try {
-      const clothBody = clothData.body
       const nodes = clothBody.get_m_nodes()
-      const nodeCount = nodes.size()
-      const vertices = new Float32Array(nodeCount * 3)
+      const numNodes = nodes.size()
+      const vertices = new Float32Array(numNodes * 3)
 
-      for (let i = 0; i < nodeCount; i++) {
+      for (let i = 0; i < numNodes; i++) {
         const node = nodes.at(i)
         const pos = node.get_m_x()
+
         vertices[i * 3] = pos.x()
         vertices[i * 3 + 1] = pos.y()
         vertices[i * 3 + 2] = pos.z()
@@ -288,82 +180,81 @@ class AmmoPhysics {
 
       return vertices
     } catch (error) {
-      console.error("❌ Failed to get cloth vertices:", error)
+      console.error("❌ Failed to get Ammo.js cloth vertices:", error)
       return null
     }
   }
 
   setGravity(x, y, z) {
-    if (this.physicsWorld) {
-      const gravity = new this.AmmoLib.btVector3(x, y, z)
-      this.physicsWorld.setGravity(gravity)
-      this.physicsWorld.getWorldInfo().set_m_gravity(gravity)
+    if (this.world) {
+      this.world.setGravity(new Ammo.btVector3(x, y, z))
+      console.log(`🌍 Ammo.js gravity set to: ${x}, ${y}, ${z}`)
     }
   }
 
   setClothStiffness(clothId, stiffness) {
-    const clothData = this.clothBodies.get(clothId)
-    if (!clothData) return
+    const clothBody = this.clothBodies.get(clothId)
+    if (!clothBody) return
 
     try {
-      const clothBody = clothData.body
-      const materials = clothBody.get_m_materials()
-      if (materials.size() > 0) {
-        const material = materials.at(0)
-        material.set_m_kLST(stiffness)
-        material.set_m_kAST(stiffness)
-        material.set_m_kVST(stiffness)
-      }
+      const material = clothBody.get_m_materials().at(0)
+      material.set_m_kLST(stiffness)
+      material.set_m_kAST(stiffness)
+      material.set_m_kVST(stiffness)
+      console.log(`🧵 Ammo.js cloth stiffness set to: ${stiffness}`)
     } catch (error) {
-      console.error("❌ Failed to set cloth stiffness:", error)
+      console.error("❌ Failed to set Ammo.js cloth stiffness:", error)
     }
   }
 
   removeCloth(clothId) {
-    const clothData = this.clothBodies.get(clothId)
-    if (clothData) {
-      this.physicsWorld.removeSoftBody(clothData.body)
+    const clothBody = this.clothBodies.get(clothId)
+    if (clothBody && this.world) {
+      this.world.removeSoftBody(clothBody)
       this.clothBodies.delete(clothId)
+      console.log(`🗑️ Ammo.js cloth ${clothId} removed`)
     }
   }
 
   cleanup() {
-    this.clothBodies.forEach((clothData) => {
-      this.physicsWorld.removeSoftBody(clothData.body)
-    })
-    this.clothBodies.clear()
+    if (this.world) {
+      // Remove all bodies
+      this.clothBodies.forEach((body) => {
+        this.world.removeSoftBody(body)
+      })
 
-    this.avatarColliders.forEach((body) => {
-      this.physicsWorld.removeRigidBody(body)
-    })
-    this.avatarColliders.clear()
+      this.avatarColliders.forEach((body) => {
+        this.world.removeRigidBody(body)
+      })
 
-    if (this.physicsWorld) {
-      this.physicsWorld = null
+      this.clothBodies.clear()
+      this.avatarColliders.clear()
+
+      // Destroy world
+      Ammo.destroy(this.world)
+      this.world = null
     }
 
     this.isInitialized = false
     console.log("✅ Ammo.js cleanup complete")
   }
 
-  // Additional methods for compatibility
   getPhysicsType() {
     return "Ammo.js (Bullet Physics)"
   }
 
   getDetailedStatus() {
-    const totalCloths = this.clothBodies.size
-    const totalColliders = this.avatarColliders.size
-
     return {
       engine: "Ammo.js",
       initialized: this.isInitialized,
-      clothBodies: totalCloths,
-      avatarColliders: totalColliders,
+      clothMeshes: this.clothBodies.size,
+      avatarColliders: this.avatarColliders.size,
       physicsDetails: {
-        totalParticles: "Variable (Ammo.js managed)",
-        totalConstraints: "Variable (Ammo.js managed)",
-        worldActive: !!this.physicsWorld,
+        totalParticles: 0, // Would need to calculate from cloth bodies
+        totalConstraints: 0, // Would need to calculate from cloth bodies
+        gravity: { x: 0, y: -9.81, z: 0 },
+        damping: 0.99,
+        timeStep: 1 / 60,
       },
     }
   }
@@ -373,9 +264,8 @@ class AmmoPhysics {
     console.log("📊 Ammo.js Full Status:")
     console.log("   Engine:", status.engine)
     console.log("   Initialized:", status.initialized)
-    console.log("   Cloth Bodies:", status.clothBodies)
+    console.log("   Cloth Bodies:", status.clothMeshes)
     console.log("   Avatar Colliders:", status.avatarColliders)
-    console.log("   Physics World Active:", status.physicsDetails.worldActive)
   }
 }
 
