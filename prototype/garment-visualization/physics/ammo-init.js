@@ -173,8 +173,9 @@ class AmmoPhysics {
     if (!this.isInitialized || !vertices || !indices) return null
 
     try {
-      const ammoPositions = new this.AmmoLib.btVector3Vector()
-      const ammoIndices = new this.AmmoLib.btIntArray()
+      // Create vectors using the correct Ammo.js API
+      const ammoPositions = new this.AmmoLib.btVector3Array()
+      const ammoIndices = new this.AmmoLib.btFaceArray()
 
       // Convert vertices to Ammo format
       for (let i = 0; i < vertices.length; i += 3) {
@@ -186,18 +187,22 @@ class AmmoPhysics {
         ammoPositions.push_back(v)
       }
 
-      // Convert indices to Ammo format
-      for (let i = 0; i < indices.length; i++) {
-        ammoIndices.push_back(indices[i])
+      // Convert indices to Ammo format (faces, not individual indices)
+      for (let i = 0; i < indices.length; i += 3) {
+        // Create a face with 3 indices
+        const face = new this.AmmoLib.btFace()
+        face.m_indices[0] = indices[i]
+        face.m_indices[1] = indices[i + 1]
+        face.m_indices[2] = indices[i + 2]
+        ammoIndices.push_back(face)
       }
 
-      // Create soft body from triangle mesh
+      // Create soft body from triangle mesh using the helper
       const softBody = this.AmmoLib.btSoftBodyHelpers.CreateFromTriMesh(
         this.physicsWorld.getWorldInfo(),
         ammoPositions,
         ammoIndices,
-        indices.length / 3,
-        true,
+        true, // randomizeConstraints
       )
 
       // Configure cloth properties
@@ -209,12 +214,12 @@ class AmmoPhysics {
       // Set mass and other properties
       softBody.setTotalMass(0.5, false)
       softBody.setFriction(0.8)
-      softBody.get_m_cfg().set_piterations(10) // Position iterations
-      softBody.get_m_cfg().set_viterations(10) // Velocity iterations
-      softBody.get_m_cfg().set_diterations(10) // Drift iterations
 
-      // Enable collision with rigid bodies
-      softBody.get_m_cfg().set_collisions(0x11) // SDF_RS + VF_SS
+      const cfg = softBody.get_m_cfg()
+      cfg.set_piterations(10) // Position iterations
+      cfg.set_viterations(10) // Velocity iterations
+      cfg.set_diterations(10) // Drift iterations
+      cfg.set_collisions(0x11) // Enable collision with rigid bodies
 
       // Add to physics world
       this.physicsWorld.addSoftBody(softBody, 1, -1)
@@ -230,6 +235,10 @@ class AmmoPhysics {
       return { id: clothId, body: softBody }
     } catch (error) {
       console.error("❌ Failed to create Ammo.js cloth body:", error)
+      console.log(
+        "Available Ammo.js methods:",
+        Object.keys(this.AmmoLib).filter((k) => k.includes("Vector")),
+      )
       return null
     }
   }

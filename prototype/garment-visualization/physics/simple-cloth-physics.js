@@ -1,13 +1,14 @@
 // Simple Cloth Physics Engine
-// A lightweight cloth simulation that doesn't require Ammo.js
+// A lightweight Verlet integration based cloth simulation
 
 class SimpleClothPhysics {
   constructor() {
+    this.particles = []
+    this.constraints = []
     this.clothBodies = new Map()
-    this.isInitialized = false
     this.gravity = { x: 0, y: -9.81, z: 0 }
     this.damping = 0.99
-    this.timeStep = 1 / 60
+    this.isInitialized = false
   }
 
   async initialize() {
@@ -21,11 +22,12 @@ class SimpleClothPhysics {
 
     try {
       const clothId = `simple_cloth_${Date.now()}`
-
-      // Create cloth particles from vertices
       const particles = []
+      const constraints = []
+
+      // Create particles from vertices
       for (let i = 0; i < vertices.length; i += 3) {
-        particles.push({
+        const particle = {
           position: {
             x: vertices[i] + position.x,
             y: vertices[i + 1] + position.y,
@@ -36,116 +38,139 @@ class SimpleClothPhysics {
             y: vertices[i + 1] + position.y,
             z: vertices[i + 2] + position.z,
           },
-          pinned: vertices[i + 1] + position.y > 1.4, // Pin top vertices
+          pinned: false,
+          mass: 1.0,
+        }
+
+        // Pin top row of particles (like hanging a cloth)
+        if (vertices[i + 1] + position.y > position.y + 1.5) {
+          particle.pinned = true
+        }
+
+        particles.push(particle)
+      }
+
+      // Create constraints from triangles
+      const edges = new Set()
+      for (let i = 0; i < indices.length; i += 3) {
+        const a = indices[i]
+        const b = indices[i + 1]
+        const c = indices[i + 2]
+
+        // Add edges (avoid duplicates)
+        const edges_to_add = [
+          [Math.min(a, b), Math.max(a, b)],
+          [Math.min(b, c), Math.max(b, c)],
+          [Math.min(c, a), Math.max(c, a)],
+        ]
+
+        edges_to_add.forEach(([p1, p2]) => {
+          const edgeKey = `${p1}-${p2}`
+          if (!edges.has(edgeKey)) {
+            edges.add(edgeKey)
+
+            const particle1 = particles[p1]
+            const particle2 = particles[p2]
+
+            if (particle1 && particle2) {
+              const dx = particle1.position.x - particle2.position.x
+              const dy = particle1.position.y - particle2.position.y
+              const dz = particle1.position.z - particle2.position.z
+              const restLength = Math.sqrt(dx * dx + dy * dy + dz * dz)
+
+              constraints.push({
+                p1: p1,
+                p2: p2,
+                restLength: restLength,
+                stiffness: 0.4,
+              })
+            }
+          }
         })
       }
 
-      // Create constraints between particles
-      const constraints = []
-      const width = Math.sqrt(particles.length) // Assume square grid
-
-      for (let i = 0; i < particles.length; i++) {
-        const x = i % width
-        const y = Math.floor(i / width)
-
-        // Horizontal constraint
-        if (x < width - 1) {
-          constraints.push({
-            p1: i,
-            p2: i + 1,
-            restLength: this.distance(particles[i].position, particles[i + 1].position),
-          })
-        }
-
-        // Vertical constraint
-        if (y < width - 1) {
-          constraints.push({
-            p1: i,
-            p2: i + width,
-            restLength: this.distance(particles[i].position, particles[i + width].position),
-          })
-        }
-      }
-
-      const clothBody = {
-        id: clothId,
+      const clothData = {
         particles: particles,
         constraints: constraints,
-        stiffness: 0.4,
+        vertexCount: particles.length,
         originalVertices: vertices,
-        vertexCount: vertices.length / 3,
       }
 
-      this.clothBodies.set(clothId, clothBody)
-      console.log(`✅ Simple cloth created: ${particles.length} particles, ${constraints.length} constraints`)
+      this.clothBodies.set(clothId, clothData)
 
-      return { id: clothId, body: clothBody }
+      console.log(`✅ Simple cloth created: ${particles.length} particles, ${constraints.length} constraints`)
+      return { id: clothId, body: clothData }
     } catch (error) {
       console.error("❌ Failed to create simple cloth:", error)
       return null
     }
   }
 
-  distance(p1, p2) {
-    const dx = p1.x - p2.x
-    const dy = p1.y - p2.y
-    const dz = p1.z - p2.z
-    return Math.sqrt(dx * dx + dy * dy + dz * dz)
-  }
-
   updatePhysics(deltaTime) {
     if (!this.isInitialized) return
 
-    this.clothBodies.forEach((cloth) => {
+    // Cap deltaTime to prevent instability
+    deltaTime = Math.min(deltaTime, 1 / 60)
+
+    this.clothBodies.forEach((clothData) => {
       // Verlet integration
-      cloth.particles.forEach((particle) => {
+      clothData.particles.forEach((particle) => {
         if (particle.pinned) return
 
-        const vel = {
-          x: (particle.position.x - particle.oldPosition.x) * this.damping,
-          y: (particle.position.y - particle.oldPosition.y) * this.damping,
-          z: (particle.position.z - particle.oldPosition.z) * this.damping,
-        }
+        // Store current position
+        const tempX = particle.position.x
+        const tempY = particle.position.y
+        const tempZ = particle.position.z
 
-        particle.oldPosition.x = particle.position.x
-        particle.oldPosition.y = particle.position.y
-        particle.oldPosition.z = particle.position.z
+        // Apply gravity and damping
+        const velX = (particle.position.x - particle.oldPosition.x) * this.damping
+        const velY = (particle.position.y - particle.oldPosition.y) * this.damping
+        const velZ = (particle.position.z - particle.oldPosition.z) * this.damping
 
-        particle.position.x += vel.x + this.gravity.x * deltaTime * deltaTime
-        particle.position.y += vel.y + this.gravity.y * deltaTime * deltaTime
-        particle.position.z += vel.z + this.gravity.z * deltaTime * deltaTime
+        // Update position with Verlet integration
+        particle.position.x += velX + this.gravity.x * deltaTime * deltaTime
+        particle.position.y += velY + this.gravity.y * deltaTime * deltaTime
+        particle.position.z += velZ + this.gravity.z * deltaTime * deltaTime
+
+        // Update old position
+        particle.oldPosition.x = tempX
+        particle.oldPosition.y = tempY
+        particle.oldPosition.z = tempZ
       })
 
-      // Satisfy constraints
+      // Satisfy constraints (multiple iterations for stability)
       for (let iteration = 0; iteration < 3; iteration++) {
-        cloth.constraints.forEach((constraint) => {
-          const p1 = cloth.particles[constraint.p1]
-          const p2 = cloth.particles[constraint.p2]
+        clothData.constraints.forEach((constraint) => {
+          const p1 = clothData.particles[constraint.p1]
+          const p2 = clothData.particles[constraint.p2]
+
+          if (!p1 || !p2) return
 
           const dx = p2.position.x - p1.position.x
           const dy = p2.position.y - p1.position.y
           const dz = p2.position.z - p1.position.z
           const distance = Math.sqrt(dx * dx + dy * dy + dz * dz)
 
-          if (distance > 0) {
-            const difference = (constraint.restLength - distance) / distance
-            const translate = {
-              x: dx * difference * 0.5 * cloth.stiffness,
-              y: dy * difference * 0.5 * cloth.stiffness,
-              z: dz * difference * 0.5 * cloth.stiffness,
-            }
+          if (distance === 0) return
 
-            if (!p1.pinned) {
-              p1.position.x -= translate.x
-              p1.position.y -= translate.y
-              p1.position.z -= translate.z
-            }
+          const difference = (constraint.restLength - distance) / distance
+          const translate = {
+            x: dx * difference * constraint.stiffness,
+            y: dy * difference * constraint.stiffness,
+            z: dz * difference * constraint.stiffness,
+          }
 
-            if (!p2.pinned) {
-              p2.position.x += translate.x
-              p2.position.y += translate.y
-              p2.position.z += translate.z
-            }
+          // Move particles to satisfy constraint
+          if (!p1.pinned) {
+            p1.position.x -= translate.x * 0.5
+            p1.position.y -= translate.y * 0.5
+            p1.position.z -= translate.z * 0.5
+          }
+
+          if (!p2.pinned) {
+            p2.position.x += translate.x * 0.5
+            p2.position.y += translate.y * 0.5
+            p2.position.z += translate.z * 0.5
           }
         })
       }
@@ -153,42 +178,53 @@ class SimpleClothPhysics {
   }
 
   getClothVertices(clothId) {
-    const cloth = this.clothBodies.get(clothId)
-    if (!cloth) return null
+    const clothData = this.clothBodies.get(clothId)
+    if (!clothData) return null
 
-    const vertices = new Float32Array(cloth.particles.length * 3)
+    const vertices = new Float32Array(clothData.vertexCount * 3)
 
-    cloth.particles.forEach((particle, i) => {
+    for (let i = 0; i < clothData.particles.length; i++) {
+      const particle = clothData.particles[i]
       vertices[i * 3] = particle.position.x
       vertices[i * 3 + 1] = particle.position.y
       vertices[i * 3 + 2] = particle.position.z
-    })
+    }
 
     return vertices
   }
 
   setGravity(x, y, z) {
-    this.gravity = { x, y, z }
+    this.gravity.x = x
+    this.gravity.y = y
+    this.gravity.z = z
   }
 
   setClothStiffness(clothId, stiffness) {
-    const cloth = this.clothBodies.get(clothId)
-    if (cloth) {
-      cloth.stiffness = stiffness
+    const clothData = this.clothBodies.get(clothId)
+    if (clothData) {
+      clothData.constraints.forEach((constraint) => {
+        constraint.stiffness = stiffness
+      })
     }
   }
 
-  startSimulation() {
-    console.log("✅ Simple physics simulation started")
-  }
-
-  stopSimulation() {
-    console.log("⏹️ Simple physics simulation stopped")
+  removeCloth(clothId) {
+    this.clothBodies.delete(clothId)
   }
 
   cleanup() {
     this.clothBodies.clear()
-    console.log("✅ Simple physics cleanup complete")
+    this.particles = []
+    this.constraints = []
+    console.log("✅ Simple physics cleanup completed")
+  }
+
+  startSimulation() {
+    // Simple physics doesn't need special start logic
+  }
+
+  stopSimulation() {
+    // Simple physics doesn't need special stop logic
   }
 }
 
