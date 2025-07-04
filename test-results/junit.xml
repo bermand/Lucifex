@@ -1,29 +1,29 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <testsuites name="jest tests" tests="28" failures="0" errors="0" time="0.816">
-  <testsuite name="tests/download-avatars.test.js" errors="0" failures="0" skipped="0" timestamp="2025-07-04T23:12:43" time="0.359" tests="10">
-    <testcase classname="download-avatars script › avatar sources" name="should have predefined avatar sources with required properties" time="0.007">
+  <testsuite name="tests/download-avatars.test.js" errors="0" failures="0" skipped="0" timestamp="2025-07-04T23:14:12" time="0.357" tests="10">
+    <testcase classname="download-avatars script › avatar sources" name="should have predefined avatar sources with required properties" time="0.003">
     </testcase>
-    <testcase classname="download-avatars script › directory creation logic" name="should handle directory paths correctly" time="0">
+    <testcase classname="download-avatars script › directory creation logic" name="should handle directory paths correctly" time="0.004">
     </testcase>
     <testcase classname="download-avatars script › createAvatarManifest structure" name="should create manifest with correct structure" time="0.002">
     </testcase>
     <testcase classname="download-avatars script › file path generation" name="should generate correct paths for avatar files" time="0">
     </testcase>
-    <testcase classname="download-avatars script › file path generation" name="should generate correct path for manifest file" time="0.001">
+    <testcase classname="download-avatars script › file path generation" name="should generate correct path for manifest file" time="0">
     </testcase>
-    <testcase classname="download-avatars script › avatar source validation" name="should validate avatar source structure" time="0.001">
+    <testcase classname="download-avatars script › avatar source validation" name="should validate avatar source structure" time="0.002">
     </testcase>
     <testcase classname="download-avatars script › avatar source validation" name="should validate URL format" time="0">
     </testcase>
-    <testcase classname="download-avatars script › manifest creation logic" name="should create valid manifest structure" time="0">
+    <testcase classname="download-avatars script › manifest creation logic" name="should create valid manifest structure" time="0.001">
     </testcase>
     <testcase classname="download-avatars script › error handling scenarios" name="should handle invalid URLs gracefully" time="0.001">
     </testcase>
     <testcase classname="download-avatars script › error handling scenarios" name="should validate required avatar properties" time="0">
     </testcase>
   </testsuite>
-  <testsuite name="tests/ammo-physics.test.js" errors="0" failures="0" skipped="0" timestamp="2025-07-04T23:12:43" time="0.063" tests="8">
-    <testcase classname="AmmoPhysics › constructor" name="should initialize with correct default values" time="0.001">
+  <testsuite name="tests/ammo-physics.test.js" errors="0" failures="0" skipped="0" timestamp="2025-07-04T23:14:12" time="0.062" tests="8">
+    <testcase classname="AmmoPhysics › constructor" name="should initialize with correct default values" time="0.002">
     </testcase>
     <testcase classname="AmmoPhysics › loadAmmo" name="should return a promise when attempting to load Ammo.js" time="0.001">
     </testcase>
@@ -33,31 +33,31 @@
     </testcase>
     <testcase classname="AmmoPhysics › state management" name="should manage cloth bodies collection" time="0">
     </testcase>
-    <testcase classname="AmmoPhysics › state management" name="should manage avatar colliders collection" time="0">
+    <testcase classname="AmmoPhysics › state management" name="should manage avatar colliders collection" time="0.001">
     </testcase>
-    <testcase classname="AmmoPhysics › state management" name="should increment cloth ID counter" time="0.001">
+    <testcase classname="AmmoPhysics › state management" name="should increment cloth ID counter" time="0">
     </testcase>
-    <testcase classname="AmmoPhysics › physics world properties" name="should have null physics world initially" time="0">
+    <testcase classname="AmmoPhysics › physics world properties" name="should have null physics world initially" time="0.001">
     </testcase>
   </testsuite>
-  <testsuite name="tests/avatar-loader.test.js" errors="0" failures="0" skipped="0" timestamp="2025-07-04T23:12:43" time="0.04" tests="10">
-    <testcase classname="AvatarLoader › constructor" name="should initialize with correct default values" time="0">
+  <testsuite name="tests/avatar-loader.test.js" errors="0" failures="0" skipped="0" timestamp="2025-07-04T23:14:12" time="0.039" tests="10">
+    <testcase classname="AvatarLoader › constructor" name="should initialize with correct default values" time="0.001">
     </testcase>
-    <testcase classname="AvatarLoader › getDefaultManifest" name="should return a valid default manifest" time="0">
+    <testcase classname="AvatarLoader › getDefaultManifest" name="should return a valid default manifest" time="0.001">
     </testcase>
-    <testcase classname="AvatarLoader › loadManifest" name="should load manifest from API when available" time="0">
+    <testcase classname="AvatarLoader › loadManifest" name="should load manifest from API when available" time="0.001">
     </testcase>
-    <testcase classname="AvatarLoader › loadManifest" name="should return default manifest when API fails" time="0.003">
+    <testcase classname="AvatarLoader › loadManifest" name="should return default manifest when API fails" time="0.002">
     </testcase>
     <testcase classname="AvatarLoader › loadAvatar" name="should return cached avatar URL if available" time="0">
     </testcase>
     <testcase classname="AvatarLoader › loadAvatar" name="should fetch and cache avatar URL when file exists" time="0.001">
     </testcase>
-    <testcase classname="AvatarLoader › loadAvatar" name="should return fallback when avatar file not found" time="0.001">
+    <testcase classname="AvatarLoader › loadAvatar" name="should return fallback when avatar file not found" time="0">
     </testcase>
     <testcase classname="AvatarLoader › preloadAvatars" name="should preload all avatars from manifest" time="0.001">
     </testcase>
-    <testcase classname="AvatarLoader › utility methods" name="getAvailableAvatars should return cached avatar IDs" time="0.001">
+    <testcase classname="AvatarLoader › utility methods" name="getAvailableAvatars should return cached avatar IDs" time="0">
     </testcase>
     <testcase classname="AvatarLoader › utility methods" name="isAvatarAvailable should check cache" time="0.001">
     </testcase>
