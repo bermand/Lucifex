@@ -1,274 +1,272 @@
-// Cloth Simulation Manager
-// Handles both Ammo.js and Simple Physics engines with automatic fallback
-
-import * as THREE from "three"
-
 class ClothSimulation {
   constructor() {
-    this.physicsEngine = null
-    this.isAmmoJS = false
-    this.isInitialized = false
-    this.clothId = null
-    this.clothMesh = null
-    this.lastUpdateTime = 0
-    this.updateInterval = 1000 / 60 // 60 FPS
-    this.logInterval = 3000 // Log every 3 seconds
-    this.lastLogTime = 0
+    this.physics = null
+    this.isRunning = false
+    this.animationId = null
+    this.lastTime = 0
+    this.clothMeshes = new Map()
+    this.avatarCollider = null
+    this.usingFallback = false
   }
 
   async initialize() {
-    console.log("🔄 Initializing cloth simulation...")
-
-    // Try Ammo.js first
     try {
-      this.physicsEngine = new window.AmmoPhysics()
-      const ammoSuccess = await this.physicsEngine.initPhysicsWorld()
-
-      if (ammoSuccess) {
-        this.isAmmoJS = true
-        console.log("✅ Using Ammo.js physics engine")
-      } else {
-        throw new Error("Ammo.js initialization failed")
+      // Try to create AmmoPhysics instance first
+      if (window.AmmoPhysics) {
+        this.physics = new window.AmmoPhysics()
+        const success = await this.physics.initPhysicsWorld()
+        if (success) {
+          console.log("✅ Cloth simulation initialized with Ammo.js")
+          this.usingFallback = false
+          return true
+        }
       }
+
+      // If Ammo.js fails, fall back to simple physics
+      console.log("🔄 Falling back to simple cloth physics...")
+      if (window.SimpleClothPhysics) {
+        this.physics = new window.SimpleClothPhysics()
+        const success = await this.physics.initPhysicsWorld()
+        if (success) {
+          this.usingFallback = true
+          console.log("✅ Cloth simulation initialized with simple physics")
+          return true
+        }
+      }
+
+      console.error("❌ No physics engines available")
+      return false
     } catch (error) {
-      console.log("🔄 Ammo.js failed, falling back to simple physics")
+      console.error("❌ Failed to initialize cloth simulation:", error)
 
-      // Fallback to simple physics
-      this.physicsEngine = new window.SimpleClothPhysics()
-      await this.physicsEngine.initPhysicsWorld()
-      this.isAmmoJS = false
-      console.log("✅ Using simple physics engine")
-    }
+      // Try fallback physics
+      if (window.SimpleClothPhysics) {
+        console.log("🔄 Trying fallback physics after error...")
+        this.physics = new window.SimpleClothPhysics()
+        const success = await this.physics.initPhysicsWorld()
+        if (success) {
+          this.usingFallback = true
+          console.log("✅ Cloth simulation initialized with simple physics (fallback)")
+          return true
+        }
+      }
 
-    this.isInitialized = true
-    return true
-  }
-
-  async setupGarmentPhysics(scene) {
-    if (!this.isInitialized) {
-      console.error("❌ Physics not initialized")
       return false
     }
+  }
+
+  // Instead of trying to extract mesh from Model Viewer, create a standard cloth
+  createStandardClothMesh() {
+    // Create a realistic garment-like cloth mesh
+    const width = 30
+    const height = 40
+    const vertices = []
+    const indices = []
+
+    // Generate vertices for a cloth that resembles a t-shirt shape
+    for (let y = 0; y <= height; y++) {
+      for (let x = 0; x <= width; x++) {
+        // Create a t-shirt like shape
+        let xPos = (x - width / 2) * 0.03
+        const yPos = 1.8 - y * 0.04 // Start higher
+        const zPos = 0
+
+        // Add some shape variation for t-shirt
+        if (y < height * 0.3) {
+          // Shoulder area - wider
+          xPos *= 1.2
+        } else if (y > height * 0.7) {
+          // Bottom area - slightly wider
+          xPos *= 1.1
+        }
+
+        vertices.push(xPos, yPos, zPos)
+      }
+    }
+
+    // Generate indices for triangles
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const topLeft = y * (width + 1) + x
+        const topRight = topLeft + 1
+        const bottomLeft = (y + 1) * (width + 1) + x
+        const bottomRight = bottomLeft + 1
+
+        // First triangle
+        indices.push(topLeft, bottomLeft, topRight)
+        // Second triangle
+        indices.push(topRight, bottomLeft, bottomRight)
+      }
+    }
+
+    console.log(`✅ Created standard cloth mesh: ${vertices.length / 3} vertices, ${indices.length / 3} triangles`)
+
+    return {
+      vertices: vertices,
+      indices: indices,
+      geometry: null,
+      mesh: null,
+      isStandard: true,
+    }
+  }
+
+  async setupAvatarPhysics(avatarViewer) {
+    if (!avatarViewer || !this.physics) return false
 
     try {
-      console.log("🔄 Setting up garment physics...")
+      if (!this.usingFallback && this.physics.createAvatarCollider) {
+        // Create avatar collider for Ammo.js
+        this.avatarCollider = this.physics.createAvatarCollider(
+          { x: 0, y: 0, z: 0 }, // Position
+          { x: 0.4, y: 0.9, z: 0.2 }, // Scale (adjust based on avatar size)
+        )
+        console.log("✅ Avatar physics setup complete (Ammo.js)")
+      } else {
+        // Simple physics doesn't need avatar colliders
+        console.log("✅ Avatar physics setup complete (Simple)")
+      }
+      return true
+    } catch (error) {
+      console.error("❌ Failed to setup avatar physics:", error)
+      return false
+    }
+  }
 
-      // Create avatar collider (for collision detection)
-      this.physicsEngine.createAvatarCollider(
-        { x: 0, y: 0, z: 0 }, // position
-        { x: 0.4, y: 0.9, z: 0.2 }, // scale
+  async setupGarmentPhysics(garmentViewer) {
+    if (!garmentViewer || !this.physics) return false
+
+    try {
+      // Instead of trying to extract mesh from Model Viewer, use standard cloth
+      console.log("🎨 Creating standard cloth for physics simulation...")
+      const meshData = this.createStandardClothMesh()
+
+      // Create cloth physics body
+      const clothResult = this.physics.createClothFromGeometry(
+        meshData.vertices,
+        meshData.indices,
+        { x: 0, y: 0.2, z: 0 }, // Start position above avatar
       )
 
-      // Create standard cloth geometry for physics simulation
-      const clothGeometry = this.createStandardClothGeometry()
+      if (clothResult) {
+        this.clothMeshes.set(clothResult.id, {
+          ...clothResult,
+          originalGeometry: meshData.geometry,
+          mesh: meshData.mesh,
+          viewer: garmentViewer,
+          isStandard: meshData.isStandard || false,
+        })
 
-      // Create physics cloth body
-      const clothResult = this.physicsEngine.createClothFromGeometry(
-        clothGeometry.vertices,
-        clothGeometry.indices,
-        { x: 0, y: 1.5, z: 0 }, // position above avatar
-      )
-
-      if (!clothResult) {
-        console.error("❌ Failed to create physics cloth body")
-        return false
+        console.log(`✅ Garment physics setup complete (${this.usingFallback ? "Simple" : "Ammo.js"})`)
+        return true
       }
 
-      this.clothId = clothResult.id
-
-      // Create visual mesh for the cloth
-      this.createVisualClothMesh(scene, clothGeometry)
-
-      console.log("✅ Garment physics setup complete")
-      return true
+      return false
     } catch (error) {
       console.error("❌ Failed to setup garment physics:", error)
       return false
     }
   }
 
-  createStandardClothGeometry() {
-    // Create a simple rectangular cloth that will be shaped like a t-shirt
-    const width = 20
-    const height = 25
-    const vertices = []
-    const indices = []
+  startSimulation() {
+    if (this.isRunning || !this.physics) return
 
-    // Generate vertices in a grid pattern
-    for (let y = 0; y <= height; y++) {
-      for (let x = 0; x <= width; x++) {
-        // Create t-shirt shape
-        let shouldInclude = true
+    this.isRunning = true
+    this.lastTime = performance.now()
 
-        // T-shirt shaping logic
-        if (y <= height * 0.3) {
-          // Shoulder area - full width
-          shouldInclude = true
-        } else if (y <= height * 0.5) {
-          // Neck area - create armholes
-          const centerX = width / 2
-          const armholeSize = width * 0.25
-          shouldInclude = Math.abs(x - centerX) > armholeSize || Math.abs(x - centerX) < width * 0.15
-        } else {
-          // Body area - full width
-          shouldInclude = true
-        }
-
-        if (shouldInclude) {
-          vertices.push(
-            (x - width / 2) * 0.05, // x
-            -y * 0.05, // y (negative to hang down)
-            0, // z
-          )
-        }
-      }
+    // Start physics engine
+    if (this.physics.startSimulation) {
+      this.physics.startSimulation()
     }
 
-    // Generate indices for triangles
-    const verticesPerRow = width + 1
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        const topLeft = y * verticesPerRow + x
-        const topRight = topLeft + 1
-        const bottomLeft = (y + 1) * verticesPerRow + x
-        const bottomRight = bottomLeft + 1
+    const animate = (currentTime) => {
+      if (!this.isRunning) return
 
-        // Create two triangles per quad
-        indices.push(topLeft, bottomLeft, topRight)
-        indices.push(topRight, bottomLeft, bottomRight)
-      }
+      const deltaTime = Math.min((currentTime - this.lastTime) / 1000, 1 / 30) // Cap at 30fps
+      this.lastTime = currentTime
+
+      // Update physics
+      this.physics.updatePhysics(deltaTime)
+
+      // Update cloth meshes (for visualization feedback)
+      this.updateClothMeshes()
+
+      this.animationId = requestAnimationFrame(animate)
     }
 
-    console.log(`📐 Created standard cloth geometry: ${vertices.length / 3} vertices, ${indices.length / 3} triangles`)
-
-    return {
-      vertices: new Float32Array(vertices),
-      indices: new Uint16Array(indices),
-    }
+    this.animationId = requestAnimationFrame(animate)
+    console.log(`✅ Cloth simulation started (${this.usingFallback ? "Simple Physics" : "Ammo.js"})`)
   }
 
-  createVisualClothMesh(scene, geometry) {
-    // Create Three.js geometry for visualization
-    const clothGeometry = new THREE.BufferGeometry()
-    clothGeometry.setAttribute("position", new THREE.BufferAttribute(geometry.vertices, 3))
-    clothGeometry.setIndex(new THREE.BufferAttribute(geometry.indices, 1))
-    clothGeometry.computeVertexNormals()
+  stopSimulation() {
+    this.isRunning = false
+    if (this.animationId) {
+      cancelAnimationFrame(this.animationId)
+      this.animationId = null
+    }
 
-    // Create material
-    const clothMaterial = new THREE.MeshLambertMaterial({
-      color: 0x4a90e2,
-      side: THREE.DoubleSide,
-      transparent: true,
-      opacity: 0.9,
+    // Stop physics engine
+    if (this.physics.stopSimulation) {
+      this.physics.stopSimulation()
+    }
+
+    console.log("⏹️ Cloth simulation stopped")
+  }
+
+  updateClothMeshes() {
+    this.clothMeshes.forEach((clothData, clothId) => {
+      try {
+        const updatedVertices = this.physics.getClothVertices(clothId)
+        if (updatedVertices) {
+          // For now, we just log that the simulation is running
+          // In a full implementation, we'd update a visual representation
+          if (Math.random() < 0.01) {
+            // Log occasionally to avoid spam
+            console.log(`📊 Cloth simulation running: ${updatedVertices.length / 3} vertices updated`)
+          }
+        }
+      } catch (error) {
+        console.error("❌ Failed to update cloth mesh:", error)
+      }
     })
-
-    // Create mesh
-    this.clothMesh = new THREE.Mesh(clothGeometry, clothMaterial)
-    this.clothMesh.position.set(0, 1.5, 0)
-    this.clothMesh.castShadow = true
-    this.clothMesh.receiveShadow = true
-
-    scene.add(this.clothMesh)
-    console.log("✅ Visual cloth mesh created and added to scene")
   }
 
-  update(deltaTime) {
-    if (!this.isInitialized || !this.physicsEngine) return
-
-    const currentTime = Date.now()
-
-    // Throttle physics updates for performance
-    if (currentTime - this.lastUpdateTime >= this.updateInterval) {
-      this.physicsEngine.updatePhysics(deltaTime)
-      this.updateVisualMesh()
-      this.lastUpdateTime = currentTime
+  cleanup() {
+    this.stopSimulation()
+    if (this.physics && this.physics.cleanup) {
+      this.physics.cleanup()
     }
-
-    // Periodic logging
-    if (currentTime - this.lastLogTime >= this.logInterval) {
-      this.logPhysicsState()
-      this.lastLogTime = currentTime
-    }
+    this.clothMeshes.clear()
+    this.avatarCollider = null
+    console.log("✅ Cloth simulation cleanup complete")
   }
 
-  updateVisualMesh() {
-    if (!this.clothMesh || !this.clothId) return
-
-    // Get updated vertex positions from physics
-    const updatedVertices = this.physicsEngine.getClothVertices(this.clothId)
-    if (!updatedVertices) return
-
-    // Update the visual mesh
-    const positionAttribute = this.clothMesh.geometry.getAttribute("position")
-    positionAttribute.array.set(updatedVertices)
-    positionAttribute.needsUpdate = true
-
-    // Recompute normals for proper lighting
-    this.clothMesh.geometry.computeVertexNormals()
-  }
-
-  logPhysicsState() {
-    if (!this.clothId) return
-
-    const vertices = this.physicsEngine.getClothVertices(this.clothId)
-    if (vertices && vertices.length >= 6) {
-      console.log(
-        `📊 Physics Update - Engine: ${this.isAmmoJS ? "Ammo.js" : "Simple"}, ` +
-          `Vertices: ${vertices.length / 3}, ` +
-          `Sample pos: (${vertices[0].toFixed(2)}, ${vertices[1].toFixed(2)}, ${vertices[2].toFixed(2)})`,
-      )
+  // Utility methods for adjusting physics parameters
+  setClothStiffness(clothId, stiffness) {
+    if (this.physics && this.physics.setClothStiffness) {
+      this.physics.setClothStiffness(clothId, stiffness)
     }
   }
 
   setGravity(x, y, z) {
-    if (this.physicsEngine) {
-      this.physicsEngine.setGravity(x, y, z)
-      console.log(`🌍 Gravity set to (${x}, ${y}, ${z})`)
+    if (this.physics && this.physics.setGravity) {
+      this.physics.setGravity(x, y, z)
     }
   }
 
-  setClothStiffness(stiffness) {
-    if (this.physicsEngine && this.clothId) {
-      this.physicsEngine.setClothStiffness(this.clothId, stiffness)
-      console.log(`🧵 Cloth stiffness set to ${stiffness}`)
-    }
+  getPhysicsType() {
+    return this.usingFallback ? "Simple Physics" : "Ammo.js"
   }
 
-  reset() {
-    if (this.physicsEngine && this.clothId) {
-      this.physicsEngine.removeCloth(this.clothId)
-      this.clothId = null
-    }
-
-    if (this.clothMesh) {
-      this.clothMesh.parent?.remove(this.clothMesh)
-      this.clothMesh = null
-    }
-
-    console.log("🔄 Cloth simulation reset")
-  }
-
-  cleanup() {
-    this.reset()
-
-    if (this.physicsEngine) {
-      this.physicsEngine.cleanup()
-      this.physicsEngine = null
-    }
-
-    this.isInitialized = false
-    this.isAmmoJS = false
-    console.log("🧹 Cloth simulation cleanup complete")
-  }
-
-  getEngineInfo() {
+  // Debug method to check cloth simulation status
+  getSimulationStatus() {
     return {
-      isInitialized: this.isInitialized,
-      engine: this.isAmmoJS ? "Ammo.js" : "Simple Physics",
-      hasCloth: !!this.clothId,
+      isRunning: this.isRunning,
+      physicsType: this.getPhysicsType(),
+      clothCount: this.clothMeshes.size,
+      hasAvatarCollider: !!this.avatarCollider,
     }
   }
 }
 
-// Export for use in main application
+// Export for use in main application - using window global instead of ES6 export
 window.ClothSimulation = ClothSimulation
