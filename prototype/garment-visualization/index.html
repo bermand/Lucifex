@@ -513,11 +513,29 @@
             return null;
           }
           
-          // For GLTF files without embedded binary data, create a visible placeholder mesh
-          console.log('Creating GLTF placeholder mesh');
-          const geometry = new THREE.BoxGeometry(0.3, 0.6, 0.2, 4, 8, 4); // Add segments for smoother appearance
+          // For GLTF files without embedded binary data, create garment-specific shapes
+          console.log('Creating GLTF garment mesh');
+          
+          // Try to determine garment type from mesh name or create a default shirt
+          const meshName = meshData.name ? meshData.name.toLowerCase() : 'shirt';
+          let geometry;
+          
+          if (meshName.includes('shirt') || meshName.includes('top') || meshName.includes('tshirt')) {
+            // Create a shirt-like shape
+            geometry = this.createShirtGeometry();
+          } else if (meshName.includes('pant') || meshName.includes('trouser')) {
+            // Create pants
+            geometry = this.createPantsGeometry();
+          } else if (meshName.includes('dress') || meshName.includes('skirt')) {
+            // Create dress/skirt
+            geometry = this.createDressGeometry();
+          } else {
+            // Default to shirt
+            geometry = this.createShirtGeometry();
+          }
+          
           const material = new THREE.MeshStandardMaterial({ 
-            color: 0x666666, // Change to gray instead of bright red
+            color: 0x333333, // Dark gray instead of black
             metalness: 0.1,
             roughness: 0.7,
             transparent: false,
@@ -525,9 +543,114 @@
           });
           
           const mesh = new THREE.Mesh(geometry, material);
-          mesh.position.set(0, 0, 0); // Center it
+          mesh.position.set(0, 0, 0);
           
           return mesh;
+        },
+
+        // Add method to create shirt geometry
+        createShirtGeometry: function() {
+          const group = new THREE.Group();
+          
+          // Main torso part
+          const torsoGeometry = new THREE.CylinderGeometry(0.17, 0.15, 0.5, 16);
+          const torso = new THREE.Mesh(torsoGeometry, new THREE.MeshStandardMaterial({ color: 0x333333 }));
+          torso.position.y = 0;
+          group.add(torso);
+          
+          // Sleeves
+          const sleeveGeometry = new THREE.CylinderGeometry(0.05, 0.04, 0.3, 12);
+          
+          const leftSleeve = new THREE.Mesh(sleeveGeometry, new THREE.MeshStandardMaterial({ color: 0x333333 }));
+          leftSleeve.position.set(-0.22, 0.1, 0);
+          leftSleeve.rotation.z = Math.PI / 4;
+          group.add(leftSleeve);
+          
+          const rightSleeve = new THREE.Mesh(sleeveGeometry, new THREE.MeshStandardMaterial({ color: 0x333333 }));
+          rightSleeve.position.set(0.22, 0.1, 0);
+          rightSleeve.rotation.z = -Math.PI / 4;
+          group.add(rightSleeve);
+          
+          // Convert group to single geometry
+          const mergedGeometry = new THREE.BufferGeometry();
+          const positions = [];
+          const normals = [];
+          const indices = [];
+          let indexOffset = 0;
+          
+          group.children.forEach(child => {
+            if (child.geometry) {
+              child.updateMatrix();
+              const geo = child.geometry.clone();
+              geo.applyMatrix4(child.matrix);
+              
+              const pos = geo.attributes.position.array;
+              const norm = geo.attributes.normal ? geo.attributes.normal.array : null;
+              const idx = geo.index ? geo.index.array : null;
+              
+              for (let i = 0; i < pos.length; i++) {
+                positions.push(pos[i]);
+              }
+              
+              if (norm) {
+                for (let i = 0; i < norm.length; i++) {
+                  normals.push(norm[i]);
+                }
+              }
+              
+              if (idx) {
+                for (let i = 0; i < idx.length; i++) {
+                  indices.push(idx[i] + indexOffset);
+                }
+                indexOffset += pos.length / 3;
+              }
+            }
+          });
+          
+          mergedGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+          if (normals.length > 0) {
+            mergedGeometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+          } else {
+            mergedGeometry.computeVertexNormals();
+          }
+          if (indices.length > 0) {
+            mergedGeometry.setIndex(indices);
+          }
+          
+          return mergedGeometry;
+        },
+
+        // Add method to create pants geometry
+        createPantsGeometry: function() {
+          const group = new THREE.Group();
+          
+          // Waist part
+          const waistGeometry = new THREE.CylinderGeometry(0.14, 0.14, 0.15, 16);
+          const waist = new THREE.Mesh(waistGeometry, new THREE.MeshStandardMaterial({ color: 0x333333 }));
+          waist.position.y = 0.3;
+          group.add(waist);
+          
+          // Left leg
+          const legGeometry = new THREE.CylinderGeometry(0.07, 0.06, 0.6, 12);
+          const leftLeg = new THREE.Mesh(legGeometry, new THREE.MeshStandardMaterial({ color: 0x333333 }));
+          leftLeg.position.set(-0.08, -0.1, 0);
+          group.add(leftLeg);
+          
+          // Right leg
+          const rightLeg = new THREE.Mesh(legGeometry, new THREE.MeshStandardMaterial({ color: 0x333333 }));
+          rightLeg.position.set(0.08, -0.1, 0);
+          group.add(rightLeg);
+          
+          // Convert to single geometry (simplified version)
+          const mergedGeometry = new THREE.CylinderGeometry(0.14, 0.06, 0.8, 16);
+          return mergedGeometry;
+        },
+
+        // Add method to create dress geometry
+        createDressGeometry: function() {
+          // Create a dress-like flared shape
+          const geometry = new THREE.CylinderGeometry(0.17, 0.25, 0.8, 20);
+          return geometry;
         },
 
         parseGLB: function(data) {
@@ -1149,70 +1272,96 @@
       }
     }
 
-    function processCLO3DModel(model, filename) {
-      garmentGroup.clear();
+function processCLO3DModel(model, filename) {
+  garmentGroup.clear();
+  
+  // Debug: Log the model structure
+  console.log('Loaded model:', model);
+  console.log('Model children:', model.children.length);
+  
+  // Scale and position the CLO3D model to fit our avatar
+  if (filename.endsWith('.glb')) {
+    // GLB files might have proper scale
+    model.scale.setScalar(0.01); // CLO3D models are often in cm, we need meters
+  } else {
+    // GLTF placeholder - make it visible and properly sized
+    model.scale.setScalar(1.0); // Keep normal size for placeholder
+  }
+  
+  model.position.set(0, 1.2, 0); // Position at torso level
+  
+  // Apply current material settings to all meshes
+  let meshCount = 0;
+  model.traverse(function(child) {
+    if (child.isMesh) {
+      meshCount++;
+      console.log('Found mesh:', child);
       
-      // Debug: Log the model structure
-      console.log('Loaded model:', model);
-      console.log('Model children:', model.children.length);
+      // Apply our material system
+      const newMaterial = createGarmentMaterial();
+      child.material = newMaterial;
+      child.castShadow = true;
+      child.receiveShadow = true;
       
-      // Scale and position the CLO3D model to fit our avatar
-      if (filename.endsWith('.glb')) {
-        // GLB files might have proper scale
-        model.scale.setScalar(0.01); // CLO3D models are often in cm, we need meters
-      } else {
-        // GLTF placeholder - make it visible
-        model.scale.setScalar(1.0); // Keep normal size for placeholder
+      // Make sure geometry is valid
+      if (child.geometry) {
+        child.geometry.computeBoundingBox();
+        child.geometry.computeVertexNormals(); // Add this for better lighting
+        console.log('Mesh bounding box:', child.geometry.boundingBox);
       }
-      
-      model.position.set(0, 1.2, 0); // Position at torso level
-      
-      // Apply current material settings to all meshes
-      let meshCount = 0;
-      model.traverse(function(child) {
-        if (child.isMesh) {
-          meshCount++;
-          console.log('Found mesh:', child);
-          
-          // Apply our material system
-          const newMaterial = createGarmentMaterial();
-          child.material = newMaterial;
-          child.castShadow = true;
-          child.receiveShadow = true;
-          
-          // Make sure geometry is valid
-          if (child.geometry) {
-            child.geometry.computeBoundingBox();
-            console.log('Mesh bounding box:', child.geometry.boundingBox);
-          }
-        }
-      });
-      
-      console.log('Total meshes found:', meshCount);
-      
-      // If no meshes found, create a visible placeholder
-      if (meshCount === 0) {
-        console.log('No meshes found, creating visible placeholder');
-        const geometry = new THREE.BoxGeometry(0.3, 0.6, 0.2);
-        const material = createGarmentMaterial();
-        const placeholder = new THREE.Mesh(geometry, material);
-        placeholder.position.set(0, 1.2, 0);
-        placeholder.castShadow = true;
-        placeholder.receiveShadow = true;
-        model.add(placeholder);
-        meshCount = 1;
-      }
-      
-      garmentGroup.add(model);
-      garmentVisible = true;
-      currentGarment = 'clo3d_' + filename;
-      
-      updateStatus(`✅ Loaded CLO3D garment: ${filename} (${meshCount} meshes)`);
-      document.getElementById('file-info').textContent = `✅ Loaded: ${filename} (${meshCount} meshes)`;
-      
-      // Force a render update
-      updateGarmentFit();
     }
+  });
+  
+  console.log('Total meshes found:', meshCount);
+  
+  // If no meshes found, create a visible placeholder
+  if (meshCount === 0) {
+    console.log('No meshes found, creating shirt placeholder');
+    
+    // Create a more realistic shirt shape instead of a box
+    const shirtGroup = new THREE.Group();
+    
+    // Main torso
+    const torsoGeometry = new THREE.CylinderGeometry(0.17, 0.15, 0.5, 20);
+    const torsoMaterial = createGarmentMaterial();
+    const torso = new THREE.Mesh(torsoGeometry, torsoMaterial);
+    torso.position.y = 0;
+    torso.castShadow = true;
+    torso.receiveShadow = true;
+    shirtGroup.add(torso);
+    
+    // Sleeves
+    const sleeveGeometry = new THREE.CylinderGeometry(0.05, 0.04, 0.25, 12);
+    const sleeveMaterial = createGarmentMaterial();
+    
+    const leftSleeve = new THREE.Mesh(sleeveGeometry, sleeveMaterial);
+    leftSleeve.position.set(-0.22, 0.05, 0);
+    leftSleeve.rotation.z = Math.PI / 6;
+    leftSleeve.castShadow = true;
+    leftSleeve.receiveShadow = true;
+    shirtGroup.add(leftSleeve);
+    
+    const rightSleeve = new THREE.Mesh(sleeveGeometry, sleeveMaterial);
+    rightSleeve.position.set(0.22, 0.05, 0);
+    rightSleeve.rotation.z = -Math.PI / 6;
+    rightSleeve.castShadow = true;
+    rightSleeve.receiveShadow = true;
+    shirtGroup.add(rightSleeve);
+    
+    model.add(shirtGroup);
+    meshCount = 3; // torso + 2 sleeves
+  }
+  
+  garmentGroup.add(model);
+  garmentVisible = true;
+  currentGarment = 'clo3d_' + filename;
+  
+  updateStatus(`✅ Loaded CLO3D garment: ${filename} (${meshCount} meshes)`);
+  document.getElementById('file-info').textContent = `✅ Loaded: ${filename} (${meshCount} meshes)`;
+  
+  // Force a render update
+  updateGarmentFit();
+}
     
     function animate() {
       requestAnimationFrame(animate);
