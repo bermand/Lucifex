@@ -878,6 +878,11 @@
       const url = URL.createObjectURL(file);
       currentGarment = url;
       
+      // Auto-switch to garment mode when loading a garment
+      currentModelType = 'garment';
+      document.querySelectorAll('.model-btn').forEach(btn => btn.classList.remove('active'));
+      document.getElementById('garment-mode').classList.add('active');
+      
       updateStatus(`Garment loaded: ${file.name}`);
       updateCombinationStatus();
       loadModel();
@@ -885,6 +890,11 @@
 
     function loadSampleGarment(garmentName) {
       currentGarment = `models/${garmentName}.glb`; // Replace with actual URL
+      
+      // Auto-switch to garment mode when loading a sample garment
+      currentModelType = 'garment';
+      document.querySelectorAll('.model-btn').forEach(btn => btn.classList.remove('active'));
+      document.getElementById('garment-mode').classList.add('active');
       
       updateStatus(`Sample garment loaded: ${garmentName}`);
       updateCombinationStatus();
