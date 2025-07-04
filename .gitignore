@@ -1,2 +1,28 @@
 prototype/.DS_Store
 prototype/assets/.DS_Store
+
+# Dependencies
+node_modules/
+
+# Coverage reports
+coverage/
+
+# Build outputs
+dist/
+build/
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment variables
+.env
+.env.local
