@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Garment Visualizer - Lucifex</title>
   <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+  <script type="module" src="https://unpkg.com/three@0.158.0/build/three.module.js"></script>
   <style>
     body { 
       margin: 0; 
@@ -294,6 +295,33 @@
       border-color: #667eea;
       background: #f0f4ff;
     }
+
+    .combination-status {
+      background: #f0f8ff;
+      border: 1px solid #667eea;
+      border-radius: 6px;
+      padding: 10px;
+      margin-bottom: 15px;
+      font-size: 12px;
+    }
+
+    .combination-status.ready {
+      background: #f0fff4;
+      border-color: #10b981;
+      color: #065f46;
+    }
+
+    .combination-status.partial {
+      background: #fffbeb;
+      border-color: #f59e0b;
+      color: #92400e;
+    }
+
+    .combination-status.empty {
+      background: #fef2f2;
+      border-color: #ef4444;
+      color: #991b1b;
+    }
   </style>
 </head>
 <body>
@@ -331,6 +359,7 @@
     <div class="tabs">
       <button class="tab active" onclick="switchTab('avatar')">Avatar</button>
       <button class="tab" onclick="switchTab('garment')">Garment</button>
+      <button class="tab" onclick="switchTab('combined')">Combined</button>
       <button class="tab" onclick="switchTab('lighting')">Lighting</button>
     </div>
 
@@ -430,6 +459,65 @@
       </div>
     </div>
 
+    <!-- Combined Tab -->
+    <div id="combined-tab" class="tab-content">
+      <h3>Combined View</h3>
+      
+      <div class="combination-status" id="combination-status">
+        <strong>Status:</strong> Load avatar and garment to combine
+      </div>
+      
+      <div class="control-group">
+        <label>Combination Method:</label>
+        <div class="preset-buttons">
+          <button class="preset-btn active" onclick="setCombinationMethod('merge')" id="merge-method">Merge Models</button>
+          <button class="preset-btn" onclick="setCombinationMethod('overlay')" id="overlay-method">Overlay</button>
+          <button class="preset-btn" onclick="setCombinationMethod('separate')" id="separate-method">Side by Side</button>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <label for="avatar-opacity">Avatar Opacity</label>
+        <input type="range" id="avatar-opacity" min="0" max="1" step="0.1" value="1.0" />
+        <div class="value-display"><span id="avatar-opacity-value">1.0</span></div>
+      </div>
+
+      <div class="control-group">
+        <label for="garment-opacity">Garment Opacity</label>
+        <input type="range" id="garment-opacity" min="0" max="1" step="0.1" value="1.0" />
+        <div class="value-display"><span id="garment-opacity-value">1.0</span></div>
+      </div>
+
+      <div class="control-group">
+        <label for="garment-offset-y">Garment Position Y</label>
+        <input type="range" id="garment-offset-y" min="-0.5" max="0.5" step="0.05" value="0" />
+        <div class="value-display"><span id="garment-offset-y-value">0.0</span></div>
+      </div>
+
+      <div class="control-group">
+        <label for="garment-offset-x">Garment Position X</label>
+        <input type="range" id="garment-offset-x" min="-0.5" max="0.5" step="0.05" value="0" />
+        <div class="value-display"><span id="garment-offset-x-value">0.0</span></div>
+      </div>
+
+      <div class="action-buttons">
+        <button class="action-btn" onclick="generateCombinedModel()">Generate Combined</button>
+        <button class="action-btn" onclick="resetCombination()">Reset</button>
+      </div>
+
+      <div class="control-group">
+        <label>💡 Combination Tips:</label>
+        <div style="font-size: 11px; color: #666; background: #f9f9f9; padding: 10px; border-radius: 6px;">
+          <strong>For best results:</strong><br>
+          • Use avatars and garments with similar scales<br>
+          • Adjust garment position to fit avatar<br>
+          • Use opacity to see through garments<br>
+          • Merge method creates single model<br>
+          • Overlay method shows both simultaneously
+        </div>
+      </div>
+    </div>
+
     <!-- Lighting Tab -->
     <div id="lighting-tab" class="tab-content">
       <h3>Lighting & Environment</h3>
@@ -493,6 +581,8 @@
     let currentModelType = 'avatar'; // 'avatar', 'garment', or 'both'
     let currentAvatar = null;
     let currentGarment = null;
+    let combinedModel = null;
+    let combinationMethod = 'merge';
 
     // Environment HDR URLs - high quality for fashion
     const environments = {
@@ -518,6 +608,193 @@
         statusContent.innerHTML = message;
       }
       console.log('STATUS:', message);
+    }
+
+    function updateCombinationStatus() {
+      const statusDiv = document.getElementById('combination-status');
+      
+      if (currentAvatar && currentGarment) {
+        statusDiv.className = 'combination-status ready';
+        statusDiv.innerHTML = `
+          <strong>✅ Ready to Combine:</strong><br>
+          Avatar: Loaded<br>
+          Garment: Loaded<br>
+          Method: ${combinationMethod}
+        `;
+      } else if (currentAvatar || currentGarment) {
+        statusDiv.className = 'combination-status partial';
+        statusDiv.innerHTML = `
+          <strong>⚠️ Partial Setup:</strong><br>
+          Avatar: ${currentAvatar ? '✅ Loaded' : '❌ Missing'}<br>
+          Garment: ${currentGarment ? '✅ Loaded' : '❌ Missing'}<br>
+          ${!currentAvatar ? 'Load an avatar first' : 'Load a garment to combine'}
+        `;
+      } else {
+        statusDiv.className = 'combination-status empty';
+        statusDiv.innerHTML = `
+          <strong>❌ No Models:</strong><br>
+          Load both avatar and garment to enable combination
+        `;
+      }
+    }
+
+    async function generateCombinedModel() {
+      if (!currentAvatar || !currentGarment) {
+        updateStatus('❌ Need both avatar and garment to combine');
+        return;
+      }
+
+      updateStatus('🔄 Generating combined model...');
+
+      try {
+        // Import Three.js modules
+        const THREE = await import('https://unpkg.com/three@0.158.0/build/three.module.js');
+        const { GLTFLoader } = await import('https://unpkg.com/three@0.158.0/examples/jsm/loaders/GLTFLoader.js');
+        const { GLTFExporter } = await import('https://unpkg.com/three@0.158.0/examples/jsm/exporters/GLTFExporter.js');
+
+        const loader = new GLTFLoader();
+        const exporter = new GLTFExporter();
+
+        // Load both models
+        const [avatarGLTF, garmentGLTF] = await Promise.all([
+          new Promise((resolve, reject) => {
+            loader.load(currentAvatar, resolve, undefined, reject);
+          }),
+          new Promise((resolve, reject) => {
+            loader.load(currentGarment, resolve, undefined, reject);
+          })
+        ]);
+
+        // Create combined scene
+        const combinedScene = new THREE.Scene();
+
+        // Clone avatar
+        const avatarClone = avatarGLTF.scene.clone();
+        avatarClone.name = 'avatar';
+        
+        // Apply avatar opacity
+        const avatarOpacity = parseFloat(document.getElementById('avatar-opacity').value);
+        avatarClone.traverse((child) => {
+          if (child.isMesh && child.material) {
+            if (Array.isArray(child.material)) {
+              child.material.forEach(mat => {
+                mat.transparent = avatarOpacity < 1;
+                mat.opacity = avatarOpacity;
+              });
+            } else {
+              child.material.transparent = avatarOpacity < 1;
+              child.material.opacity = avatarOpacity;
+            }
+          }
+        });
+
+        // Clone garment
+        const garmentClone = garmentGLTF.scene.clone();
+        garmentClone.name = 'garment';
+
+        // Apply garment transformations
+        const garmentOpacity = parseFloat(document.getElementById('garment-opacity').value);
+        const offsetX = parseFloat(document.getElementById('garment-offset-x').value);
+        const offsetY = parseFloat(document.getElementById('garment-offset-y').value);
+        const garmentScale = parseFloat(document.getElementById('garment-scale').value);
+
+        garmentClone.position.set(offsetX, offsetY, 0);
+        garmentClone.scale.setScalar(garmentScale);
+
+        garmentClone.traverse((child) => {
+          if (child.isMesh && child.material) {
+            if (Array.isArray(child.material)) {
+              child.material.forEach(mat => {
+                mat.transparent = garmentOpacity < 1;
+                mat.opacity = garmentOpacity;
+              });
+            } else {
+              child.material.transparent = garmentOpacity < 1;
+              child.material.opacity = garmentOpacity;
+            }
+          }
+        });
+
+        // Add to combined scene based on method
+        switch (combinationMethod) {
+          case 'merge':
+            combinedScene.add(avatarClone);
+            combinedScene.add(garmentClone);
+            break;
+            
+          case 'overlay':
+            combinedScene.add(avatarClone);
+            combinedScene.add(garmentClone);
+            break;
+            
+          case 'separate':
+            avatarClone.position.x = -1;
+            garmentClone.position.x = 1;
+            combinedScene.add(avatarClone);
+            combinedScene.add(garmentClone);
+            break;
+        }
+
+        // Export combined model
+        const combinedGLTF = await new Promise((resolve) => {
+          exporter.parse(combinedScene, resolve, { binary: true });
+        });
+
+        // Create blob and object URL
+        const blob = new Blob([combinedGLTF], { type: 'application/octet-stream' });
+        const combinedURL = URL.createObjectURL(blob);
+        
+        combinedModel = combinedURL;
+
+        // Display combined model
+        modelViewer.src = combinedURL;
+        setModelType('both');
+
+        updateStatus('✅ Combined model generated successfully!');
+        updateCombinationStatus();
+
+        // Clean up URLs after a delay
+        setTimeout(() => {
+          if (combinedURL !== combinedModel) {
+            URL.revokeObjectURL(combinedURL);
+          }
+        }, 10000);
+
+      } catch (error) {
+        console.error('Error generating combined model:', error);
+        updateStatus('❌ Failed to generate combined model');
+      }
+    }
+
+    function setCombinationMethod(method) {
+      combinationMethod = method;
+      
+      // Update UI
+      document.querySelectorAll('[id$="-method"]').forEach(btn => btn.classList.remove('active'));
+      document.getElementById(method + '-method').classList.add('active');
+      
+      updateStatus(`Combination method: ${method}`);
+      updateCombinationStatus();
+    }
+
+    function resetCombination() {
+      if (combinedModel) {
+        URL.revokeObjectURL(combinedModel);
+        combinedModel = null;
+      }
+      
+      // Reset controls
+      document.getElementById('avatar-opacity').value = 1.0;
+      document.getElementById('garment-opacity').value = 1.0;
+      document.getElementById('garment-offset-x').value = 0;
+      document.getElementById('garment-offset-y').value = 0;
+      document.getElementById('avatar-opacity-value').textContent = '1.0';
+      document.getElementById('garment-opacity-value').textContent = '1.0';
+      document.getElementById('garment-offset-x-value').textContent = '0.0';
+      document.getElementById('garment-offset-y-value').textContent = '0.0';
+      
+      updateStatus('Combination reset');
+      updateCombinationStatus();
     }
 
     function setModelType(type) {
@@ -552,15 +829,17 @@
           break;
           
         case 'both':
-          // For now, prioritize garment if available, otherwise show avatar
-          if (currentGarment) {
+          if (combinedModel) {
+            modelViewer.src = combinedModel;
+            updateStatus(`Displaying combined model`);
+          } else if (currentGarment) {
             modelViewer.src = currentGarment;
-            updateStatus(`Displaying garment (combined mode - avatar integration coming soon)`);
+            updateStatus(`Displaying garment (generate combined model for full integration)`);
           } else if (currentAvatar) {
             modelViewer.src = currentAvatar;
-            updateStatus(`Displaying avatar (combined mode - load garment to see both)`);
+            updateStatus(`Displaying avatar (load garment and generate combined model)`);
           } else {
-            updateStatus(`Combined mode - load avatar and garment`);
+            updateStatus(`Combined mode - load avatar and garment first`);
           }
           break;
       }
@@ -568,7 +847,7 @@
       // Hide fallback if we have something to show
       if ((type === 'avatar' && currentAvatar) || 
           (type === 'garment' && currentGarment) || 
-          (type === 'both' && (currentAvatar || currentGarment))) {
+          (type === 'both' && (combinedModel || currentAvatar || currentGarment))) {
         document.getElementById('fallback').style.display = 'none';
       }
     }
@@ -596,6 +875,8 @@
         // Hide fallback to show we're "ready"
         document.getElementById('fallback').style.display = 'none';
       }
+      
+      updateCombinationStatus();
     }
 
     function loadCustomAvatar(event) {
@@ -618,6 +899,7 @@
       // Update status when loaded
       modelViewer.addEventListener('load', function() {
         updateStatus(`✅ Custom avatar loaded: ${file.name}`);
+        updateCombinationStatus();
       }, { once: true });
       
       // Handle errors
@@ -675,6 +957,7 @@
         `;
         
         updateStatus(`✅ Garment loaded: ${file.name}`);
+        updateCombinationStatus();
         
         // Hide fallback content
         document.getElementById('fallback').style.display = 'none';
@@ -764,6 +1047,7 @@
           
           document.getElementById('fallback').style.display = 'none';
           updateStatus(`✅ Sample ${type} loaded`);
+          updateCombinationStatus();
         })
         .catch(error => {
           console.log('Sample file not available:', error);
@@ -828,12 +1112,18 @@
         modelType: currentModelType,
         avatar: currentAvatar ? 'loaded' : null,
         garment: currentGarment ? 'loaded' : null,
+        combined: combinedModel ? 'generated' : null,
+        combinationMethod: combinationMethod,
         environment: document.querySelector('.env-btn.active').dataset.env,
         settings: {
           exposure: modelViewer.exposure,
           shadowIntensity: modelViewer.shadowIntensity,
           shadowSoftness: modelViewer.shadowSoftness,
-          autoRotate: autoRotateEnabled
+          autoRotate: autoRotateEnabled,
+          avatarOpacity: parseFloat(document.getElementById('avatar-opacity').value),
+          garmentOpacity: parseFloat(document.getElementById('garment-opacity').value),
+          garmentOffsetX: parseFloat(document.getElementById('garment-offset-x').value),
+          garmentOffsetY: parseFloat(document.getElementById('garment-offset-y').value)
         },
         timestamp: new Date().toISOString()
       };
@@ -888,6 +1178,39 @@
         }
       });
 
+      // Combined view controls
+      const avatarOpacitySlider = document.getElementById('avatar-opacity');
+      const avatarOpacityValue = document.getElementById('avatar-opacity-value');
+      
+      avatarOpacitySlider.addEventListener('input', (e) => {
+        const value = parseFloat(e.target.value);
+        avatarOpacityValue.textContent = value.toFixed(1);
+      });
+
+      const garmentOpacitySlider = document.getElementById('garment-opacity');
+      const garmentOpacityValue = document.getElementById('garment-opacity-value');
+      
+      garmentOpacitySlider.addEventListener('input', (e) => {
+        const value = parseFloat(e.target.value);
+        garmentOpacityValue.textContent = value.toFixed(1);
+      });
+
+      const garmentOffsetXSlider = document.getElementById('garment-offset-x');
+      const garmentOffsetXValue = document.getElementById('garment-offset-x-value');
+      
+      garmentOffsetXSlider.addEventListener('input', (e) => {
+        const value = parseFloat(e.target.value);
+        garmentOffsetXValue.textContent = value.toFixed(2);
+      });
+
+      const garmentOffsetYSlider = document.getElementById('garment-offset-y');
+      const garmentOffsetYValue = document.getElementById('garment-offset-y-value');
+      
+      garmentOffsetYSlider.addEventListener('input', (e) => {
+        const value = parseFloat(e.target.value);
+        garmentOffsetYValue.textContent = value.toFixed(2);
+      });
+
       // Lighting controls
       const exposureSlider = document.getElementById('exposure');
       const exposureValue = document.getElementById('exposure-value');
@@ -921,6 +1244,7 @@
     window.addEventListener('load', () => {
       setupControls();
       updateStatus('✅ Model Viewer ready - load avatar or garment');
+      updateCombinationStatus();
       
       // Load default avatar
       loadAvatarPreset('female-s');
@@ -955,6 +1279,9 @@
     window.takeScreenshot = takeScreenshot;
     window.exportScene = exportScene;
     window.switchTab = switchTab;
+    window.generateCombinedModel = generateCombinedModel;
+    window.setCombinationMethod = setCombinationMethod;
+    window.resetCombination = resetCombination;
   </script>
 </body>
 </html>
