@@ -1,12 +1,18 @@
+
 # Testing Guide
 
-This document describes how to run tests locally and understand the CI testing features for the Lucifex project.
+This document describes how to run and contribute to the test suite for the Lucifex project.
 
 ## Overview
 
-The Lucifex project uses **Jest** as the primary testing framework with enhanced CI reporting capabilities. Tests cover JavaScript modules for avatar loading, physics simulation, and utility scripts.
+The Lucifex project uses **Jest** as the primary testing framework with **jsdom** for DOM testing. The test suite covers:
 
-## Local Testing
+- **Functional Requirements Testing**: Validates core business logic based on `docs/Detailed_Functional_Requirements.md`
+- **Integration Testing**: Tests user workflows and component interactions
+- **Prototype Testing**: Regression tests for existing prototype functionality
+- **Physics Engine Testing**: Validates cloth simulation and avatar collision systems
+
+## Quick Start
 
 ### Prerequisites
 
@@ -32,173 +38,279 @@ npm run test:watch
 # Run tests with coverage report
 npm run test:coverage
 
-# Run tests in CI mode (with XML reporting)
+# Run tests for CI (no watch, with coverage)
 npm run test:ci
 ```
 
-### Test Output
+### Running Specific Test Suites
 
-- **Console output**: Real-time test results and coverage summary
-- **HTML coverage report**: `coverage/lcov-report/index.html`
-- **XML test results**: `test-results/junit.xml` (for CI integration)
+```bash
+# Run only integration tests
+npm test -- --testPathPattern="integration"
+
+# Run only functional tests
+npm test -- --testPathPattern="functional"
+
+# Run only prototype tests
+npm test -- --testPathPattern="prototype"
+
+# Run specific test file
+npm test -- avatar-loader.test.js
+```
 
 ## Test Structure
 
 ```
-tests/
-├── setup.js                    # Jest configuration and global mocks
-├── avatar-loader.test.js        # Tests for avatar loading functionality
-├── ammo-physics.test.js         # Tests for physics engine initialization
-└── download-avatars.test.js     # Tests for avatar download script
+__tests__/
+├── setup.js                 # Jest configuration and global mocks
+├── functional/              # Tests based on functional requirements
+│   ├── avatar-loader.test.js       # FR-003, FR-004: Avatar generation & rendering
+│   ├── core-functionality.test.js  # FR-002, FR-005, FR-006, FR-009: Core features
+│   ├── html-components.test.js     # FR-005, FR-006: UI components
+│   └── physics-engine.test.js      # Physics simulation tests
+├── integration/             # End-to-end workflow tests
+│   └── user-workflows.test.js      # FR-002, FR-009: User scenarios
+└── prototype/               # Regression tests for existing code
+    └── javascript-functionality.test.js  # Prototype component tests
 ```
 
-### What We Test
+## Test Categories
 
-1. **Avatar Loader (`avatar-loader.test.js`)**
-   - Avatar manifest loading and parsing
-   - Avatar file caching and retrieval
-   - Fallback mechanisms for missing files
-   - Preloading and availability checks
+### Functional Requirements Tests
 
-2. **Physics Engine (`ammo-physics.test.js`)**
-   - Ammo.js initialization and loading
-   - Physics world state management
-   - Cloth body and collider management
-   - Error handling for CDN failures
+These tests validate specific functional requirements from the project documentation:
 
-3. **Download Scripts (`download-avatars.test.js`)**
-   - Directory creation and file system operations
-   - Avatar source validation
-   - Manifest generation
-   - Error handling for file operations
+- **FR-002**: Manual Measurement Input
+- **FR-003**: Avatar Generation from Measurements  
+- **FR-004**: Avatar Rendering
+- **FR-005**: Garment Library Display
+- **FR-006**: Garment Preview on Avatar
+- **FR-009**: Look Saving and Wishlist
 
-## CI Integration
+### Integration Tests
 
-### GitHub Actions Workflow
+End-to-end tests covering complete user workflows:
 
-The CI workflow (`.github/workflows/ci.yml`) provides:
+- Avatar creation and customization
+- Garment selection and fitting
+- Look saving and management
+- Measurement input and validation
 
-- **Multi-Node.js version testing** (18.x, 20.x)
-- **Automated test execution** with coverage reporting
-- **JUnit XML reporting** for test result visualization
-- **Artifact uploads** for test results and coverage reports
-- **Inline test annotations** via dorny/test-reporter
-- **PR comments** with coverage summaries
+### Prototype Tests
 
-### Test Reporting Features
+Regression tests for existing prototype functionality:
 
-1. **dorny/test-reporter Integration**
-   - Displays test failures inline in PR diffs
-   - Provides summary tables in PR checks
-   - Links to detailed test results
-
-2. **Coverage Reporting**
-   - Generates LCOV and HTML coverage reports
-   - Uploads coverage as CI artifacts
-   - Posts coverage summary as PR comment
-
-3. **Artifact Storage**
-   - Test results (JUnit XML)
-   - Coverage reports (HTML and LCOV)
-   - Build artifacts (if applicable)
-
-### Viewing CI Results
-
-1. **In Pull Requests:**
-   - Check the "Checks" tab for test status
-   - View inline annotations for failing tests
-   - Read coverage summary in PR comments
-
-2. **In Actions Tab:**
-   - Download test result artifacts
-   - View detailed coverage reports
-   - Check logs for debugging
+- Avatar loader module
+- Physics engine components
+- Three.js integration
+- Error handling and fallbacks
 
 ## Writing Tests
 
-### Test File Conventions
+### Test File Naming
 
-- Place test files in the `tests/` directory
-- Use `.test.js` suffix for test files
-- Import modules using relative paths
-- Mock external dependencies (DOM, fetch, file system)
+- Functional tests: `feature-name.test.js`
+- Integration tests: `workflow-name.test.js`
+- Prototype tests: `component-name.test.js`
 
-### Example Test Structure
+### Test Structure Example
 
 ```javascript
 /**
- * @jest-environment jsdom
+ * Feature Tests
+ * Tests for FR-XXX: Feature Description
  */
 
-import { jest } from '@jest/globals';
-
-describe('MyModule', () => {
+describe('Feature Name - FR-XXX', () => {
   beforeEach(() => {
-    // Setup before each test
+    // Setup for each test
   });
 
-  test('should do something specific', () => {
-    // Test implementation
-    expect(result).toBe(expected);
+  describe('FR-XXX.1: Specific requirement', () => {
+    test('should validate specific behavior', () => {
+      // Arrange
+      const input = setupTestData();
+      
+      // Act
+      const result = functionUnderTest(input);
+      
+      // Assert
+      expect(result).toBe(expectedOutput);
+    });
   });
 });
 ```
 
-### Best Practices
+### Mocking Guidelines
 
-1. **Use descriptive test names** that explain the expected behavior
-2. **Mock external dependencies** to ensure tests are isolated
-3. **Test both success and error paths** for robust coverage
-4. **Keep tests focused** on a single piece of functionality
-5. **Use setup and teardown** to maintain clean test state
+The test setup includes several pre-configured mocks:
 
-## Mock Configuration
+- **fetch**: For HTTP requests
+- **localStorage**: For data persistence tests
+- **WebGL context**: For 3D rendering tests
+- **requestAnimationFrame**: For animation tests
+- **console methods**: To avoid test noise
 
-The project includes comprehensive mocking for browser APIs:
+### DOM Testing
 
-- **DOM APIs**: `document`, `window` objects
-- **Web APIs**: `fetch`, `FormData`, `File`, `FileReader`
-- **WebGL**: `WebGLRenderingContext`, `WebGL2RenderingContext`
-- **File APIs**: `URL.createObjectURL`, `URL.revokeObjectURL`
+For testing HTML components:
 
-## Coverage Targets
+```javascript
+test('should render component correctly', () => {
+  // JSDOM is automatically available
+  const element = document.createElement('div');
+  element.innerHTML = '<model-viewer src="test.glb"></model-viewer>';
+  
+  expect(element.querySelector('model-viewer')).toBeTruthy();
+});
+```
 
-- **Statements**: Aim for >80% coverage
-- **Branches**: Aim for >75% coverage
-- **Functions**: Aim for >85% coverage
-- **Lines**: Aim for >80% coverage
+## Coverage
 
-## Troubleshooting
+The test suite tracks code coverage for:
 
-### Common Issues
+- `prototype/**/*.js` - Prototype JavaScript files
+- `scripts/**/*.js` - Utility scripts
 
-1. **Tests failing locally but passing in CI**
-   - Check Node.js version compatibility
-   - Verify all dependencies are installed
-   - Review environment-specific configurations
+Coverage reports are generated in the `coverage/` directory and include:
 
-2. **Coverage reports not generating**
-   - Ensure test files match the `testMatch` pattern
-   - Check that source files are in `collectCoverageFrom` paths
-   - Verify Jest configuration in `package.json`
+- **HTML report**: `coverage/lcov-report/index.html`
+- **LCOV format**: `coverage/lcov.info`
+- **Console summary**: Displayed after test runs
 
-3. **Mock-related errors**
-   - Review `tests/setup.js` for global mocks
-   - Add specific mocks for new external dependencies
-   - Check Jest documentation for mocking patterns
+### Coverage Goals
 
-### Getting Help
+- **Statements**: > 80%
+- **Branches**: > 75%
+- **Functions**: > 85%
+- **Lines**: > 80%
 
-- Review Jest documentation: https://jestjs.io/docs/getting-started
-- Check GitHub Actions logs for detailed error messages
-- Examine test artifacts for additional debugging information
+## Continuous Integration
 
-## Future Enhancements
+Tests run automatically on:
 
-Potential improvements to the testing infrastructure:
+- **Push** to `functional-testing` branch
+- **Pull requests** to `functional-testing` branch
 
-- **Visual regression testing** for 3D rendering components
-- **Integration tests** for full avatar + garment workflows
-- **Performance benchmarking** for physics simulation
-- **Cross-browser testing** using tools like Playwright
-- **E2E testing** for complete user workflows
+The CI pipeline includes:
+
+1. **Test Execution**: Run on Node.js 18.x and 20.x
+2. **Coverage Analysis**: Generate and upload coverage reports
+3. **Security Audit**: Check for vulnerabilities
+4. **Performance Check**: Validate file sizes and HTML structure
+
+## Common Issues and Solutions
+
+### JSDOM Issues
+
+If you encounter `TextEncoder is not defined` errors:
+- The setup file should handle this automatically
+- Ensure tests import from the correct setup
+
+### File Path Issues
+
+When testing prototype files:
+- Use relative paths from the test file location
+- Example: `../../prototype/garment-visualization/avatar-loader.js`
+
+### Mock Configuration
+
+To add new mocks, update `__tests__/setup.js`:
+
+```javascript
+// Add global mocks here
+global.MyAPI = {
+  method: jest.fn()
+};
+```
+
+### WebGL Context Errors
+
+WebGL context is mocked automatically. If you need custom WebGL behavior:
+
+```javascript
+beforeEach(() => {
+  HTMLCanvasElement.prototype.getContext = jest.fn(() => ({
+    // Custom WebGL mock methods
+  }));
+});
+```
+
+## Performance Testing
+
+### Running Performance Tests
+
+```bash
+# Basic performance validation
+npm run test:ci
+
+# Check for large files and bundle sizes
+find prototype/ -size +1M -type f
+```
+
+### Optimization Guidelines
+
+- Keep test files under 100KB
+- Mock external dependencies
+- Use `jest.fn()` for performance-critical mocks
+- Avoid real file I/O in unit tests
+
+## Contributing Test Cases
+
+### Adding New Tests
+
+1. Identify the functional requirement (FR-XXX)
+2. Create test file in appropriate directory
+3. Follow existing naming conventions
+4. Include requirement ID in test descriptions
+5. Add both positive and negative test cases
+
+### Test Documentation
+
+Each test file should include:
+
+- Header comment with FR references
+- Clear test descriptions
+- Inline comments for complex logic
+- Examples of expected inputs/outputs
+
+### Reviewing Tests
+
+When reviewing test PRs:
+
+- Verify coverage increases
+- Check test descriptions match requirements
+- Ensure tests are deterministic
+- Validate mock usage is appropriate
+
+## Debugging Tests
+
+### Running Individual Tests
+
+```bash
+# Debug specific test with verbose output
+npm test -- --verbose avatar-loader.test.js
+
+# Run with Node.js debugger
+node --inspect-brk node_modules/.bin/jest --runInBand avatar-loader.test.js
+```
+
+### Common Debug Commands
+
+```bash
+# Show test coverage for specific file
+npm test -- --coverage --collectCoverageFrom="prototype/garment-visualization/avatar-loader.js"
+
+# Run tests with detailed output
+npm test -- --verbose --no-coverage
+
+# Run tests and watch for changes
+npm run test:watch -- --verbose
+```
+
+## Resources
+
+- [Jest Documentation](https://jestjs.io/docs/getting-started)
+- [JSDOM Documentation](https://github.com/jsdom/jsdom)
+- [Testing Library](https://testing-library.com/docs/dom-testing-library/intro)
+- [Project Functional Requirements](docs/Detailed_Functional_Requirements.md)

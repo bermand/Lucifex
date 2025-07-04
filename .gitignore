@@ -3,15 +3,21 @@ prototype/assets/.DS_Store
 
 # Dependencies
 node_modules/
+
 npm-debug.log*
 
 # Testing
 coverage/
 test-results/
 
+# Coverage reports
+coverage/
+
+
 # Build outputs
 dist/
 build/
+
 
 # OS generated files
 .DS_Store
@@ -30,3 +36,19 @@ Thumbs.db
 
 # Logs
 *.log
+=======
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment variables
+.env
+.env.local

@@ -30,5 +30,58 @@
     "suiteNameTemplate": "{filepath}",
     "classNameTemplate": "{classname}",
     "titleTemplate": "{title}"
+=======
+    "test:ci": "jest --ci --coverage --watchAll=false"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bermand/Lucifex.git"
+  },
+  "keywords": [
+    "3d",
+    "avatar",
+    "garment",
+    "fashion",
+    "webgl",
+    "threejs"
+  ],
+  "author": "Lucifex Team",
+  "license": "MIT",
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "@testing-library/jest-dom": "^6.1.0",
+    "@testing-library/dom": "^9.3.0"
+  },
+  "jest": {
+    "testEnvironment": "jsdom",
+    "setupFilesAfterEnv": ["<rootDir>/__tests__/setup.js"],
+    "testMatch": [
+      "**/__tests__/**/*.test.js",
+      "**/__tests__/**/*.spec.js"
+    ],
+    "collectCoverageFrom": [
+      "prototype/**/*.js",
+      "scripts/**/*.js",
+      "!prototype/**/libs/**",
+      "!**/node_modules/**",
+      "!**/*.min.js"
+    ],
+    "coverageDirectory": "coverage",
+    "coverageReporters": ["text", "lcov", "html"],
+    "moduleFileExtensions": ["js", "json", "html"],
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/coverage/"
+    ],
+    "transformIgnorePatterns": [
+      "node_modules/(?!(jsdom)/)"
+    ]
+  },
+  "dependencies": {
+    "@babel/core": "^7.23.0",
+    "@babel/preset-env": "^7.23.0",
+    "babel-jest": "^29.7.0"
+
   }
 }
