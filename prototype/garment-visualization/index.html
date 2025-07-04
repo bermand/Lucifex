@@ -515,11 +515,13 @@
           
           // For GLTF files without embedded binary data, create a visible placeholder mesh
           console.log('Creating GLTF placeholder mesh');
-          const geometry = new THREE.BoxGeometry(0.3, 0.6, 0.2); // Garment-like shape
-          const material = new THREE.MeshLambertMaterial({ 
-            color: 0xff6b6b, // Bright red so it's clearly visible
-            transparent: true,
-            opacity: 0.8
+          const geometry = new THREE.BoxGeometry(0.3, 0.6, 0.2, 4, 8, 4); // Add segments for smoother appearance
+          const material = new THREE.MeshStandardMaterial({ 
+            color: 0x666666, // Change to gray instead of bright red
+            metalness: 0.1,
+            roughness: 0.7,
+            transparent: false,
+            opacity: 1.0
           });
           
           const mesh = new THREE.Mesh(geometry, material);
@@ -667,10 +669,18 @@
       camera.position.set(0, 1.6, 4);
       camera.lookAt(0, 1, 0);
       
-      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer = new THREE.WebGLRenderer({ 
+        antialias: true,
+        alpha: true,
+        powerPreference: "high-performance"
+      });
       renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Add this line
       renderer.shadowMap.enabled = true;
       renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.outputEncoding = THREE.sRGBEncoding; // Add this line
+      renderer.toneMapping = THREE.ACESFilmicToneMapping; // Add this line
+      renderer.toneMappingExposure = 1.0; // Add this line
       document.body.appendChild(renderer.domElement);
       
       // Lighting setup
@@ -697,26 +707,35 @@
     }
     
     function setupLighting() {
-      // Ambient light
-      const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+      // Ambient light - increase intensity
+      const ambientLight = new THREE.AmbientLight(0x404040, 0.8); // was 0.6
       scene.add(ambientLight);
       
-      // Main directional light
-      const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+      // Main directional light - adjust position and intensity
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2); // was 0.8
       directionalLight.position.set(5, 10, 5);
       directionalLight.castShadow = true;
-      directionalLight.shadow.mapSize.width = 2048;
-      directionalLight.shadow.mapSize.height = 2048;
-      scene.add(directionalLight);
-      
-      // Fill light
-      const fillLight = new THREE.DirectionalLight(0xffffff, 0.3);
-      fillLight.position.set(-5, 5, -5);
+      directionalLight.shadow.mapSize.width = 4096; // was 2048
+      directionalLight.shadow.mapSize.height = 4096; // was 2048
+      directionalLight.shadow.camera.near = 0.5;
+      directionalLight.shadow.camera.far = 50;
+      directionalLight.shadow.camera.left = -10;
+      directionalLight.shadow.camera.right = 10;
+      directionalLight.shadow.camera.top = 10;
+      directionalLight.shadow.camera.bottom = -10;
+
+      // Fill light - increase intensity
+      const fillLight = new THREE.DirectionalLight(0xffffff, 0.6); // was 0.3
       scene.add(fillLight);
-      
-      // Rim light for materials
-      const rimLight = new THREE.DirectionalLight(0xffffff, 0.4);
-      rimLight.position.set(0, 5, -5);
+
+      // Add additional key light for better material definition
+      const keyLight = new THREE.DirectionalLight(0xffffff, 0.8);
+      keyLight.position.set(-3, 8, 3);
+      scene.add(keyLight);
+
+      // Add point light for rim lighting
+      const rimLight = new THREE.PointLight(0xffffff, 0.5, 10);
+      rimLight.position.set(0, 3, -3);
       scene.add(rimLight);
       
       // Ground plane
@@ -734,22 +753,22 @@
       
       const skinMaterial = new THREE.MeshLambertMaterial({ color: 0xffdbac });
       
-      // Head
-      const headGeometry = new THREE.SphereGeometry(0.12, 16, 16);
+      // Head - increase segments for smoother appearance
+      const headGeometry = new THREE.SphereGeometry(0.12, 32, 32); // was 16, 16
       avatarParts.head = new THREE.Mesh(headGeometry, skinMaterial);
       avatarParts.head.position.y = 1.65;
       avatarParts.head.castShadow = true;
       avatarGroup.add(avatarParts.head);
       
-      // Torso
-      const torsoGeometry = new THREE.CylinderGeometry(0.15, 0.12, 0.6, 12);
+      // Torso - increase segments
+      const torsoGeometry = new THREE.CylinderGeometry(0.15, 0.12, 0.6, 24); // was 12
       avatarParts.torso = new THREE.Mesh(torsoGeometry, skinMaterial);
       avatarParts.torso.position.y = 1.2;
       avatarParts.torso.castShadow = true;
       avatarGroup.add(avatarParts.torso);
       
-      // Arms
-      const armGeometry = new THREE.CylinderGeometry(0.04, 0.04, 0.5, 8);
+      // Arms - increase segments
+      const armGeometry = new THREE.CylinderGeometry(0.04, 0.04, 0.5, 16); // was 8
       
       avatarParts.leftArm = new THREE.Mesh(armGeometry, skinMaterial);
       avatarParts.leftArm.position.set(-0.25, 1.3, 0);
@@ -763,8 +782,8 @@
       avatarParts.rightArm.castShadow = true;
       avatarGroup.add(avatarParts.rightArm);
       
-      // Legs
-      const legGeometry = new THREE.CylinderGeometry(0.06, 0.05, 0.8, 8);
+      // Legs - increase segments  
+      const legGeometry = new THREE.CylinderGeometry(0.06, 0.05, 0.8, 16); // was 8
       
       avatarParts.leftLeg = new THREE.Mesh(legGeometry, skinMaterial);
       avatarParts.leftLeg.position.set(-0.1, 0.5, 0);
@@ -819,20 +838,20 @@
       
       switch(type) {
         case 'corset':
-          geometry = new THREE.CylinderGeometry(0.16, 0.13, 0.4, 16);
+          geometry = new THREE.CylinderGeometry(0.16, 0.13, 0.4, 32); // was 16
           break;
         case 'bodysuit':
-          geometry = new THREE.CylinderGeometry(0.16, 0.13, 0.8, 16);
+          geometry = new THREE.CylinderGeometry(0.16, 0.13, 0.8, 32); // was 16
           break;
         case 'dress':
-          geometry = new THREE.CylinderGeometry(0.16, 0.25, 1.0, 16);
+          geometry = new THREE.CylinderGeometry(0.16, 0.25, 1.0, 32); // was 16
           break;
         case 'jacket':
-          geometry = new THREE.CylinderGeometry(0.18, 0.15, 0.5, 16);
+          geometry = new THREE.CylinderGeometry(0.18, 0.15, 0.5, 32); // was 16
           break;
         case 'pants':
           // Create two leg cylinders
-          const legGeo = new THREE.CylinderGeometry(0.07, 0.06, 0.8, 12);
+          const legGeo = new THREE.CylinderGeometry(0.07, 0.06, 0.8, 24); // was 12
           const leftLeg = new THREE.Mesh(legGeo, material);
           leftLeg.position.set(-0.11, 0.5, 0);
           garmentGroup.add(leftLeg);
@@ -841,10 +860,10 @@
           garmentGroup.add(rightLeg);
           return;
         case 'skirt':
-          geometry = new THREE.CylinderGeometry(0.13, 0.22, 0.4, 16);
+          geometry = new THREE.CylinderGeometry(0.13, 0.22, 0.4, 32); // was 16
           break;
         default:
-          geometry = new THREE.CylinderGeometry(0.16, 0.13, 0.6, 16);
+          geometry = new THREE.CylinderGeometry(0.16, 0.13, 0.6, 32); // was 16
       }
       
       const garment = new THREE.Mesh(geometry, material);
