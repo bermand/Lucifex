@@ -130,10 +130,10 @@ class ClothSimulation {
       if (clothData) {
         console.log(`🎨 Visual cloth mesh created for physics cloth with ${clothData.particles.length} particles`)
 
-        // Store visual mesh reference
+        // Store visual mesh reference with initial vertices
         this.visualMeshes.set(clothId, {
           particleCount: clothData.particles.length,
-          lastVertices: vertices,
+          lastVertices: new Float32Array(vertices), // Copy the initial vertices
           updateCount: 0,
         })
       }
@@ -220,7 +220,6 @@ class ClothSimulation {
         // Update visual mesh reference
         const visualMesh = this.visualMeshes.get(physicsId)
         if (visualMesh) {
-          visualMesh.lastVertices = vertices
           visualMesh.updateCount++
 
           // Log visual updates occasionally
@@ -231,6 +230,9 @@ class ClothSimulation {
             )
             this.logClothMovement(vertices, physicsId)
           }
+
+          // Update stored vertices for next comparison
+          visualMesh.lastVertices = new Float32Array(vertices)
         }
 
         // Update model viewer (this is where we'd normally update the 3D mesh)
@@ -296,9 +298,10 @@ class ClothSimulation {
       // Calculate movement statistics
       let totalMovement = 0
       let maxMovement = 0
+      let movingParticles = 0
 
       const visualMesh = this.visualMeshes.get(clothId)
-      if (visualMesh && visualMesh.lastVertices) {
+      if (visualMesh && visualMesh.lastVertices && visualMesh.lastVertices.length === vertices.length) {
         const prevVertices = visualMesh.lastVertices
 
         for (let i = 0; i < vertices.length; i += 3) {
@@ -309,15 +312,37 @@ class ClothSimulation {
 
           totalMovement += movement
           maxMovement = Math.max(maxMovement, movement)
+
+          if (movement > 0.0001) {
+            // Threshold for "moving"
+            movingParticles++
+          }
         }
 
         const avgMovement = totalMovement / (vertices.length / 3)
 
         console.log(`📊 Cloth Movement Analysis:`)
-        console.log(`   • Average movement: ${avgMovement.toFixed(4)}m`)
-        console.log(`   • Max movement: ${maxMovement.toFixed(4)}m`)
-        console.log(`   • Total movement: ${totalMovement.toFixed(4)}m`)
-        console.log(`   • Particles: ${vertices.length / 3}`)
+        console.log(`   • Average movement: ${avgMovement.toFixed(6)}m`)
+        console.log(`   • Max movement: ${maxMovement.toFixed(6)}m`)
+        console.log(`   • Total movement: ${totalMovement.toFixed(6)}m`)
+        console.log(`   • Moving particles: ${movingParticles}/${vertices.length / 3}`)
+        console.log(`   • Movement threshold: 0.0001m`)
+
+        // Check if cloth is actually moving
+        if (avgMovement > 0.001) {
+          console.log(`✅ CLOTH IS MOVING! Average: ${avgMovement.toFixed(6)}m/frame`)
+        } else if (avgMovement > 0.0001) {
+          console.log(`⚠️ Cloth moving slowly: ${avgMovement.toFixed(6)}m/frame`)
+        } else {
+          console.log(`❌ Cloth appears static: ${avgMovement.toFixed(6)}m/frame`)
+        }
+      } else {
+        console.log(`⚠️ No previous vertices to compare movement (first frame or data issue)`)
+
+        // Store current vertices for next comparison
+        if (visualMesh) {
+          visualMesh.lastVertices = new Float32Array(vertices)
+        }
       }
     } catch (error) {
       console.error("❌ Failed to log cloth movement:", error)
@@ -349,6 +374,18 @@ class ClothSimulation {
         console.log(`     • Average Y: ${clothData.stats.avgY}m`)
         console.log(`     • Particles: ${clothData.stats.particleCount}`)
         console.log(`     • Last update: ${new Date(clothData.stats.lastUpdate).toLocaleTimeString()}`)
+      }
+    })
+
+    // Force a movement analysis
+    this.clothMeshes.forEach((clothData, clothName) => {
+      const physicsId = clothData.physicsId
+      if (physicsId) {
+        const vertices = this.physicsEngine.getClothVertices(physicsId)
+        if (vertices) {
+          console.log(`🔍 Forced movement check for ${clothName}:`)
+          this.logClothMovement(vertices, physicsId)
+        }
       }
     })
   }
@@ -410,6 +447,19 @@ class ClothSimulation {
     if (this.physicsEngine && this.physicsEngine.logFullStatus) {
       this.physicsEngine.logFullStatus()
     }
+
+    // Force movement analysis for all cloths
+    console.log("🔍 === FORCED MOVEMENT ANALYSIS ===")
+    this.clothMeshes.forEach((clothData, clothName) => {
+      const physicsId = clothData.physicsId
+      if (physicsId) {
+        const vertices = this.physicsEngine.getClothVertices(physicsId)
+        if (vertices) {
+          console.log(`Analyzing movement for ${clothName}:`)
+          this.logClothMovement(vertices, physicsId)
+        }
+      }
+    })
   }
 
   cleanup() {
