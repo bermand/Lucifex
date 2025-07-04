@@ -325,6 +325,31 @@
       border-color: #ef4444;
       color: #991b1b;
     }
+
+    .file-status {
+      padding: 8px;
+      border-radius: 4px;
+      margin-top: 8px;
+      font-size: 12px;
+    }
+
+    .file-status.success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+
+    .file-status.warning {
+      background: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffeaa7;
+    }
+
+    .file-status.error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
   </style>
 </head>
 <body>
@@ -348,14 +373,14 @@
     <div id="fallback" style="display: flex; align-items: center; justify-content: center; height: 100%; color: #666;">
       <div style="text-align: center;">
         <h2>🎨 Lucifex Avatar & Garment Visualizer</h2>
-        <p>Select an avatar or load a garment to begin</p>
-        <p style="font-size: 14px; color: #999;">Professional Model Viewer rendering for everything</p>
+        <p>Upload GLB/GLTF files to begin visualization</p>
+        <p style="font-size: 14px; color: #999;">Professional Model Viewer rendering</p>
       </div>
     </div>
   </model-viewer>
   
   <div class="status-indicator" id="status">
-    <div id="status-content">Ready to load models...</div>
+    <div id="status-content">Checking for default models...</div>
   </div>
   
   <div id="controls">
@@ -382,7 +407,7 @@
       <div class="control-group">
         <label>Body Type Presets:</label>
         <div class="avatar-gallery">
-          <div class="avatar-option active" onclick="loadAvatarPreset('female-s')" data-avatar="female-s">
+          <div class="avatar-option" onclick="loadAvatarPreset('female-s')" data-avatar="female-s">
             👩<br>Female S
           </div>
           <div class="avatar-option" onclick="loadAvatarPreset('female-m')" data-avatar="female-m">
@@ -394,7 +419,7 @@
           <div class="avatar-option" onclick="loadAvatarPreset('male-s')" data-avatar="male-s">
             👨<br>Male S
           </div>
-          <div class="avatar-option" onclick="loadAvatarPreset('male-m')" data-avatar="male-m">
+          <div class="avatar-option active" onclick="loadAvatarPreset('male-m')" data-avatar="male-m">
             👨<br>Male M
           </div>
           <div class="avatar-option" onclick="loadAvatarPreset('male-l')" data-avatar="male-l">
@@ -406,7 +431,7 @@
       <div class="control-group">
         <label>Custom Avatar:</label>
         <input type="file" id="avatar-file" accept=".glb,.gltf" onchange="loadCustomAvatar(event)" />
-        <div class="file-info">
+        <div class="file-info" id="avatar-file-info">
           📁 Load your own avatar GLB/GLTF file<br>
           🎨 Same professional rendering as garments
         </div>
@@ -426,7 +451,7 @@
       <div class="control-group">
         <label>Load Garment File:</label>
         <input type="file" id="garment-file" accept=".glb,.gltf" onchange="loadGarmentFile(event)" />
-        <div class="file-info" id="file-info">
+        <div class="file-info" id="garment-file-info">
           📁 Supports GLB/GLTF files from CLO3D<br>
           ✨ Full geometry, materials, and textures supported<br>
           🎯 Professional PBR rendering with Model Viewer
@@ -434,12 +459,12 @@
       </div>
 
       <div class="control-group">
-        <label>Sample Garments:</label>
+        <label>Available Sample Garments:</label>
         <div class="preset-buttons">
-          <button class="preset-btn" onclick="loadSampleGarment('tshirt')">T-Shirt</button>
-          <button class="preset-btn" onclick="loadSampleGarment('dress')">Dress</button>
-          <button class="preset-btn" onclick="loadSampleGarment('jacket')">Jacket</button>
-          <button class="preset-btn" onclick="loadSampleGarment('pants')">Pants</button>
+          <button class="preset-btn active" onclick="loadSampleGarment('tshirt-1')" id="sample-tshirt-1">T-Shirt 1</button>
+          <button class="preset-btn" onclick="loadSampleGarment('tshirt')" id="sample-tshirt">T-Shirt</button>
+          <button class="preset-btn" onclick="loadSampleGarment('dress')" id="sample-dress">Dress</button>
+          <button class="preset-btn" onclick="loadSampleGarment('jacket')" id="sample-jacket">Jacket</button>
         </div>
       </div>
 
@@ -582,9 +607,9 @@
   <script>
     const modelViewer = document.getElementById('main-viewer');
     let autoRotateEnabled = true;
-    let currentModelType = 'both'; // Start with combined view
-    let currentAvatar = './prototype/assets/avatars/male.glb'; // Default avatar
-    let currentGarment = './prototype/assets/garments/tshirt-1.glb'; // Default garment
+    let currentModelType = 'avatar'; // Start with avatar view
+    let currentAvatar = null;
+    let currentGarment = null;
     let combinedModel = null;
     let combinationMethod = 'merge';
 
@@ -596,14 +621,24 @@
       fashion: 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/photo_studio_loft_hall_1k.hdr'
     };
 
-    // Avatar presets - in a real app, these would be actual GLB files
-    const avatarPresets = {
-      'female-s': { name: 'Female Small', url: null, description: 'Petite female avatar' },
-      'female-m': { name: 'Female Medium', url: null, description: 'Average female avatar' },
-      'female-l': { name: 'Female Large', url: null, description: 'Plus-size female avatar' },
-      'male-s': { name: 'Male Small', url: null, description: 'Slim male avatar' },
-      'male-m': { name: 'Male Medium', url: null, description: 'Average male avatar' },
-      'male-l': { name: 'Male Large', url: null, description: 'Large male avatar' }
+    // Available files - check these paths
+    const availableFiles = {
+      avatars: [
+        '../assets/avatars/male.glb',
+        './prototype/assets/avatars/male.glb',
+        'prototype/assets/avatars/male.glb',
+        'assets/avatars/male.glb'
+      ],
+      garments: [
+        '../assets/garments/tshirt-1.glb',
+        './prototype/assets/garments/tshirt-1.glb',
+        'prototype/assets/garments/tshirt-1.glb',
+        'assets/garments/tshirt-1.glb',
+        '../assets/garments/tshirt.glb',
+        './prototype/assets/garments/tshirt.glb',
+        'prototype/assets/garments/tshirt.glb',
+        'assets/garments/tshirt.glb'
+      ]
     };
 
     function updateStatus(message) {
@@ -614,6 +649,97 @@
       console.log('STATUS:', message);
     }
 
+    async function checkFileExists(url) {
+      try {
+        const response = await fetch(url, { method: 'HEAD' });
+        return response.ok;
+      } catch (error) {
+        return false;
+      }
+    }
+
+    async function findAvailableFile(fileList) {
+      for (const file of fileList) {
+        const exists = await checkFileExists(file);
+        if (exists) {
+          return file;
+        }
+      }
+      return null;
+    }
+
+    async function initializeDefaults() {
+      updateStatus('🔍 Checking for available models...');
+      
+      // Try to find available avatar
+      const avatarFile = await findAvailableFile(availableFiles.avatars);
+      if (avatarFile) {
+        currentAvatar = avatarFile;
+        updateStatus('✅ Found avatar: ' + avatarFile.split('/').pop());
+        
+        // Update avatar file info
+        const avatarInfo = document.getElementById('avatar-file-info');
+        avatarInfo.className = 'file-status success';
+        avatarInfo.innerHTML = `✅ Default avatar loaded: ${avatarFile.split('/').pop()}<br>📊 Ready for professional rendering`;
+      } else {
+        updateStatus('⚠️ No default avatar found');
+        const avatarInfo = document.getElementById('avatar-file-info');
+        avatarInfo.className = 'file-status warning';
+        avatarInfo.innerHTML = `⚠️ No default avatar found<br>📁 Upload a GLB/GLTF file to get started`;
+      }
+      
+      // Try to find available garment
+      const garmentFile = await findAvailableFile(availableFiles.garments);
+      if (garmentFile) {
+        currentGarment = garmentFile;
+        updateStatus('✅ Found garment: ' + garmentFile.split('/').pop());
+        
+        // Update garment file info
+        const garmentInfo = document.getElementById('garment-file-info');
+        garmentInfo.className = 'file-status success';
+        garmentInfo.innerHTML = `✅ Default garment loaded: ${garmentFile.split('/').pop()}<br>📊 Ready for professional rendering`;
+        
+        // Update sample button to show which one is loaded
+        if (garmentFile.includes('tshirt-1')) {
+          document.getElementById('sample-tshirt-1').classList.add('active');
+        } else if (garmentFile.includes('tshirt')) {
+          document.getElementById('sample-tshirt').classList.add('active');
+        }
+      } else {
+        updateStatus('⚠️ No default garment found');
+        const garmentInfo = document.getElementById('garment-file-info');
+        garmentInfo.className = 'file-status warning';
+        garmentInfo.innerHTML = `⚠️ No default garment found<br>📁 Upload a GLB/GLTF file to get started`;
+      }
+      
+      // Update combination status
+      updateCombinationStatus();
+      
+      // If we have both files, auto-load combined view
+      if (currentAvatar && currentGarment) {
+        currentModelType = 'both';
+        document.querySelectorAll('.model-btn').forEach(btn => btn.classList.remove('active'));
+        document.getElementById('both-mode').classList.add('active');
+        
+        updateStatus('🎯 Both models found - generating combined view...');
+        setTimeout(() => {
+          generateCombinedModel();
+        }, 1000);
+      } else if (currentAvatar) {
+        // Load just the avatar
+        currentModelType = 'avatar';
+        loadModel();
+      } else if (currentGarment) {
+        // Load just the garment
+        currentModelType = 'garment';
+        document.querySelectorAll('.model-btn').forEach(btn => btn.classList.remove('active'));
+        document.getElementById('garment-mode').classList.add('active');
+        loadModel();
+      } else {
+        updateStatus('📁 No default models found - upload files to begin');
+      }
+    }
+
     function updateCombinationStatus() {
       const statusDiv = document.getElementById('combination-status');
       
@@ -621,8 +747,8 @@
         statusDiv.className = 'combination-status ready';
         statusDiv.innerHTML = `
           <strong>✅ Ready for Model Viewer Combination:</strong><br>
-          Avatar: Loaded<br>
-          Garment: Loaded<br>
+          Avatar: ${currentAvatar.split('/').pop()}<br>
+          Garment: ${currentGarment.split('/').pop()}<br>
           Method: ${combinationMethod}<br>
           <small>💡 Model Viewer will show garment with avatar context</small>
         `;
@@ -630,8 +756,8 @@
         statusDiv.className = 'combination-status partial';
         statusDiv.innerHTML = `
           <strong>⚠️ Partial Setup:</strong><br>
-          Avatar: ${currentAvatar ? '✅ Loaded' : '❌ Missing'}<br>
-          Garment: ${currentGarment ? '✅ Loaded' : '❌ Missing'}<br>
+          Avatar: ${currentAvatar ? '✅ ' + currentAvatar.split('/').pop() : '❌ Missing'}<br>
+          Garment: ${currentGarment ? '✅ ' + currentGarment.split('/').pop() : '❌ Missing'}<br>
           ${!currentAvatar ? 'Load an avatar first' : 'Load a garment to combine'}
         `;
       } else {
@@ -1039,28 +1165,20 @@
       document.getElementById(type + '-mode').classList.add('active');
       
       updateStatus(`Model type set to: ${type}`);
+      loadModel();
     }
 
     function loadAvatarPreset(presetName) {
-      const preset = avatarPresets[presetName];
-      if (!preset) {
-        updateStatus('❌ Invalid avatar preset');
-        return;
-      }
-      
-      // Map presets to actual files when available
-      if (presetName === 'male-m') {
-        currentAvatar = './prototype/assets/avatars/male.glb';
+      // For now, only male-m maps to an actual file
+      if (presetName === 'male-m' && currentAvatar) {
+        // Already loaded, just update UI
+        document.querySelectorAll('.avatar-option').forEach(option => option.classList.remove('active'));
+        document.querySelector(`.avatar-option[data-avatar="${presetName}"]`).classList.add('active');
+        updateStatus(`Avatar preset selected: Male Medium`);
       } else {
-        // For other presets, use placeholder (in real app, these would be actual files)
-        currentAvatar = `./prototype/assets/avatars/${presetName}.glb`;
+        updateStatus('⚠️ Avatar preset not available - upload a GLB file instead');
       }
       
-      // Update UI
-      document.querySelectorAll('.avatar-option').forEach(option => option.classList.remove('active'));
-      document.querySelector(`.avatar-option[data-avatar="${presetName}"]`).classList.add('active');
-      
-      updateStatus(`Avatar preset loaded: ${preset.name}`);
       updateCombinationStatus();
       loadModel();
     }
@@ -1074,6 +1192,14 @@
       
       const url = URL.createObjectURL(file);
       currentAvatar = url;
+      
+      // Update UI
+      document.querySelectorAll('.avatar-option').forEach(option => option.classList.remove('active'));
+      
+      // Update file info
+      const avatarInfo = document.getElementById('avatar-file-info');
+      avatarInfo.className = 'file-status success';
+      avatarInfo.innerHTML = `✅ Custom avatar loaded: ${file.name}<br>📊 Size: ${(file.size / 1024 / 1024).toFixed(2)} MB`;
       
       updateStatus(`Custom avatar loaded: ${file.name}`);
       updateCombinationStatus();
@@ -1090,6 +1216,14 @@
       const url = URL.createObjectURL(file);
       currentGarment = url;
       
+      // Update UI
+      document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
+      
+      // Update file info
+      const garmentInfo = document.getElementById('garment-file-info');
+      garmentInfo.className = 'file-status success';
+      garmentInfo.innerHTML = `✅ Custom garment loaded: ${file.name}<br>📊 Size: ${(file.size / 1024 / 1024).toFixed(2)} MB`;
+      
       // Auto-switch to garment mode when loading a garment
       currentModelType = 'garment';
       document.querySelectorAll('.model-btn').forEach(btn => btn.classList.remove('active'));
@@ -1100,23 +1234,49 @@
       loadModel();
     }
 
-    function loadSampleGarment(garmentName) {
-      // Map sample names to actual files
-      if (garmentName === 'tshirt') {
-        currentGarment = './prototype/assets/garments/tshirt-1.glb';
-      } else {
-        // For other samples, use placeholder paths
-        currentGarment = `./prototype/assets/garments/${garmentName}.glb`;
+    async function loadSampleGarment(garmentName) {
+      // Try to find the sample garment
+      let garmentFile = null;
+      
+      if (garmentName === 'tshirt-1') {
+        garmentFile = await findAvailableFile([
+          '../assets/garments/tshirt-1.glb',
+          './prototype/assets/garments/tshirt-1.glb',
+          'prototype/assets/garments/tshirt-1.glb',
+          'assets/garments/tshirt-1.glb'
+        ]);
+      } else if (garmentName === 'tshirt') {
+        garmentFile = await findAvailableFile([
+          '../assets/garments/tshirt.glb',
+          './prototype/assets/garments/tshirt.glb',
+          'prototype/assets/garments/tshirt.glb',
+          'assets/garments/tshirt.glb'
+        ]);
       }
       
-      // Auto-switch to garment mode when loading a sample garment
-      currentModelType = 'garment';
-      document.querySelectorAll('.model-btn').forEach(btn => btn.classList.remove('active'));
-      document.getElementById('garment-mode').classList.add('active');
-      
-      updateStatus(`Sample garment loaded: ${garmentName}`);
-      updateCombinationStatus();
-      loadModel();
+      if (garmentFile) {
+        currentGarment = garmentFile;
+        
+        // Update UI
+        document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
+        document.getElementById(`sample-${garmentName}`).classList.add('active');
+        
+        // Update file info
+        const garmentInfo = document.getElementById('garment-file-info');
+        garmentInfo.className = 'file-status success';
+        garmentInfo.innerHTML = `✅ Sample garment loaded: ${garmentFile.split('/').pop()}<br>📊 Ready for professional rendering`;
+        
+        // Auto-switch to garment mode when loading a sample garment
+        currentModelType = 'garment';
+        document.querySelectorAll('.model-btn').forEach(btn => btn.classList.remove('active'));
+        document.getElementById('garment-mode').classList.add('active');
+        
+        updateStatus(`Sample garment loaded: ${garmentName}`);
+        updateCombinationStatus();
+        loadModel();
+      } else {
+        updateStatus(`⚠️ Sample garment '${garmentName}' not found - upload a GLB file instead`);
+      }
     }
 
     function setEnvironment(envName) {
@@ -1173,39 +1333,8 @@
         updateStatus('Loading combined models...');
         generateCombinedModel();
       } else {
-        // Fallback to defaults if nothing is loaded
-        if (!currentAvatar) currentAvatar = './prototype/assets/avatars/male.glb';
-        if (!currentGarment) currentGarment = './prototype/assets/garments/tshirt-1.glb';
-        updateStatus('Loading default models...');
-        generateCombinedModel();
+        updateStatus('Ready to load models...');
       }
-    }
-
-    function initializeDefaults() {
-      // Set UI to reflect default selections
-      document.querySelectorAll('.model-btn').forEach(btn => btn.classList.remove('active'));
-      document.getElementById('both-mode').classList.add('active');
-      
-      // Update avatar selection (male-m as closest to male.glb)
-      document.querySelectorAll('.avatar-option').forEach(option => option.classList.remove('active'));
-      document.querySelector('.avatar-option[data-avatar="male-m"]').classList.add('active');
-      
-      // Update file info to show defaults loaded
-      const fileInfo = document.getElementById('file-info');
-      fileInfo.innerHTML = `
-        ✅ Default garment loaded: tshirt-1.glb<br>
-        📊 Ready for professional rendering<br>
-        🎨 Upload your own GLB/GLTF to replace
-      `;
-      
-      // Update status and combination status
-      updateStatus('🎯 Defaults loaded: Male avatar + T-shirt garment');
-      updateCombinationStatus();
-      
-      // Auto-generate combined view after a short delay
-      setTimeout(() => {
-        generateCombinedModel();
-      }, 1000);
     }
 
     // Call initialization when page loads
@@ -1220,7 +1349,7 @@
       
       // Update combined view in real-time if active
       if (combinedModel) {
-        const avatarViewer = document.querySelector('#combined-container model-viewer[src*="' + currentAvatar.split('/').pop() + '"]');
+        const avatarViewer = document.getElementById('combined-avatar-viewer');
         if (avatarViewer) {
           avatarViewer.style.opacity = value;
         }
@@ -1233,7 +1362,7 @@
       
       // Update combined view in real-time if active
       if (combinedModel) {
-        const garmentViewer = document.querySelector('#combined-container model-viewer[src*="' + currentGarment.split('/').pop() + '"]');
+        const garmentViewer = document.getElementById('combined-garment-viewer');
         if (garmentViewer) {
           garmentViewer.style.opacity = value;
         }
@@ -1246,10 +1375,10 @@
       
       // Update combined view in real-time if active
       if (combinedModel && combinationMethod !== 'separate') {
-        const garmentViewer = document.querySelector('#combined-container model-viewer[src*="' + currentGarment.split('/').pop() + '"]');
+        const garmentViewer = document.getElementById('combined-garment-viewer');
         if (garmentViewer) {
           const offsetY = parseFloat(document.getElementById('garment-offset-y').value);
-          garmentViewer.style.transform = `translate(${value * 100}px, ${offsetY * 100}px)`;
+          garmentViewer.style.transform = `translate(${value * 100}px, ${offsetY * 100}px) scale(1.05)`;
         }
       }
     });
@@ -1260,10 +1389,10 @@
       
       // Update combined view in real-time if active
       if (combinedModel && combinationMethod !== 'separate') {
-        const garmentViewer = document.querySelector('#combined-container model-viewer[src*="' + currentGarment.split('/').pop() + '"]');
+        const garmentViewer = document.getElementById('combined-garment-viewer');
         if (garmentViewer) {
           const offsetX = parseFloat(document.getElementById('garment-offset-x').value);
-          garmentViewer.style.transform = `translate(${offsetX * 100}px, ${value * 100}px)`;
+          garmentViewer.style.transform = `translate(${offsetX * 100}px, ${value * 100}px) scale(1.05)`;
         }
       }
     });
