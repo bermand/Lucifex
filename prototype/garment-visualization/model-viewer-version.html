@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Garment Visualizer - Lucifex</title>
+  <title>Garment Visualizer - Model Viewer</title>
   <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
   <style>
     body { 
@@ -168,65 +168,6 @@
       color: white;
       border-color: #667eea;
     }
-
-    .tabs {
-      display: flex;
-      margin-bottom: 20px;
-      border-radius: 8px;
-      overflow: hidden;
-      background: #f0f0f0;
-    }
-
-    .tab {
-      flex: 1;
-      padding: 10px;
-      background: #f0f0f0;
-      border: none;
-      cursor: pointer;
-      font-size: 12px;
-      font-weight: 500;
-      transition: all 0.2s;
-    }
-
-    .tab.active {
-      background: #667eea;
-      color: white;
-    }
-
-    .tab-content {
-      display: none;
-    }
-
-    .tab-content.active {
-      display: block;
-    }
-
-    .preset-buttons {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 15px;
-      flex-wrap: wrap;
-    }
-
-    .preset-btn {
-      padding: 6px 10px;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      background: white;
-      cursor: pointer;
-      font-size: 10px;
-      transition: all 0.2s;
-    }
-
-    .preset-btn:hover {
-      border-color: #667eea;
-    }
-
-    .preset-btn.active {
-      background: #667eea;
-      color: white;
-      border-color: #667eea;
-    }
   </style>
 </head>
 <body>
@@ -249,109 +190,49 @@
     <!-- Fallback content -->
     <div id="fallback" style="display: flex; align-items: center; justify-content: center; height: 100%; color: #666;">
       <div style="text-align: center;">
-        <h2>🎨 Lucifex Garment Visualizer</h2>
-        <p>Upload a CLO3D GLB/GLTF file to see your garment in full detail</p>
-        <p style="font-size: 14px; color: #999;">Professional rendering with materials, textures, and lighting</p>
+        <h2>Load a CLO3D Garment</h2>
+        <p>Upload a GLB or GLTF file to see your garment in full detail</p>
       </div>
     </div>
   </model-viewer>
   
   <div id="controls">
-    <div class="tabs">
-      <button class="tab active" onclick="switchTab('garment')">Garment</button>
-      <button class="tab" onclick="switchTab('lighting')">Lighting</button>
-      <button class="tab" onclick="switchTab('camera')">Camera</button>
-    </div>
-
-    <!-- Garment Tab -->
-    <div id="garment-tab" class="tab-content active">
-      <h3>CLO3D Garment</h3>
-      
-      <div class="control-group">
-        <label>Load Garment File:</label>
-        <input type="file" id="garment-file" accept=".glb,.gltf" onchange="loadGarmentFile(event)" />
-        <div class="file-info" id="file-info">
-          📁 Supports GLB/GLTF files from CLO3D<br>
-          ✨ Full geometry, materials, and textures supported<br>
-          🎯 Professional PBR rendering
-        </div>
-      </div>
-
-      <div class="control-group">
-        <label>Sample Garments:</label>
-        <div class="preset-buttons">
-          <button class="preset-btn" onclick="loadSampleGarment('shirt')">Shirt</button>
-          <button class="preset-btn" onclick="loadSampleGarment('dress')">Dress</button>
-          <button class="preset-btn" onclick="loadSampleGarment('jacket')">Jacket</button>
-        </div>
-        <div style="font-size: 11px; color: #666; margin-top: 5px;">
-          Sample garments for testing (placeholder models)
-        </div>
+    <h3>CLO3D Garment Viewer</h3>
+    
+    <div class="control-group">
+      <label>Load CLO3D Garment:</label>
+      <input type="file" id="garment-file" accept=".glb,.gltf" onchange="loadGarmentFile(event)" />
+      <div class="file-info" id="file-info">
+        📁 Supports GLB/GLTF files from CLO3D<br>
+        ✨ Full geometry, materials, and textures supported
       </div>
     </div>
 
-    <!-- Lighting Tab -->
-    <div id="lighting-tab" class="tab-content">
-      <h3>Lighting & Environment</h3>
-      
-      <div class="control-group">
-        <label>Environment:</label>
-        <div class="environment-options">
-          <button class="env-btn active" onclick="setEnvironment('studio')" data-env="studio">Studio</button>
-          <button class="env-btn" onclick="setEnvironment('outdoor')" data-env="outdoor">Outdoor</button>
-          <button class="env-btn" onclick="setEnvironment('neutral')" data-env="neutral">Neutral</button>
-          <button class="env-btn" onclick="setEnvironment('fashion')" data-env="fashion">Fashion</button>
-        </div>
-      </div>
-
-      <div class="control-group">
-        <label for="exposure">Exposure</label>
-        <input type="range" id="exposure" min="0.5" max="2" step="0.1" value="1" />
-        <div class="value-display"><span id="exposure-value">1.0</span></div>
-      </div>
-
-      <div class="control-group">
-        <label for="shadow-intensity">Shadow Intensity</label>
-        <input type="range" id="shadow-intensity" min="0" max="2" step="0.1" value="1" />
-        <div class="value-display"><span id="shadow-intensity-value">1.0</span></div>
-      </div>
-
-      <div class="control-group">
-        <label for="shadow-softness">Shadow Softness</label>
-        <input type="range" id="shadow-softness" min="0" max="1" step="0.1" value="0.5" />
-        <div class="value-display"><span id="shadow-softness-value">0.5</span></div>
+    <div class="control-group">
+      <label>Environment Lighting:</label>
+      <div class="environment-options">
+        <button class="env-btn active" onclick="setEnvironment('studio')" data-env="studio">Studio</button>
+        <button class="env-btn" onclick="setEnvironment('outdoor')" data-env="outdoor">Outdoor</button>
+        <button class="env-btn" onclick="setEnvironment('neutral')" data-env="neutral">Neutral</button>
       </div>
     </div>
 
-    <!-- Camera Tab -->
-    <div id="camera-tab" class="tab-content">
-      <h3>Camera & View</h3>
-      
-      <div class="control-group">
-        <label for="field-of-view">Field of View</label>
-        <input type="range" id="field-of-view" min="20" max="80" step="5" value="45" />
-        <div class="value-display"><span id="field-of-view-value">45</span>°</div>
-      </div>
+    <div class="control-group">
+      <label for="exposure">Exposure</label>
+      <input type="range" id="exposure" min="0.5" max="2" step="0.1" value="1" />
+      <div class="value-display"><span id="exposure-value">1.0</span></div>
+    </div>
 
-      <div class="control-group">
-        <label>Auto Rotate:</label>
-        <div class="preset-buttons">
-          <button class="preset-btn active" id="auto-rotate-on" onclick="setAutoRotate(true)">On</button>
-          <button class="preset-btn" id="auto-rotate-off" onclick="setAutoRotate(false)">Off</button>
-        </div>
-      </div>
-
-      <div class="control-group">
-        <label for="rotate-speed">Rotation Speed</label>
-        <input type="range" id="rotate-speed" min="10" max="60" step="5" value="30" />
-        <div class="value-display"><span id="rotate-speed-value">30</span>°/s</div>
-      </div>
+    <div class="control-group">
+      <label for="shadow-intensity">Shadow Intensity</label>
+      <input type="range" id="shadow-intensity" min="0" max="2" step="0.1" value="1" />
+      <div class="value-display"><span id="shadow-intensity-value">1.0</span></div>
     </div>
 
     <div class="action-buttons">
+      <button class="action-btn" onclick="toggleAutoRotate()">Toggle Rotation</button>
       <button class="action-btn" onclick="resetCamera()">Reset View</button>
       <button class="action-btn" onclick="takeScreenshot()">Screenshot</button>
-      <button class="action-btn" onclick="toggleFullscreen()">Fullscreen</button>
     </div>
   </div>
 
@@ -367,12 +248,11 @@
     const modelViewer = document.getElementById('garment-viewer');
     let autoRotateEnabled = true;
 
-    // Environment HDR URLs - using high-quality fashion-appropriate environments
+    // Environment HDR URLs
     const environments = {
       studio: 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/studio_small_03_1k.hdr',
       outdoor: 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/kloppenheim_06_1k.hdr',
-      neutral: 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/industrial_workshop_foundry_1k.hdr',
-      fashion: 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/photo_studio_loft_hall_1k.hdr'
+      neutral: 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/industrial_workshop_foundry_1k.hdr'
     };
 
     function loadGarmentFile(event) {
@@ -383,7 +263,7 @@
       fileInfo.innerHTML = `
         📁 Loading: ${file.name}<br>
         📊 Size: ${(file.size / 1024 / 1024).toFixed(2)} MB<br>
-        ⏳ Processing garment data...
+        ⏳ Processing...
       `;
       
       // Create object URL for the file
@@ -400,8 +280,7 @@
         fileInfo.innerHTML = `
           ✅ Loaded: ${file.name}<br>
           📊 Size: ${(file.size / 1024 / 1024).toFixed(2)} MB<br>
-          🎨 Full detail rendering active<br>
-          🔍 Materials and textures loaded
+          🎨 Full detail rendering active
         `;
         
         // Clean up the object URL after loading
@@ -413,24 +292,10 @@
         fileInfo.innerHTML = `
           ❌ Error loading: ${file.name}<br>
           💡 Try a different GLB/GLTF file<br>
-          🔧 Check file format compatibility<br>
-          📋 Ensure CLO3D export settings are correct
+          🔧 Check file format compatibility
         `;
         console.error('Model loading error:', event);
       }, { once: true });
-    }
-
-    function loadSampleGarment(type) {
-      // For now, show a message about sample garments
-      const fileInfo = document.getElementById('file-info');
-      fileInfo.innerHTML = `
-        🎯 Sample ${type} would load here<br>
-        📁 Upload your own CLO3D files for full functionality<br>
-        ✨ Professional garment rendering ready
-      `;
-      
-      // You can add actual sample garment URLs here later
-      console.log(`Loading sample ${type} garment`);
     }
 
     function setEnvironment(envType) {
@@ -446,14 +311,9 @@
       console.log(`Environment set to: ${envType}`);
     }
 
-    function setAutoRotate(enabled) {
-      autoRotateEnabled = enabled;
-      
-      // Update UI
-      document.getElementById('auto-rotate-on').classList.toggle('active', enabled);
-      document.getElementById('auto-rotate-off').classList.toggle('active', !enabled);
-      
-      if (enabled) {
+    function toggleAutoRotate() {
+      autoRotateEnabled = !autoRotateEnabled;
+      if (autoRotateEnabled) {
         modelViewer.setAttribute('auto-rotate', '');
       } else {
         modelViewer.removeAttribute('auto-rotate');
@@ -470,28 +330,10 @@
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `lucifex-garment-${Date.now()}.png`;
+        a.download = 'garment-screenshot.png';
         a.click();
         URL.revokeObjectURL(url);
       });
-    }
-
-    function toggleFullscreen() {
-      if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen();
-      } else {
-        document.exitFullscreen();
-      }
-    }
-
-    function switchTab(tabName) {
-      // Update tab buttons
-      document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-      event.target.classList.add('active');
-      
-      // Update tab content
-      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-      document.getElementById(tabName + '-tab').classList.add('active');
     }
 
     // Setup control listeners
@@ -515,36 +357,6 @@
         shadowValue.textContent = value.toFixed(1);
         modelViewer.shadowIntensity = value;
       });
-
-      // Shadow softness control
-      const softnessSlider = document.getElementById('shadow-softness');
-      const softnessValue = document.getElementById('shadow-softness-value');
-      
-      softnessSlider.addEventListener('input', (e) => {
-        const value = parseFloat(e.target.value);
-        softnessValue.textContent = value.toFixed(1);
-        modelViewer.shadowSoftness = value;
-      });
-
-      // Field of view control
-      const fovSlider = document.getElementById('field-of-view');
-      const fovValue = document.getElementById('field-of-view-value');
-      
-      fovSlider.addEventListener('input', (e) => {
-        const value = parseInt(e.target.value);
-        fovValue.textContent = value;
-        modelViewer.fieldOfView = value + 'deg';
-      });
-
-      // Rotation speed control
-      const speedSlider = document.getElementById('rotate-speed');
-      const speedValue = document.getElementById('rotate-speed-value');
-      
-      speedSlider.addEventListener('input', (e) => {
-        const value = parseInt(e.target.value);
-        speedValue.textContent = value;
-        modelViewer.rotationPerSecond = value + 'deg';
-      });
     }
 
     // Initialize controls when page loads
@@ -566,13 +378,10 @@
 
     // Make functions global
     window.loadGarmentFile = loadGarmentFile;
-    window.loadSampleGarment = loadSampleGarment;
     window.setEnvironment = setEnvironment;
-    window.setAutoRotate = setAutoRotate;
+    window.toggleAutoRotate = toggleAutoRotate;
     window.resetCamera = resetCamera;
     window.takeScreenshot = takeScreenshot;
-    window.toggleFullscreen = toggleFullscreen;
-    window.switchTab = switchTab;
   </script>
 </body>
 </html>
