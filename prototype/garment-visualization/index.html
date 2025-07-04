@@ -582,9 +582,9 @@
   <script>
     const modelViewer = document.getElementById('main-viewer');
     let autoRotateEnabled = true;
-    let currentModelType = 'avatar'; // 'avatar', 'garment', or 'both'
-    let currentAvatar = null;
-    let currentGarment = null;
+    let currentModelType = 'both'; // Start with combined view
+    let currentAvatar = './prototype/assets/avatars/male.glb'; // Default avatar
+    let currentGarment = './prototype/assets/garments/tshirt-1.glb'; // Default garment
     let combinedModel = null;
     let combinationMethod = 'merge';
 
@@ -1048,8 +1048,13 @@
         return;
       }
       
-      // In a real app, you'd load the actual GLB file here
-      currentAvatar = 'models/placeholder-avatar.glb'; // Replace with actual URL
+      // Map presets to actual files when available
+      if (presetName === 'male-m') {
+        currentAvatar = './prototype/assets/avatars/male.glb';
+      } else {
+        // For other presets, use placeholder (in real app, these would be actual files)
+        currentAvatar = `./prototype/assets/avatars/${presetName}.glb`;
+      }
       
       // Update UI
       document.querySelectorAll('.avatar-option').forEach(option => option.classList.remove('active'));
@@ -1096,7 +1101,13 @@
     }
 
     function loadSampleGarment(garmentName) {
-      currentGarment = `models/${garmentName}.glb`; // Replace with actual URL
+      // Map sample names to actual files
+      if (garmentName === 'tshirt') {
+        currentGarment = './prototype/assets/garments/tshirt-1.glb';
+      } else {
+        // For other samples, use placeholder paths
+        currentGarment = `./prototype/assets/garments/${garmentName}.glb`;
+      }
       
       // Auto-switch to garment mode when loading a sample garment
       currentModelType = 'garment';
@@ -1162,9 +1173,45 @@
         updateStatus('Loading combined models...');
         generateCombinedModel();
       } else {
-        updateStatus('Ready to load models...');
+        // Fallback to defaults if nothing is loaded
+        if (!currentAvatar) currentAvatar = './prototype/assets/avatars/male.glb';
+        if (!currentGarment) currentGarment = './prototype/assets/garments/tshirt-1.glb';
+        updateStatus('Loading default models...');
+        generateCombinedModel();
       }
     }
+
+    function initializeDefaults() {
+      // Set UI to reflect default selections
+      document.querySelectorAll('.model-btn').forEach(btn => btn.classList.remove('active'));
+      document.getElementById('both-mode').classList.add('active');
+      
+      // Update avatar selection (male-m as closest to male.glb)
+      document.querySelectorAll('.avatar-option').forEach(option => option.classList.remove('active'));
+      document.querySelector('.avatar-option[data-avatar="male-m"]').classList.add('active');
+      
+      // Update file info to show defaults loaded
+      const fileInfo = document.getElementById('file-info');
+      fileInfo.innerHTML = `
+        ✅ Default garment loaded: tshirt-1.glb<br>
+        📊 Ready for professional rendering<br>
+        🎨 Upload your own GLB/GLTF to replace
+      `;
+      
+      // Update status and combination status
+      updateStatus('🎯 Defaults loaded: Male avatar + T-shirt garment');
+      updateCombinationStatus();
+      
+      // Auto-generate combined view after a short delay
+      setTimeout(() => {
+        generateCombinedModel();
+      }, 1000);
+    }
+
+    // Call initialization when page loads
+    window.addEventListener('load', () => {
+      setTimeout(initializeDefaults, 500);
+    });
 
     // Range input handling with real-time updates for combined view
     document.getElementById('avatar-opacity').addEventListener('input', function() {
