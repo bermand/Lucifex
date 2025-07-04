@@ -891,6 +891,9 @@
               <model-viewer 
                 id="combined-garment-viewer"
                 src="${currentGarment}"
+                auto-rotate
+                auto-rotate-delay="3000"
+                rotation-per-second="30deg"
                 shadow-intensity="0.8"
                 exposure="1"
                 tone-mapping="aces"
@@ -930,6 +933,9 @@
       <model-viewer 
         id="combined-garment-viewer"
         src="${currentGarment}"
+        auto-rotate
+        auto-rotate-delay="3000"
+        rotation-per-second="30deg"
         shadow-intensity="0.8"
         exposure="1"
         tone-mapping="aces"
@@ -1012,6 +1018,34 @@
 }
         
         combinedModel = 'combined-active';
+
+        // Add camera synchronization for combined views
+        function syncCameraRotation() {
+          const avatarViewer = document.getElementById('combined-avatar-viewer');
+          const garmentViewer = document.getElementById('combined-garment-viewer');
+
+          if (avatarViewer && garmentViewer) {
+            // Sync camera orbit changes
+            avatarViewer.addEventListener('camera-change', () => {
+              if (combinationMethod === 'merge' || combinationMethod === 'alternating') {
+                garmentViewer.cameraOrbit = avatarViewer.cameraOrbit;
+                garmentViewer.cameraTarget = avatarViewer.cameraTarget;
+              }
+            });
+
+            // For auto-rotate, ensure both viewers rotate in sync
+            if (autoRotateEnabled) {
+              avatarViewer.autoRotate = true;
+              garmentViewer.autoRotate = true;
+              // Sync rotation speed and delay
+              garmentViewer.autoRotateDelay = avatarViewer.autoRotateDelay;
+              garmentViewer.rotationPerSecond = avatarViewer.rotationPerSecond;
+            }
+          }
+        }
+
+        // Call sync function after a short delay to ensure elements are ready
+        setTimeout(syncCameraRotation, 200);
         
         // Wait for model-viewers to be added to DOM, then add event listeners
         setTimeout(() => {
