@@ -351,6 +351,8 @@
       border: 1px solid #f5c6cb;
     }
   </style>
+  <script src="./physics/ammo-init.js"></script>
+  <script src="./physics/cloth-simulation.js"></script>
 </head>
 <body>
   <model-viewer 
@@ -529,6 +531,24 @@
         <div class="value-display"><span id="garment-offset-x-value">0.0</span></div>
       </div>
 
+      <div class="control-group">
+        <label>🧬 Physics Simulation:</label>
+        <div class="preset-buttons">
+          <button class="preset-btn" onclick="togglePhysics()" id="physics-toggle">Enable Physics</button>
+          <button class="preset-btn" onclick="resetPhysics()" id="physics-reset">Reset</button>
+        </div>
+      </div>
+
+      <div class="control-group" id="physics-controls" style="display: none;">
+        <label for="cloth-stiffness">Cloth Stiffness</label>
+        <input type="range" id="cloth-stiffness" min="0.1" max="1.0" step="0.1" value="0.4" />
+        <div class="value-display"><span id="cloth-stiffness-value">0.4</span></div>
+        
+        <label for="gravity-strength">Gravity Strength</label>
+        <input type="range" id="gravity-strength" min="0" max="20" step="1" value="9.81" />
+        <div class="value-display"><span id="gravity-strength-value">9.81</span></div>
+      </div>
+
       <div class="action-buttons">
         <button class="action-btn" onclick="generateCombinedModel()">Generate Combined</button>
         <button class="action-btn" onclick="resetCombination()">Reset</button>
@@ -612,6 +632,10 @@
     let currentGarment = null;
     let combinedModel = null;
     let combinationMethod = 'merge';
+
+    // Physics simulation
+    let clothSimulation = null;
+    let physicsEnabled = false;
 
     // Environment HDR URLs - high quality for fashion
     const environments = {
@@ -1153,6 +1177,11 @@
     }
 
     function resetCombination() {
+      // Reset physics if active
+      if (physicsEnabled) {
+        resetPhysics();
+      }
+
       // Show main viewer
       const mainViewer = document.getElementById('main-viewer');
       mainViewer.style.display = 'block';
@@ -1177,6 +1206,78 @@
       
       updateStatus('✅ Combined view stopped - back to single model');
       updateCombinationStatus();
+    }
+
+    async function togglePhysics() {
+      const toggleBtn = document.getElementById('physics-toggle');
+      const controlsDiv = document.getElementById('physics-controls');
+      
+      if (!physicsEnabled) {
+        // Enable physics
+        updateStatus('🔄 Initializing physics engine...');
+        
+        if (!clothSimulation) {
+          clothSimulation = new ClothSimulation();
+          const success = await clothSimulation.initialize();
+          
+          if (!success) {
+            updateStatus('❌ Failed to initialize physics engine');
+            return;
+          }
+        }
+        
+        // Setup physics for current models
+        if (combinedModel && currentAvatar && currentGarment) {
+          const avatarViewer = document.getElementById('combined-avatar-viewer');
+          const garmentViewer = document.getElementById('combined-garment-viewer');
+          
+          if (avatarViewer && garmentViewer) {
+            await clothSimulation.setupAvatarPhysics(avatarViewer);
+            await clothSimulation.setupGarmentPhysics(garmentViewer);
+            clothSimulation.startSimulation();
+            
+            physicsEnabled = true;
+            toggleBtn.textContent = 'Disable Physics';
+            toggleBtn.classList.add('active');
+            controlsDiv.style.display = 'block';
+            
+            updateStatus('✅ Physics simulation active - garment will interact with avatar!');
+          } else {
+            updateStatus('❌ Combined view required for physics simulation');
+          }
+        } else {
+          updateStatus('❌ Load both avatar and garment first');
+        }
+      } else {
+        // Disable physics
+        if (clothSimulation) {
+          clothSimulation.stopSimulation();
+        }
+        
+        physicsEnabled = false;
+        toggleBtn.textContent = 'Enable Physics';
+        toggleBtn.classList.remove('active');
+        controlsDiv.style.display = 'none';
+        
+        updateStatus('⏹️ Physics simulation disabled');
+      }
+    }
+
+    function resetPhysics() {
+      if (clothSimulation) {
+        clothSimulation.cleanup();
+        clothSimulation = null;
+      }
+      
+      physicsEnabled = false;
+      const toggleBtn = document.getElementById('physics-toggle');
+      const controlsDiv = document.getElementById('physics-controls');
+      
+      toggleBtn.textContent = 'Enable Physics';
+      toggleBtn.classList.remove('active');
+      controlsDiv.style.display = 'none';
+      
+      updateStatus('🔄 Physics simulation reset');
     }
 
     function switchTab(tabName) {
@@ -1454,6 +1555,28 @@
       document.getElementById('shadow-softness-value').textContent = parseFloat(this.value).toFixed(1);
     });
 
+    // Physics control event listeners
+    document.getElementById('cloth-stiffness').addEventListener('input', function() {
+      const value = parseFloat(this.value).toFixed(1);
+      document.getElementById('cloth-stiffness-value').textContent = value;
+      
+      if (clothSimulation && physicsEnabled) {
+        // Apply to all cloth bodies
+        clothSimulation.clothMeshes.forEach((clothData, clothId) => {
+          clothSimulation.setClothStiffness(clothId, parseFloat(value));
+        });
+      }
+    });
+
+    document.getElementById('gravity-strength').addEventListener('input', function() {
+      const value = parseFloat(this.value).toFixed(1);
+      document.getElementById('gravity-strength-value').textContent = value;
+      
+      if (clothSimulation && physicsEnabled) {
+        clothSimulation.setGravity(0, -parseFloat(value), 0);
+      }
+    });
+
     // Make ALL functions global for HTML onclick handlers
     window.updateStatus = updateStatus;
     window.updateCombinationStatus = updateCombinationStatus;
@@ -1471,6 +1594,8 @@
     window.takeScreenshot = takeScreenshot;
     window.exportScene = exportScene;
     window.switchTab = switchTab;
+    window.togglePhysics = togglePhysics;
+    window.resetPhysics = resetPhysics;
 </script>
 </body>
 </html>
