@@ -16,75 +16,19 @@ class AmmoPhysics {
     this.clothIdCounter = 0
   }
 
-  async loadAmmo() {
+  async loadAmmoFromUrl(url) {
     return new Promise((resolve, reject) => {
-      // Try multiple working CDN sources for Ammo.js
-      const ammoSources = [
-        "https://cdn.babylonjs.com/ammo.js",
-        "https://kripken.github.io/ammo.js/builds/ammo.js",
-        "https://rawcdn.githack.com/kripken/ammo.js/main/builds/ammo.js",
-        "https://unpkg.com/ammo.js@0.21.0/builds/ammo.js",
-        "https://cdn.jsdelivr.net/npm/ammo.js@0.21.0/builds/ammo.js",
-      ]
-
-      let currentSourceIndex = 0
-
-      const tryLoadAmmo = () => {
-        if (currentSourceIndex >= ammoSources.length) {
-          // If all CDN sources fail, reject to fall back to simple physics
-          console.warn("All Ammo.js CDN sources failed")
-          reject(new Error("All Ammo.js sources failed"))
-          return
+      const script = document.createElement("script")
+      script.src = url
+      script.onload = () => {
+        if (typeof window.Ammo !== "undefined") {
+          resolve()
+        } else {
+          reject(new Error("Ammo not found after loading script"))
         }
-
-        const script = document.createElement("script")
-        script.src = ammoSources[currentSourceIndex]
-
-        console.log(`Trying Ammo.js source ${currentSourceIndex + 1}/${ammoSources.length}: ${script.src}`)
-
-        script.onload = () => {
-          // Check if Ammo is available
-          if (typeof window.Ammo !== "undefined") {
-            console.log(`✅ Ammo.js loaded from source ${currentSourceIndex + 1}`)
-
-            // Initialize Ammo
-            window
-              .Ammo()
-              .then((AmmoLib) => {
-                this.AmmoLib = AmmoLib
-                console.log("✅ Ammo.js initialized successfully")
-                resolve(AmmoLib)
-              })
-              .catch((error) => {
-                console.error("❌ Ammo.js initialization failed:", error)
-                currentSourceIndex++
-                tryLoadAmmo()
-              })
-          } else {
-            console.warn(`⚠️ Ammo.js loaded but Ammo is undefined from source ${currentSourceIndex + 1}`)
-            currentSourceIndex++
-            tryLoadAmmo()
-          }
-        }
-
-        script.onerror = () => {
-          console.warn(`❌ Failed to load from source ${currentSourceIndex + 1}: ${ammoSources[currentSourceIndex]}`)
-          currentSourceIndex++
-          tryLoadAmmo()
-        }
-
-        // Set a timeout for each attempt
-        setTimeout(() => {
-          if (!this.AmmoLib) {
-            console.warn(`⏰ Timeout loading from source ${currentSourceIndex + 1}`)
-            script.onerror()
-          }
-        }, 10000) // 10 second timeout per source
-
-        document.head.appendChild(script)
       }
-
-      tryLoadAmmo()
+      script.onerror = () => reject(new Error("Failed to load script"))
+      document.head.appendChild(script)
     })
   }
 
@@ -97,6 +41,8 @@ class AmmoPhysics {
         "https://cdn.jsdelivr.net/npm/ammo.js@0.0.10/ammo.js",
         "https://unpkg.com/ammo.js@0.0.10/ammo.js",
         "https://cdnjs.cloudflare.com/ajax/libs/ammo.js/0.0.10/ammo.js",
+        "https://cdn.babylonjs.com/ammo.js",
+        "https://kripken.github.io/ammo.js/builds/ammo.js",
       ]
 
       let ammoLoaded = false
@@ -115,49 +61,48 @@ class AmmoPhysics {
         throw new Error("All Ammo.js CDN sources failed")
       }
 
-      // Initialize Ammo.js
+      // Initialize Ammo.js - check if it's a function
+      if (typeof window.Ammo !== "function") {
+        throw new Error("Ammo is not a function - invalid Ammo.js version")
+      }
+
       this.AmmoLib = await window.Ammo()
       console.log("✅ Ammo.js initialized")
 
-      // Create physics world
-      const collisionConfiguration = new this.AmmoLib.btDefaultCollisionConfiguration()
+      // Create physics world with soft body support
+      const collisionConfiguration = new this.AmmoLib.btSoftBodyRigidBodyCollisionConfiguration()
       const dispatcher = new this.AmmoLib.btCollisionDispatcher(collisionConfiguration)
       const overlappingPairCache = new this.AmmoLib.btDbvtBroadphase()
       const solver = new this.AmmoLib.btSequentialImpulseConstraintSolver()
+      const softBodySolver = new this.AmmoLib.btDefaultSoftBodySolver()
 
-      this.physicsWorld = new this.AmmoLib.btDiscreteDynamicsWorld(
+      this.physicsWorld = new this.AmmoLib.btSoftRigidDynamicsWorld(
         dispatcher,
         overlappingPairCache,
         solver,
         collisionConfiguration,
+        softBodySolver,
       )
 
       // Set gravity
-      this.physicsWorld.setGravity(new this.AmmoLib.btVector3(0, -9.81, 0))
+      const gravity = new this.AmmoLib.btVector3(0, -9.81, 0)
+      this.physicsWorld.setGravity(gravity)
+      this.physicsWorld.getWorldInfo().set_m_gravity(gravity)
+
+      // Configure world info for soft bodies
+      const worldInfo = this.physicsWorld.getWorldInfo()
+      worldInfo.set_air_density(1.2)
+      worldInfo.set_water_density(0)
+      worldInfo.set_water_offset(0)
+      worldInfo.set_water_normal(new this.AmmoLib.btVector3(0, 0, 0))
 
       this.isInitialized = true
-      console.log("✅ Ammo.js physics world created")
+      console.log("✅ Ammo.js physics world created with soft body support")
       return true
     } catch (error) {
       console.error("❌ Failed to initialize Ammo.js:", error)
       return false
     }
-  }
-
-  async loadAmmoFromUrl(url) {
-    return new Promise((resolve, reject) => {
-      const script = document.createElement("script")
-      script.src = url
-      script.onload = () => {
-        if (typeof window.Ammo !== "undefined") {
-          resolve()
-        } else {
-          reject(new Error("Ammo not found after loading script"))
-        }
-      }
-      script.onerror = () => reject(new Error("Failed to load script"))
-      document.head.appendChild(script)
-    })
   }
 
   createAvatarCollider(position = { x: 0, y: 0, z: 0 }, scale = { x: 0.4, y: 0.9, z: 0.2 }) {
@@ -202,17 +147,34 @@ class AmmoPhysics {
     try {
       console.log("🔄 Creating Ammo.js cloth body...")
 
-      // Create a simple cloth patch instead of complex mesh
-      const clothWidth = 10
-      const clothHeight = 12
-      const clothResolution = 8
+      // Create a simple cloth patch using Ammo.js helper
+      const clothResolution = 10
+      const clothWidth = 1.0
+      const clothHeight = 1.2
 
-      // Use Ammo.js helper to create cloth patch
-      const clothCorner00 = new this.AmmoLib.btVector3(-0.5, 1.5, -0.3)
-      const clothCorner01 = new this.AmmoLib.btVector3(-0.5, 1.5, 0.3)
-      const clothCorner10 = new this.AmmoLib.btVector3(0.5, 1.5, -0.3)
-      const clothCorner11 = new this.AmmoLib.btVector3(0.5, 1.5, 0.3)
+      // Define cloth corners
+      const clothCorner00 = new this.AmmoLib.btVector3(
+        position.x - clothWidth / 2,
+        position.y,
+        position.z - clothHeight / 2,
+      )
+      const clothCorner01 = new this.AmmoLib.btVector3(
+        position.x - clothWidth / 2,
+        position.y,
+        position.z + clothHeight / 2,
+      )
+      const clothCorner10 = new this.AmmoLib.btVector3(
+        position.x + clothWidth / 2,
+        position.y,
+        position.z - clothHeight / 2,
+      )
+      const clothCorner11 = new this.AmmoLib.btVector3(
+        position.x + clothWidth / 2,
+        position.y,
+        position.z + clothHeight / 2,
+      )
 
+      // Create cloth patch
       const clothBody = this.AmmoLib.btSoftBodyHelpers.CreatePatch(
         this.physicsWorld.getWorldInfo(),
         clothCorner00,
@@ -221,7 +183,7 @@ class AmmoPhysics {
         clothCorner11,
         clothResolution,
         clothResolution,
-        0, // fixed corners (none)
+        0, // fixed corners (none initially)
         true, // generate diagonal links
       )
 
@@ -246,10 +208,12 @@ class AmmoPhysics {
       sbConfig.set_kAHR(0.7) // Anchor hardness
       sbConfig.set_kSHR(1.0) // Soft vs rigid hardness
 
-      // Pin top corners to simulate hanging
+      // Set mass and pin top corners
       clothBody.setTotalMass(1, false)
-      clothBody.appendAnchor(0, this.avatarColliders.values().next().value || null, false, 1)
-      clothBody.appendAnchor(clothResolution - 1, this.avatarColliders.values().next().value || null, false, 1)
+
+      // Pin top corners to simulate hanging
+      clothBody.setMass(0, 0) // Top-left corner
+      clothBody.setMass(clothResolution - 1, 0) // Top-right corner
 
       // Add to physics world
       this.physicsWorld.addSoftBody(clothBody, 1, -1)
@@ -259,6 +223,7 @@ class AmmoPhysics {
         body: clothBody,
         vertices: new Float32Array(vertices),
         indices: new Uint16Array(indices),
+        resolution: clothResolution,
       })
 
       console.log(`✅ Ammo.js cloth created with ID: ${clothId}`)
@@ -267,8 +232,8 @@ class AmmoPhysics {
       console.error("❌ Failed to create Ammo.js cloth body:", error)
 
       // Log available methods for debugging
-      if (this.AmmoLib) {
-        console.log("Available Ammo.js methods:", Object.getOwnPropertyNames(this.AmmoLib))
+      if (this.AmmoLib && this.AmmoLib.btSoftBodyHelpers) {
+        console.log("Available Ammo.js helpers:", Object.getOwnPropertyNames(this.AmmoLib.btSoftBodyHelpers))
       }
 
       return null
@@ -280,7 +245,7 @@ class AmmoPhysics {
 
     try {
       // Step the physics simulation
-      this.physicsWorld.stepSimulation(deltaTime, 10)
+      this.physicsWorld.stepSimulation(deltaTime, 10, 1 / 120)
     } catch (error) {
       console.error("❌ Physics update error:", error)
     }
@@ -315,7 +280,9 @@ class AmmoPhysics {
 
   setGravity(x, y, z) {
     if (this.physicsWorld) {
-      this.physicsWorld.setGravity(new this.AmmoLib.btVector3(x, y, z))
+      const gravity = new this.AmmoLib.btVector3(x, y, z)
+      this.physicsWorld.setGravity(gravity)
+      this.physicsWorld.getWorldInfo().set_m_gravity(gravity)
     }
   }
 

@@ -1,3 +1,6 @@
+// Cloth Simulation Manager
+// Handles the integration between Model Viewer and physics engines
+
 class ClothSimulation {
   constructor() {
     this.physics = null
