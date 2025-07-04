@@ -13,25 +13,66 @@ class AmmoPhysics {
     this.isInitialized = false
     this.clothBodies = new Map()
     this.rigidBodies = new Map()
+    window.Ammo = null // Declare the Ammo variable before using it
   }
 
   async loadAmmo() {
     return new Promise((resolve, reject) => {
-      // Load Ammo.js from CDN
-      const script = document.createElement("script")
-      script.src = "https://cdn.jsdelivr.net/npm/ammo@0.0.10/ammo.js"
-      script.onload = () => {
-        window
-          .Ammo()
-          .then((AmmoLib) => {
-            this.AmmoLib = AmmoLib
-            console.log("✅ Ammo.js loaded successfully")
-            resolve(AmmoLib)
-          })
-          .catch(reject)
+      // Try multiple CDN sources for Ammo.js
+      const ammoSources = [
+        "https://cdn.jsdelivr.net/npm/ammo@0.0.10/ammo.js",
+        "https://unpkg.com/ammo@0.0.10/ammo.js",
+        "https://cdnjs.cloudflare.com/ajax/libs/ammo.js/0.0.10/ammo.min.js",
+        "https://threejs.org/examples/js/libs/ammo.js",
+      ]
+
+      let currentSourceIndex = 0
+
+      const tryLoadAmmo = () => {
+        if (currentSourceIndex >= ammoSources.length) {
+          reject(new Error("Failed to load Ammo.js from all CDN sources"))
+          return
+        }
+
+        const script = document.createElement("script")
+        script.src = ammoSources[currentSourceIndex]
+
+        console.log(`Trying Ammo.js source ${currentSourceIndex + 1}/${ammoSources.length}: ${script.src}`)
+
+        script.onload = () => {
+          // Check if Ammo is available
+          if (typeof window.Ammo !== "undefined") {
+            console.log(`✅ Ammo.js loaded from source ${currentSourceIndex + 1}`)
+
+            // Initialize Ammo
+            window
+              .Ammo()
+              .then((AmmoLib) => {
+                this.AmmoLib = AmmoLib
+                console.log("✅ Ammo.js initialized successfully")
+                resolve(AmmoLib)
+              })
+              .catch((error) => {
+                console.error("❌ Ammo.js initialization failed:", error)
+                reject(error)
+              })
+          } else {
+            console.warn(`⚠️ Ammo.js loaded but Ammo is undefined from source ${currentSourceIndex + 1}`)
+            currentSourceIndex++
+            tryLoadAmmo()
+          }
+        }
+
+        script.onerror = () => {
+          console.warn(`❌ Failed to load from source ${currentSourceIndex + 1}: ${ammoSources[currentSourceIndex]}`)
+          currentSourceIndex++
+          tryLoadAmmo()
+        }
+
+        document.head.appendChild(script)
       }
-      script.onerror = () => reject(new Error("Failed to load Ammo.js"))
-      document.head.appendChild(script)
+
+      tryLoadAmmo()
     })
   }
 

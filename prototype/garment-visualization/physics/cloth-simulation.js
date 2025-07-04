@@ -33,54 +33,71 @@ class ClothSimulation {
 
   async extractMeshData(modelViewer) {
     return new Promise((resolve) => {
-      modelViewer.addEventListener("load", () => {
-        try {
-          // Access the Three.js scene from model-viewer
-          const scene = modelViewer.model
-          if (!scene) {
-            resolve(null)
-            return
-          }
+      // Check if model is already loaded
+      if (modelViewer.loaded) {
+        this.processMeshData(modelViewer, resolve)
+      } else {
+        // Wait for model to load
+        modelViewer.addEventListener(
+          "load",
+          () => {
+            this.processMeshData(modelViewer, resolve)
+          },
+          { once: true },
+        )
+      }
+    })
+  }
 
-          let meshData = null
-          scene.traverse((child) => {
-            if (child.isMesh && child.geometry) {
-              const geometry = child.geometry
+  processMeshData(modelViewer, resolve) {
+    try {
+      // Access the Three.js scene from model-viewer
+      const scene = modelViewer.model
+      if (!scene) {
+        console.warn("⚠️ No scene found in model viewer")
+        resolve(null)
+        return
+      }
 
-              // Get position attribute
-              const positions = geometry.attributes.position
-              if (positions) {
-                const vertices = Array.from(positions.array)
+      let meshData = null
+      scene.traverse((child) => {
+        if (child.isMesh && child.geometry) {
+          const geometry = child.geometry
 
-                // Get indices
-                let indices
-                if (geometry.index) {
-                  indices = Array.from(geometry.index.array)
-                } else {
-                  // Generate indices for non-indexed geometry
-                  indices = []
-                  for (let i = 0; i < vertices.length / 3; i++) {
-                    indices.push(i)
-                  }
-                }
+          // Get position attribute
+          const positions = geometry.attributes.position
+          if (positions) {
+            const vertices = Array.from(positions.array)
 
-                meshData = {
-                  vertices: vertices,
-                  indices: indices,
-                  geometry: geometry,
-                  mesh: child,
-                }
+            // Get indices
+            let indices
+            if (geometry.index) {
+              indices = Array.from(geometry.index.array)
+            } else {
+              // Generate indices for non-indexed geometry
+              indices = []
+              for (let i = 0; i < vertices.length / 3; i++) {
+                indices.push(i)
               }
             }
-          })
 
-          resolve(meshData)
-        } catch (error) {
-          console.error("❌ Failed to extract mesh data:", error)
-          resolve(null)
+            meshData = {
+              vertices: vertices,
+              indices: indices,
+              geometry: geometry,
+              mesh: child,
+            }
+
+            console.log(`✅ Extracted mesh data: ${vertices.length / 3} vertices, ${indices.length / 3} triangles`)
+          }
         }
       })
-    })
+
+      resolve(meshData)
+    } catch (error) {
+      console.error("❌ Failed to extract mesh data:", error)
+      resolve(null)
+    }
   }
 
   async setupAvatarPhysics(avatarViewer) {
