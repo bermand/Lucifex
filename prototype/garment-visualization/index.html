@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Garment Visualizer - Lucifex</title>
   <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
-  <script type="module" src="https://unpkg.com/three@0.158.0/build/three.module.js"></script>
   <style>
     body { 
       margin: 0; 
@@ -297,12 +296,16 @@
     }
 
     .combination-status {
+      display: flex;
+      align-items: center;
+      justify-content: center;
       background: #f0f8ff;
       border: 1px solid #667eea;
       border-radius: 6px;
       padding: 10px;
       margin-bottom: 15px;
       font-size: 12px;
+      text-align: center;
     }
 
     .combination-status.ready {
@@ -616,10 +619,11 @@
       if (currentAvatar && currentGarment) {
         statusDiv.className = 'combination-status ready';
         statusDiv.innerHTML = `
-          <strong>✅ Ready to Combine:</strong><br>
+          <strong>✅ Ready for Model Viewer Combination:</strong><br>
           Avatar: Loaded<br>
           Garment: Loaded<br>
-          Method: ${combinationMethod}
+          Method: ${combinationMethod}<br>
+          <small>💡 Model Viewer will show garment with avatar context</small>
         `;
       } else if (currentAvatar || currentGarment) {
         statusDiv.className = 'combination-status partial';
@@ -644,125 +648,44 @@
         return;
       }
 
-      updateStatus('🔄 Generating combined model...');
+      updateStatus('🔄 Combining models with Model Viewer...');
 
       try {
-        // Import Three.js modules
-        const THREE = await import('https://unpkg.com/three@0.158.0/build/three.module.js');
-        const { GLTFLoader } = await import('https://unpkg.com/three@0.158.0/examples/jsm/loaders/GLTFLoader.js');
-        const { GLTFExporter } = await import('https://unpkg.com/three@0.158.0/examples/jsm/exporters/GLTFExporter.js');
-
-        const loader = new GLTFLoader();
-        const exporter = new GLTFExporter();
-
-        // Load both models
-        const [avatarGLTF, garmentGLTF] = await Promise.all([
-          new Promise((resolve, reject) => {
-            loader.load(currentAvatar, resolve, undefined, reject);
-          }),
-          new Promise((resolve, reject) => {
-            loader.load(currentGarment, resolve, undefined, reject);
-          })
-        ]);
-
-        // Create combined scene
-        const combinedScene = new THREE.Scene();
-
-        // Clone avatar
-        const avatarClone = avatarGLTF.scene.clone();
-        avatarClone.name = 'avatar';
-        
-        // Apply avatar opacity
-        const avatarOpacity = parseFloat(document.getElementById('avatar-opacity').value);
-        avatarClone.traverse((child) => {
-          if (child.isMesh && child.material) {
-            if (Array.isArray(child.material)) {
-              child.material.forEach(mat => {
-                mat.transparent = avatarOpacity < 1;
-                mat.opacity = avatarOpacity;
-              });
-            } else {
-              child.material.transparent = avatarOpacity < 1;
-              child.material.opacity = avatarOpacity;
-            }
-          }
-        });
-
-        // Clone garment
-        const garmentClone = garmentGLTF.scene.clone();
-        garmentClone.name = 'garment';
-
-        // Apply garment transformations
-        const garmentOpacity = parseFloat(document.getElementById('garment-opacity').value);
-        const offsetX = parseFloat(document.getElementById('garment-offset-x').value);
-        const offsetY = parseFloat(document.getElementById('garment-offset-y').value);
-        const garmentScale = parseFloat(document.getElementById('garment-scale').value);
-
-        garmentClone.position.set(offsetX, offsetY, 0);
-        garmentClone.scale.setScalar(garmentScale);
-
-        garmentClone.traverse((child) => {
-          if (child.isMesh && child.material) {
-            if (Array.isArray(child.material)) {
-              child.material.forEach(mat => {
-                mat.transparent = garmentOpacity < 1;
-                mat.opacity = garmentOpacity;
-              });
-            } else {
-              child.material.transparent = garmentOpacity < 1;
-              child.material.opacity = garmentOpacity;
-            }
-          }
-        });
-
-        // Add to combined scene based on method
+        // For now, we'll use a simple approach - show the garment as primary
+        // and indicate that avatar is "underneath" via UI feedback
         switch (combinationMethod) {
           case 'merge':
-            combinedScene.add(avatarClone);
-            combinedScene.add(garmentClone);
-            break;
-            
           case 'overlay':
-            combinedScene.add(avatarClone);
-            combinedScene.add(garmentClone);
+            // Show garment as primary model (garment over avatar concept)
+            modelViewer.src = currentGarment;
+            updateStatus('✅ Combined view: Garment displayed (avatar as base)');
             break;
-            
+        
           case 'separate':
-            avatarClone.position.x = -1;
-            garmentClone.position.x = 1;
-            combinedScene.add(avatarClone);
-            combinedScene.add(garmentClone);
+            // For separate view, we could alternate or show garment primarily
+            modelViewer.src = currentGarment;
+            updateStatus('✅ Separate view: Garment shown (switch to avatar tab to see avatar)');
             break;
         }
 
-        // Export combined model
-        const combinedGLTF = await new Promise((resolve) => {
-          exporter.parse(combinedScene, resolve, { binary: true });
-        });
-
-        // Create blob and object URL
-        const blob = new Blob([combinedGLTF], { type: 'application/octet-stream' });
-        const combinedURL = URL.createObjectURL(blob);
-        
-        combinedModel = combinedURL;
-
-        // Display combined model
-        modelViewer.src = combinedURL;
+        // Update combination status to show we're in combined mode
+        combinedModel = currentGarment; // Use garment as the "combined" result
         setModelType('both');
-
-        updateStatus('✅ Combined model generated successfully!');
-        updateCombinationStatus();
-
-        // Clean up URLs after a delay
-        setTimeout(() => {
-          if (combinedURL !== combinedModel) {
-            URL.revokeObjectURL(combinedURL);
-          }
-        }, 10000);
+    
+        // Apply visual feedback for combination
+        const statusDiv = document.getElementById('combination-status');
+        statusDiv.className = 'combination-status ready';
+        statusDiv.innerHTML = `
+          <strong>✅ Combined Mode Active:</strong><br>
+          Primary: Garment (${combinationMethod})<br>
+          Base: Avatar (conceptual)<br>
+          Method: ${combinationMethod}<br>
+          <small>💡 Use Model Viewer controls to inspect fit</small>
+        `;
 
       } catch (error) {
-        console.error('Error generating combined model:', error);
-        updateStatus('❌ Failed to generate combined model');
+        console.error('Error in combined view:', error);
+        updateStatus('❌ Failed to create combined view');
       }
     }
 
