@@ -649,6 +649,9 @@
       }
 
       updateStatus('🔄 Creating combined view...');
+      console.log('DEBUG: Avatar URL:', currentAvatar);
+      console.log('DEBUG: Garment URL:', currentGarment);
+      console.log('DEBUG: Combination method:', combinationMethod);
 
       try {
         // Hide main viewer
@@ -685,12 +688,17 @@
         const activeEnvBtn = document.querySelector('.env-btn.active');
         const currentEnv = activeEnvBtn ? activeEnvBtn.dataset.env : 'studio';
         
+        console.log('DEBUG: Settings - Avatar opacity:', avatarOpacity, 'Garment opacity:', garmentOpacity);
+        console.log('DEBUG: Offsets - X:', offsetX, 'Y:', offsetY);
+        console.log('DEBUG: Environment:', currentEnv);
+        
         if (combinationMethod === 'separate') {
           // Side-by-side view
           combinedContainer.innerHTML = `
             <div style="display: flex; width: 100%; height: 100%;">
               <div style="position: relative; width: 50%; height: 100%; border-right: 2px solid #667eea;">
                 <model-viewer 
+                  id="combined-avatar-viewer"
                   src="${currentAvatar}"
                   camera-controls 
                   touch-action="pan-y"
@@ -704,11 +712,13 @@
                   environment-image="${environments[currentEnv]}"
                   skybox-image="${environments[currentEnv]}"
                   style="width: 100%; height: 100%; opacity: ${avatarOpacity}; background-color: #f0f0f0;">
+                  <div slot="progress-bar" style="display: none;"></div>
                 </model-viewer>
                 <div style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: white; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: bold; z-index: 10;">Avatar</div>
               </div>
               <div style="position: relative; width: 50%; height: 100%;">
                 <model-viewer 
+                  id="combined-garment-viewer"
                   src="${currentGarment}"
                   camera-controls 
                   touch-action="pan-y"
@@ -722,6 +732,7 @@
                   environment-image="${environments[currentEnv]}"
                   skybox-image="${environments[currentEnv]}"
                   style="width: 100%; height: 100%; opacity: ${garmentOpacity}; background-color: #f0f0f0;">
+                  <div slot="progress-bar" style="display: none;"></div>
                 </model-viewer>
                 <div style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: white; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: bold; z-index: 10;">Garment</div>
               </div>
@@ -732,6 +743,7 @@
           combinedContainer.innerHTML = `
             <div style="position: relative; width: 100%; height: 100%;">
               <model-viewer 
+                id="combined-avatar-viewer"
                 src="${currentAvatar}"
                 camera-controls 
                 touch-action="pan-y"
@@ -745,8 +757,10 @@
                 environment-image="${environments[currentEnv]}"
                 skybox-image="${environments[currentEnv]}"
                 style="position: absolute; width: 100%; height: 100%; opacity: ${avatarOpacity}; z-index: 1; background-color: #f0f0f0;">
+                <div slot="progress-bar" style="display: none;"></div>
               </model-viewer>
               <model-viewer 
+                id="combined-garment-viewer"
                 src="${currentGarment}"
                 shadow-intensity="0.5"
                 exposure="1"
@@ -754,6 +768,7 @@
                 environment-image="${environments[currentEnv]}"
                 skybox-image="${environments[currentEnv]}"
                 style="position: absolute; width: 100%; height: 100%; opacity: ${garmentOpacity}; z-index: 2; pointer-events: none; transform: translate(${offsetX * 100}px, ${offsetY * 100}px); background-color: transparent;">
+                <div slot="progress-bar" style="display: none;"></div>
               </model-viewer>
               <div style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: white; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: bold; z-index: 10;">Combined View (${combinationMethod})</div>
             </div>
@@ -762,27 +777,94 @@
         
         combinedModel = 'combined-active';
         
-        // Wait a moment for the model-viewers to initialize
+        // Wait for model-viewers to be added to DOM, then add event listeners
         setTimeout(() => {
-          updateStatus('✅ Combined view active - both models visible!');
+          const avatarViewer = document.getElementById('combined-avatar-viewer');
+          const garmentViewer = document.getElementById('combined-garment-viewer');
           
-          // Update status display
-          const statusDiv = document.getElementById('combination-status');
-          statusDiv.className = 'combination-status ready';
-          statusDiv.innerHTML = `
-            <strong>✅ Combined View Active:</strong><br>
-            Avatar: Visible (${(avatarOpacity * 100).toFixed(0)}% opacity)<br>
-            Garment: Visible (${(garmentOpacity * 100).toFixed(0)}% opacity)<br>
-            Method: ${combinationMethod}<br>
-            <small>💡 Both models rendered with Model Viewer</small>
-          `;
-        }, 500);
+          console.log('DEBUG: Avatar viewer element:', avatarViewer);
+          console.log('DEBUG: Garment viewer element:', garmentViewer);
+          
+          if (avatarViewer) {
+            avatarViewer.addEventListener('load', () => {
+              console.log('✅ Avatar loaded in combined view');
+              updateStatus('✅ Avatar loaded in combined view');
+            });
+            
+            avatarViewer.addEventListener('error', (e) => {
+              console.error('❌ Avatar loading error:', e);
+              updateStatus('❌ Avatar loading error in combined view');
+            });
+          }
+          
+          if (garmentViewer) {
+            garmentViewer.addEventListener('load', () => {
+              console.log('✅ Garment loaded in combined view');
+              updateStatus('✅ Garment loaded in combined view');
+            });
+            
+            garmentViewer.addEventListener('error', (e) => {
+              console.error('❌ Garment loading error:', e);
+              updateStatus('❌ Garment loading error in combined view');
+            });
+          }
+          
+          // Update status after a moment
+          setTimeout(() => {
+            updateStatus('✅ Combined view active - both models should be visible!');
+            
+            // Update status display
+            const statusDiv = document.getElementById('combination-status');
+            statusDiv.className = 'combination-status ready';
+            statusDiv.innerHTML = `
+              <strong>✅ Combined View Active:</strong><br>
+              Avatar: Visible (${(avatarOpacity * 100).toFixed(0)}% opacity)<br>
+              Garment: Visible (${(garmentOpacity * 100).toFixed(0)}% opacity)<br>
+              Method: ${combinationMethod}<br>
+              <small>💡 Both models rendered with Model Viewer</small>
+            `;
+          }, 1000);
+          
+        }, 100);
 
       } catch (error) {
         console.error('Error creating combined view:', error);
         updateStatus('❌ Failed to create combined view: ' + error.message);
       }
     }
+
+    // Add this debugging function
+    function debugCombinedView() {
+      console.log('=== COMBINED VIEW DEBUG ===');
+      console.log('Current Avatar:', currentAvatar);
+      console.log('Current Garment:', currentGarment);
+      console.log('Combination Method:', combinationMethod);
+      console.log('Combined Model Active:', combinedModel);
+      
+      const container = document.getElementById('combined-container');
+      console.log('Combined Container:', container);
+      
+      if (container) {
+        const avatarViewer = container.querySelector('#combined-avatar-viewer');
+        const garmentViewer = container.querySelector('#combined-garment-viewer');
+        console.log('Avatar Viewer in Container:', avatarViewer);
+        console.log('Garment Viewer in Container:', garmentViewer);
+        
+        if (avatarViewer) {
+          console.log('Avatar Viewer src:', avatarViewer.src);
+          console.log('Avatar Viewer loaded:', avatarViewer.loaded);
+        }
+        
+        if (garmentViewer) {
+          console.log('Garment Viewer src:', garmentViewer.src);
+          console.log('Garment Viewer loaded:', garmentViewer.loaded);
+        }
+      }
+      console.log('=== END DEBUG ===');
+    }
+
+    // Make it globally available
+    window.debugCombinedView = debugCombinedView;
 
     function setCombinationMethod(method) {
       combinationMethod = method;
