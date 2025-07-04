@@ -329,9 +329,9 @@
 
       <div class="control-group">
         <label>Load CLO3D Garment:</label>
-        <input type="file" id="garment-file" accept=".glb,.gltf" onchange="loadGarmentFile(event)" />
+        <input type="file" id="garment-file" accept=".glb,.gltf,.json" onchange="loadGarmentFile(event)" />
         <div class="file-info" id="file-info" style="font-size: 11px; color: #666; margin-top: 5px;">
-          Supports GLB/GLTF files from CLO3D
+          Supports GLB/GLTF files from CLO3D. GLTF files will load as placeholder shapes.
         </div>
       </div>
 
@@ -461,14 +461,63 @@
         parse: function(data, path, onLoad, onError) {
           try {
             if (data instanceof ArrayBuffer) {
-              const result = this.parseGLB(data);
-              if (onLoad) onLoad(result);
+              // Check if it's GLB format
+              const view = new DataView(data);
+              const magic = view.getUint32(0, true);
+              
+              if (magic === 0x46546C67) {
+                // It's GLB format
+                const result = this.parseGLB(data);
+                if (onLoad) onLoad(result);
+              } else {
+                // Try to parse as GLTF text
+                const textDecoder = new TextDecoder();
+                const jsonString = textDecoder.decode(data);
+                const gltf = JSON.parse(jsonString);
+                const scene = this.createSceneFromGLTF(gltf);
+                if (onLoad) onLoad({ scene: scene, scenes: [scene], asset: gltf.asset || {} });
+              }
+            } else if (typeof data === 'string') {
+              // It's GLTF JSON string
+              const gltf = JSON.parse(data);
+              const scene = this.createSceneFromGLTF(gltf);
+              if (onLoad) onLoad({ scene: scene, scenes: [scene], asset: gltf.asset || {} });
             } else {
-              if (onError) onError(new Error('Only GLB format supported'));
+              if (onError) onError(new Error('Unsupported data format'));
             }
           } catch (e) {
             if (onError) onError(e);
           }
+        },
+
+        // Add new method to handle GLTF format
+        createSceneFromGLTF: function(gltf) {
+          const scene = new THREE.Group();
+          
+          // Simple mesh creation from GLTF data (without binary buffer)
+          if (gltf.meshes && gltf.meshes.length > 0) {
+            for (let i = 0; i < gltf.meshes.length; i++) {
+              const mesh = this.createMeshFromGLTF(gltf, gltf.meshes[i]);
+              if (mesh) {
+                scene.add(mesh);
+              }
+            }
+          }
+          
+          return scene;
+        },
+
+        // Add method for GLTF mesh creation
+        createMeshFromGLTF: function(gltf, meshData) {
+          if (!meshData.primitives || meshData.primitives.length === 0) {
+            return null;
+          }
+          
+          // For GLTF files without embedded binary data, create a simple placeholder mesh
+          const geometry = new THREE.BoxGeometry(0.3, 0.6, 0.2); // Simple garment-like shape
+          const material = new THREE.MeshLambertMaterial({ color: 0xcccccc });
+          
+          return new THREE.Mesh(geometry, material);
         },
 
         parseGLB: function(data) {
@@ -1057,8 +1106,19 @@
           console.error('Error loading CLO3D garment:', error);
           updateStatus('❌ Failed to load garment file: ' + error.message);
         });
+      } else if (filename.endsWith('.gltf') || filename.endsWith('.json')) {
+        // For GLTF text files, convert ArrayBuffer to string
+        const textDecoder = new TextDecoder();
+        const jsonString = textDecoder.decode(data);
+        
+        gltfLoader.parse(jsonString, '', function(gltf) {
+          processCLO3DModel(gltf.scene, filename);
+        }, function(error) {
+          console.error('Error loading CLO3D garment:', error);
+          updateStatus('❌ Failed to load garment file: ' + error.message);
+        });
       } else {
-        updateStatus('❌ Only GLB files supported currently');
+        updateStatus('❌ Unsupported file format. Use GLB or GLTF files.');
       }
     }
 
