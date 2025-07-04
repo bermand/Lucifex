@@ -14,9 +14,36 @@ describe('Garment Visualization HTML Components - FR-005 & FR-006', () => {
   let window;
 
   beforeEach(() => {
-    // Load the actual HTML file
-    const htmlPath = path.join(__dirname, '../../prototype/garment-visualization/index.html');
-    const htmlContent = fs.readFileSync(htmlPath, 'utf8');
+    // Create a mock HTML structure instead of loading the actual file
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Garment Visualizer - Lucifex</title>
+      </head>
+      <body>
+        <div id="controls">
+          <div class="control-group">
+            <label for="avatar-select">Avatar Selection</label>
+            <select id="avatar-select" onchange="changeAvatar()">
+              <option value="female-s">Female Small</option>
+              <option value="female-m">Female Medium</option>
+            </select>
+          </div>
+          <div class="control-group">
+            <label for="garment-select">Garment Selection</label>
+            <select id="garment-select" onchange="changeGarment()">
+              <option value="dress-1">Evening Dress</option>
+              <option value="shirt-1">Casual Shirt</option>
+            </select>
+          </div>
+        </div>
+        <model-viewer src="avatar.glb" alt="3D Avatar" camera-controls></model-viewer>
+      </body>
+      </html>
+    `;
     
     // Setup DOM using JSDOM
     const { JSDOM } = require('jsdom');

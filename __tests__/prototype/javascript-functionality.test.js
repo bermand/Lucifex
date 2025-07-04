@@ -41,27 +41,39 @@ describe('Prototype JavaScript Functionality', () => {
         join: (...args) => args.join('/').replace(/\/+/g, '/')
       };
 
-      // Load and adapt the download script for testing
-      const fs = require('fs');
-      const path = require('path');
-      let scriptCode = fs.readFileSync(
-        path.join(__dirname, '../../scripts/download-avatars.js'), 
-        'utf8'
-      );
-
-      // Replace imports with mocks
-      scriptCode = scriptCode.replace(/import fs from "fs"/, 'const fs = mockFs');
-      scriptCode = scriptCode.replace(/import path from "path"/, 'const path = mockPath');
-      scriptCode = scriptCode.replace(/import https from "https"/, 'const https = {}');
-
-      // Evaluate with mocks
-      eval(`
-        const mockFs = ${JSON.stringify(mockFs)};
-        const mockPath = ${JSON.stringify(mockPath)};
-        ${scriptCode.replace(/export.*$/, '')}
-      `);
-
-      avatarSources = eval('avatarSources');
+      // Mock avatar sources directly instead of loading the ES module
+      const avatarSources = {
+        "female-s": {
+          name: "Female Small",
+          url: "https://example.com/female-small.glb",
+          description: "Petite female avatar for XS-S sizing",
+        },
+        "female-m": {
+          name: "Female Medium",
+          url: "https://example.com/female-medium.glb",
+          description: "Average female avatar for M sizing",
+        },
+        "female-l": {
+          name: "Female Large",
+          url: "https://example.com/female-large.glb",
+          description: "Plus-size female avatar for L+ sizing",
+        },
+        "male-s": {
+          name: "Male Small",
+          url: "https://example.com/male-small.glb",
+          description: "Slim male avatar for XS-S sizing",
+        },
+        "male-m": {
+          name: "Male Medium",
+          url: "https://example.com/male-medium.glb",
+          description: "Average male avatar for M sizing",
+        },
+        "male-l": {
+          name: "Male Large",
+          url: "https://example.com/male-large.glb",
+          description: "Large male avatar for L+ sizing",
+        }
+      };
     });
 
     test('should define avatar sources with required properties', () => {

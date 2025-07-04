@@ -110,7 +110,17 @@ describe('AvatarLoader - FR-003 & FR-004: Avatar Generation and Rendering', () =
     });
 
     test('should preload all avatars and return summary', async () => {
-      await avatarLoader.loadManifest();
+      // Set up a mock manifest first
+      avatarLoader.manifest = {
+        avatars: {
+          'female-s': { name: 'Female Small' },
+          'female-m': { name: 'Female Medium' },
+          'female-l': { name: 'Female Large' },
+          'male-s': { name: 'Male Small' },
+          'male-m': { name: 'Male Medium' },
+          'male-l': { name: 'Male Large' }
+        }
+      };
       
       // Mock some successful and some failed loads
       fetch

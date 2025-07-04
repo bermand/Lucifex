@@ -146,6 +146,7 @@ describe('SimpleClothPhysics - Physics Engine Integration', () => {
       
       // Mock an error during initialization
       const faultyPhysics = new SimpleClothPhysics();
+      const originalInit = faultyPhysics.initPhysicsWorld;
       faultyPhysics.initPhysicsWorld = jest.fn().mockRejectedValue(new Error('Init failed'));
       
       const result = await faultyPhysics.initPhysicsWorld();
