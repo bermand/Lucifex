@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Garment Visualizer - Lucifex</title>
   <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
-  <script type="module" src="https://unpkg.com/three@0.158.0/build/three.module.js"></script>
   <style>
     body { 
       margin: 0; 
@@ -243,7 +242,14 @@
       z-index: 101;
     }
 
-    .toggle-btn {
+    .model-selector {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 15px;
+    }
+
+    .model-btn {
+      flex: 1;
       padding: 8px 12px;
       border: 1px solid #ddd;
       border-radius: 6px;
@@ -251,19 +257,48 @@
       cursor: pointer;
       font-size: 11px;
       transition: all 0.2s;
-      margin-right: 8px;
     }
 
-    .toggle-btn.active {
+    .model-btn.active {
       background: #667eea;
       color: white;
       border-color: #667eea;
+    }
+
+    .avatar-gallery {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 15px;
+    }
+
+    .avatar-option {
+      aspect-ratio: 1;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      background: #f9f9f9;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      text-align: center;
+      transition: all 0.2s;
+    }
+
+    .avatar-option:hover {
+      border-color: #667eea;
+    }
+
+    .avatar-option.active {
+      border-color: #667eea;
+      background: #f0f4ff;
     }
   </style>
 </head>
 <body>
   <model-viewer 
-    id="combined-viewer"
+    id="main-viewer"
     camera-controls 
     touch-action="pan-y"
     auto-rotate
@@ -282,14 +317,14 @@
     <div id="fallback" style="display: flex; align-items: center; justify-content: center; height: 100%; color: #666;">
       <div style="text-align: center;">
         <h2>🎨 Lucifex Avatar & Garment Visualizer</h2>
-        <p>Creating your avatar...</p>
-        <p style="font-size: 14px; color: #999;">Professional rendering with materials, textures, and lighting</p>
+        <p>Select an avatar or load a garment to begin</p>
+        <p style="font-size: 14px; color: #999;">Professional Model Viewer rendering for everything</p>
       </div>
     </div>
   </model-viewer>
   
   <div class="status-indicator" id="status">
-    <div id="status-content">Initializing...</div>
+    <div id="status-content">Ready to load models...</div>
   </div>
   
   <div id="controls">
@@ -301,47 +336,54 @@
 
     <!-- Avatar Tab -->
     <div id="avatar-tab" class="tab-content active">
-      <h3>Body Measurements</h3>
+      <h3>Avatar Selection</h3>
       
       <div class="control-group">
-        <label>Size Presets:</label>
-        <div class="preset-buttons">
-          <button class="preset-btn" onclick="applyPreset('xs')">XS</button>
-          <button class="preset-btn" onclick="applyPreset('s')">S</button>
-          <button class="preset-btn active" onclick="applyPreset('m')">M</button>
-          <button class="preset-btn" onclick="applyPreset('l')">L</button>
-          <button class="preset-btn" onclick="applyPreset('xl')">XL</button>
+        <label>Model Type:</label>
+        <div class="model-selector">
+          <button class="model-btn active" onclick="setModelType('avatar')" id="avatar-mode">Avatar Only</button>
+          <button class="model-btn" onclick="setModelType('garment')" id="garment-mode">Garment Only</button>
+          <button class="model-btn" onclick="setModelType('both')" id="both-mode">Combined</button>
         </div>
       </div>
       
       <div class="control-group">
-        <label for="height">Height</label>
-        <input type="range" id="height" min="150" max="200" value="170" />
-        <div class="value-display"><span id="height-value">170</span> cm</div>
-      </div>
-      
-      <div class="control-group">
-        <label for="chest">Chest/Bust</label>
-        <input type="range" id="chest" min="70" max="120" value="90" />
-        <div class="value-display"><span id="chest-value">90</span> cm</div>
-      </div>
-      
-      <div class="control-group">
-        <label for="waist">Waist</label>
-        <input type="range" id="waist" min="60" max="110" value="75" />
-        <div class="value-display"><span id="waist-value">75</span> cm</div>
-      </div>
-      
-      <div class="control-group">
-        <label for="hips">Hips</label>
-        <input type="range" id="hips" min="70" max="130" value="95" />
-        <div class="value-display"><span id="hips-value">95</span> cm</div>
+        <label>Body Type Presets:</label>
+        <div class="avatar-gallery">
+          <div class="avatar-option active" onclick="loadAvatarPreset('female-s')" data-avatar="female-s">
+            👩<br>Female S
+          </div>
+          <div class="avatar-option" onclick="loadAvatarPreset('female-m')" data-avatar="female-m">
+            👩<br>Female M
+          </div>
+          <div class="avatar-option" onclick="loadAvatarPreset('female-l')" data-avatar="female-l">
+            👩<br>Female L
+          </div>
+          <div class="avatar-option" onclick="loadAvatarPreset('male-s')" data-avatar="male-s">
+            👨<br>Male S
+          </div>
+          <div class="avatar-option" onclick="loadAvatarPreset('male-m')" data-avatar="male-m">
+            👨<br>Male M
+          </div>
+          <div class="avatar-option" onclick="loadAvatarPreset('male-l')" data-avatar="male-l">
+            👨<br>Male L
+          </div>
+        </div>
       </div>
 
       <div class="control-group">
-        <label>Display Options:</label>
-        <button class="toggle-btn active" id="avatar-toggle" onclick="toggleAvatar()">Show Avatar</button>
-        <button class="toggle-btn" id="wireframe-toggle" onclick="toggleWireframe()">Wireframe</button>
+        <label>Custom Avatar:</label>
+        <input type="file" id="avatar-file" accept=".glb,.gltf" onchange="loadCustomAvatar(event)" />
+        <div class="file-info">
+          📁 Load your own avatar GLB/GLTF file<br>
+          🎨 Same professional rendering as garments
+        </div>
+      </div>
+
+      <div class="control-group">
+        <label for="avatar-scale">Avatar Scale</label>
+        <input type="range" id="avatar-scale" min="0.8" max="1.2" step="0.05" value="1.0" />
+        <div class="value-display"><span id="avatar-scale-value">1.0</span>x</div>
       </div>
     </div>
 
@@ -355,16 +397,17 @@
         <div class="file-info" id="file-info">
           📁 Supports GLB/GLTF files from CLO3D<br>
           ✨ Full geometry, materials, and textures supported<br>
-          🎯 Professional PBR rendering
+          🎯 Professional PBR rendering with Model Viewer
         </div>
       </div>
 
       <div class="control-group">
         <label>Sample Garments:</label>
         <div class="preset-buttons">
-          <button class="preset-btn" onclick="loadSampleGarment('shirt')">T-Shirt</button>
+          <button class="preset-btn" onclick="loadSampleGarment('tshirt')">T-Shirt</button>
           <button class="preset-btn" onclick="loadSampleGarment('dress')">Dress</button>
           <button class="preset-btn" onclick="loadSampleGarment('jacket')">Jacket</button>
+          <button class="preset-btn" onclick="loadSampleGarment('pants')">Pants</button>
         </div>
       </div>
 
@@ -375,19 +418,14 @@
       </div>
 
       <div class="control-group">
-        <label>Display Options:</label>
-        <button class="toggle-btn active" id="garment-toggle" onclick="toggleGarment()">Show Garment</button>
-        <button class="toggle-btn" id="garment-wireframe-toggle" onclick="toggleGarmentWireframe()">Wireframe</button>
-      </div>
-
-      <div class="control-group">
         <label>📋 CLO3D Export Tips:</label>
         <div style="font-size: 11px; color: #666; background: #f9f9f9; padding: 10px; border-radius: 6px;">
-          <strong>For best results:</strong><br>
-          • Export as <strong>GLB format</strong> (embeds all data)<br>
-          • Include materials and textures<br>
-          • Use "Export for Web" settings if available<br>
-          • Avoid GLTF + separate .bin files
+          <strong>For best results with Model Viewer:</strong><br>
+          • Export as <strong>GLB format</strong> (single file)<br>
+          • Include all materials and textures<br>
+          • Use PBR materials for realistic rendering<br>
+          • Optimize for web (reduce file size)<br>
+          • Test in Model Viewer before production
         </div>
       </div>
     </div>
@@ -441,37 +479,37 @@
   </div>
 
   <div class="viewer-controls">
-    <strong>Controls:</strong><br>
+    <strong>Model Viewer Controls:</strong><br>
     🖱️ Drag to rotate<br>
     🔍 Scroll to zoom<br>
     📱 Touch & drag on mobile<br>
-    🎯 Double-click to focus
+    🎯 Double-click to focus<br>
+    ⚡ Hardware accelerated
   </div>
 
   <script>
-    const modelViewer = document.getElementById('combined-viewer');
+    const modelViewer = document.getElementById('main-viewer');
     let autoRotateEnabled = true;
-    let avatarVisible = true;
-    let garmentVisible = true;
-    let currentGarmentData = null;
-    let avatarModel = null;
-    let garmentModel = null;
+    let currentModelType = 'avatar'; // 'avatar', 'garment', or 'both'
+    let currentAvatar = null;
+    let currentGarment = null;
 
-    // Preset measurements
-    const presets = {
-      xs: { height: 155, chest: 78, waist: 65, hips: 85 },
-      s:  { height: 162, chest: 85, waist: 70, hips: 92 },
-      m:  { height: 170, chest: 90, waist: 75, hips: 95 },
-      l:  { height: 175, chest: 98, waist: 82, hips: 105 },
-      xl: { height: 180, chest: 108, waist: 92, hips: 115 }
-    };
-
-    // Environment HDR URLs
+    // Environment HDR URLs - high quality for fashion
     const environments = {
       studio: 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/studio_small_03_1k.hdr',
       outdoor: 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/kloppenheim_06_1k.hdr',
       neutral: 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/industrial_workshop_foundry_1k.hdr',
       fashion: 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/photo_studio_loft_hall_1k.hdr'
+    };
+
+    // Avatar presets - in a real app, these would be actual GLB files
+    const avatarPresets = {
+      'female-s': { name: 'Female Small', url: null, description: 'Petite female avatar' },
+      'female-m': { name: 'Female Medium', url: null, description: 'Average female avatar' },
+      'female-l': { name: 'Female Large', url: null, description: 'Plus-size female avatar' },
+      'male-s': { name: 'Male Small', url: null, description: 'Slim male avatar' },
+      'male-m': { name: 'Male Medium', url: null, description: 'Average male avatar' },
+      'male-l': { name: 'Male Large', url: null, description: 'Large male avatar' }
     };
 
     function updateStatus(message) {
@@ -482,127 +520,88 @@
       console.log('STATUS:', message);
     }
 
-    // Initialize the system
-    async function initializeSystem() {
-      updateStatus('🎨 Creating avatar...');
-      await createAvatarModel();
-      updateStatus('✅ Avatar & Garment Visualizer ready!');
+    function setModelType(type) {
+      currentModelType = type;
+      
+      // Update UI
+      document.querySelectorAll('.model-btn').forEach(btn => btn.classList.remove('active'));
+      document.getElementById(type === 'avatar' ? 'avatar-mode' : 
+                           type === 'garment' ? 'garment-mode' : 'both-mode').classList.add('active');
+      
+      updateStatus(`Mode: ${type}`);
+      
+      // Update display based on mode
+      switch(type) {
+        case 'avatar':
+          if (currentAvatar) {
+            modelViewer.src = currentAvatar;
+          }
+          break;
+        case 'garment':
+          if (currentGarment) {
+            modelViewer.src = currentGarment;
+          }
+          break;
+        case 'both':
+          // In a full implementation, you'd combine both models
+          // For now, show the garment if available, otherwise avatar
+          modelViewer.src = currentGarment || currentAvatar;
+          break;
+      }
+    }
+
+    function loadAvatarPreset(presetId) {
+      // Update UI
+      document.querySelectorAll('.avatar-option').forEach(opt => opt.classList.remove('active'));
+      document.querySelector(`[data-avatar="${presetId}"]`).classList.add('active');
+      
+      const preset = avatarPresets[presetId];
+      updateStatus(`Loading ${preset.name}...`);
+      
+      // In a real implementation, you'd load the actual GLB file
+      // For now, we'll create a placeholder URL or use a sample
+      if (preset.url) {
+        currentAvatar = preset.url;
+        if (currentModelType === 'avatar' || currentModelType === 'both') {
+          modelViewer.src = currentAvatar;
+        }
+        updateStatus(`✅ ${preset.name} loaded`);
+      } else {
+        // Show placeholder message
+        updateStatus(`📋 ${preset.name} would load here - add GLB file`);
+        
+        // Hide fallback to show we're "ready"
+        document.getElementById('fallback').style.display = 'none';
+      }
+    }
+
+    function loadCustomAvatar(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      updateStatus(`Loading custom avatar: ${file.name}`);
+      
+      // Create object URL for the file
+      const objectURL = URL.createObjectURL(file);
+      currentAvatar = objectURL;
+      
+      if (currentModelType === 'avatar' || currentModelType === 'both') {
+        modelViewer.src = objectURL;
+      }
       
       // Hide fallback content
       document.getElementById('fallback').style.display = 'none';
       
-      // Apply default preset
-      applyPreset('m');
-    }
-
-    // Create a procedural avatar model using Three.js and convert to GLB
-    async function createAvatarModel() {
-      // Import Three.js modules
-      const THREE = await import('https://unpkg.com/three@0.158.0/build/three.module.js');
-      const { GLTFExporter } = await import('https://unpkg.com/three@0.158.0/examples/jsm/exporters/GLTFExporter.js');
-
-      // Create scene for avatar generation
-      const scene = new THREE.Scene();
-      const avatarGroup = new THREE.Group();
+      // Update status when loaded
+      modelViewer.addEventListener('load', function() {
+        updateStatus(`✅ Custom avatar loaded: ${file.name}`);
+      }, { once: true });
       
-      // Create avatar geometry
-      const skinMaterial = new THREE.MeshStandardMaterial({ 
-        color: 0xffdbac,
-        roughness: 0.8,
-        metalness: 0.1
-      });
-      
-      // Head
-      const headGeometry = new THREE.SphereGeometry(0.12, 32, 32);
-      const head = new THREE.Mesh(headGeometry, skinMaterial);
-      head.position.y = 1.65;
-      head.name = 'head';
-      avatarGroup.add(head);
-      
-      // Torso
-      const torsoGeometry = new THREE.CylinderGeometry(0.15, 0.12, 0.6, 24);
-      const torso = new THREE.Mesh(torsoGeometry, skinMaterial);
-      torso.position.y = 1.2;
-      torso.name = 'torso';
-      avatarGroup.add(torso);
-      
-      // Arms
-      const armGeometry = new THREE.CylinderGeometry(0.04, 0.04, 0.5, 16);
-      
-      const leftArm = new THREE.Mesh(armGeometry, skinMaterial);
-      leftArm.position.set(-0.25, 1.3, 0);
-      leftArm.rotation.z = Math.PI / 6;
-      leftArm.name = 'leftArm';
-      avatarGroup.add(leftArm);
-      
-      const rightArm = new THREE.Mesh(armGeometry, skinMaterial);
-      rightArm.position.set(0.25, 1.3, 0);
-      rightArm.rotation.z = -Math.PI / 6;
-      rightArm.name = 'rightArm';
-      avatarGroup.add(rightArm);
-      
-      // Legs
-      const legGeometry = new THREE.CylinderGeometry(0.06, 0.05, 0.8, 16);
-      
-      const leftLeg = new THREE.Mesh(legGeometry, skinMaterial);
-      leftLeg.position.set(-0.1, 0.5, 0);
-      leftLeg.name = 'leftLeg';
-      avatarGroup.add(leftLeg);
-      
-      const rightLeg = new THREE.Mesh(legGeometry, skinMaterial);
-      rightLeg.position.set(0.1, 0.5, 0);
-      rightLeg.name = 'rightLeg';
-      avatarGroup.add(rightLeg);
-
-      scene.add(avatarGroup);
-      
-      // Export to GLB
-      const exporter = new GLTFExporter();
-      
-      return new Promise((resolve) => {
-        exporter.parse(scene, (gltf) => {
-          const blob = new Blob([gltf], { type: 'application/octet-stream' });
-          const url = URL.createObjectURL(blob);
-          
-          // Load the avatar into model viewer
-          modelViewer.src = url;
-          avatarModel = url;
-          
-          // Store avatar parts for later modification
-          window.avatarParts = {
-            head, torso, leftArm, rightArm, leftLeg, rightLeg
-          };
-          
-          resolve(url);
-        }, { binary: true });
-      });
-    }
-
-    // Update avatar based on measurements
-    async function updateAvatar() {
-      if (!avatarModel) return;
-      
-      const measurements = getCurrentMeasurements();
-      updateStatus('🔄 Updating avatar...');
-      
-      // We'll need to recreate the avatar with new measurements
-      await createAvatarModel();
-      
-      // If there's a garment loaded, we need to reload it too
-      if (currentGarmentData) {
-        await loadGarmentOntoAvatar(currentGarmentData);
-      }
-      
-      updateStatus('✅ Avatar updated');
-    }
-
-    function getCurrentMeasurements() {
-      return {
-        height: parseInt(document.getElementById('height').value),
-        chest: parseInt(document.getElementById('chest').value),
-        waist: parseInt(document.getElementById('waist').value),
-        hips: parseInt(document.getElementById('hips').value)
-      };
+      // Handle errors
+      modelViewer.addEventListener('error', function(event) {
+        updateStatus(`❌ Error loading avatar: ${file.name}`);
+        console.error('Avatar loading error:', event);
+      }, { once: true });
     }
 
     function loadGarmentFile(event) {
@@ -612,169 +611,116 @@
       const fileInfo = document.getElementById('file-info');
       const fileName = file.name.toLowerCase();
       
-      // Check file format and provide specific guidance
+      // Provide format-specific guidance
       if (fileName.endsWith('.gltf')) {
         fileInfo.innerHTML = `
           📁 Loading: ${file.name}<br>
-          ⚠️ GLTF format detected - may need companion .bin files<br>
-          💡 For best results, use GLB format from CLO3D<br>
-          ⏳ Attempting to load...
+          ⚠️ GLTF format - ensure companion files are available<br>
+          💡 GLB format recommended for Model Viewer<br>
+          ⏳ Processing...
         `;
       } else if (fileName.endsWith('.glb')) {
         fileInfo.innerHTML = `
           📁 Loading: ${file.name}<br>
-          ✅ GLB format - all data embedded<br>
+          ✅ GLB format - perfect for Model Viewer<br>
           📊 Size: ${(file.size / 1024 / 1024).toFixed(2)} MB<br>
-          ⏳ Processing garment data...
+          ⏳ Processing with Model Viewer...
         `;
-      } else {
-        fileInfo.innerHTML = `
-          ❌ Unsupported format: ${file.name}<br>
-          📋 Please use GLB or GLTF files from CLO3D<br>
-          💡 GLB format recommended for best compatibility
-        `;
-        return;
       }
       
-      // Store garment data for later use
-      currentGarmentData = {
-        file: file,
-        name: file.name
-      };
+      updateStatus(`Loading garment: ${file.name}`);
       
-      loadGarmentOntoAvatar(currentGarmentData);
-    }
-
-    async function loadGarmentOntoAvatar(garmentData) {
-      updateStatus('🎨 Combining avatar and garment...');
+      // Create object URL for the file
+      const objectURL = URL.createObjectURL(file);
+      currentGarment = objectURL;
       
-      try {
-        // Create object URL for the garment file
-        const garmentURL = URL.createObjectURL(garmentData.file);
-        
-        // For now, we'll load the garment separately
-        // In a full implementation, you'd combine the avatar and garment geometries
-        modelViewer.src = garmentURL;
-        garmentModel = garmentURL;
-        
-        const fileInfo = document.getElementById('file-info');
+      if (currentModelType === 'garment' || currentModelType === 'both') {
+        modelViewer.src = objectURL;
+      }
+      
+      // Hide fallback content
+      document.getElementById('fallback').style.display = 'none';
+      
+      // Update file info when model loads successfully
+      modelViewer.addEventListener('load', function() {
         fileInfo.innerHTML = `
-          ✅ Successfully loaded: ${garmentData.name}<br>
-          🎨 Garment rendered on avatar<br>
+          ✅ Successfully loaded: ${file.name}<br>
+          📊 Size: ${(file.size / 1024 / 1024).toFixed(2)} MB<br>
+          🎨 Model Viewer PBR rendering active<br>
           🔍 Materials and textures loaded<br>
-          🎯 Ready for visualization
+          ⚡ Hardware accelerated display
         `;
         
-        updateStatus('✅ Garment loaded successfully');
+        updateStatus(`✅ Garment loaded: ${file.name}`);
         
-        // Clean up URL after a delay
-        setTimeout(() => URL.revokeObjectURL(garmentURL), 5000);
+        // Clean up the object URL after loading
+        setTimeout(() => URL.revokeObjectURL(objectURL), 1000);
+      }, { once: true });
+      
+      // Handle loading errors with detailed feedback
+      modelViewer.addEventListener('error', function(event) {
+        console.error('Model loading error:', event);
         
-      } catch (error) {
-        console.error('Error loading garment:', error);
-        updateStatus('❌ Failed to load garment');
+        if (fileName.endsWith('.gltf')) {
+          fileInfo.innerHTML = `
+            ❌ GLTF loading failed: ${file.name}<br>
+            🔍 Missing companion files (*.bin, textures)<br>
+            💡 <strong>Solution:</strong> Export as GLB from CLO3D<br>
+            📋 GLB embeds all data in one file<br>
+            🔧 Model Viewer works best with GLB format
+          `;
+        } else {
+          fileInfo.innerHTML = `
+            ❌ Error loading: ${file.name}<br>
+            🔍 File may be corrupted or incompatible<br>
+            💡 Try re-exporting from CLO3D as GLB<br>
+            📋 Ensure proper Model Viewer compatibility<br>
+            🔧 Check CLO3D export settings
+          `;
+        }
         
-        const fileInfo = document.getElementById('file-info');
-        fileInfo.innerHTML = `
-          ❌ Error loading: ${garmentData.name}<br>
-          🔍 File may be corrupted or incompatible<br>
-          💡 Try re-exporting from CLO3D<br>
-          📋 Ensure proper GLB/GLTF export settings
-        `;
-      }
+        updateStatus(`❌ Failed to load: ${file.name}`);
+        
+        // Clean up the object URL
+        setTimeout(() => URL.revokeObjectURL(objectURL), 1000);
+      }, { once: true });
     }
 
     function loadSampleGarment(type) {
       updateStatus(`Loading sample ${type}...`);
       
-      // Check if we have the sample files available
-      if (type === 'shirt') {
-        // Try to load the tshirt.glb file that was synced
-        fetch('./prototype/assets/garments/tshirt.glb')
-          .then(response => {
-            if (response.ok) {
-              return response.blob();
-            }
-            throw new Error('Sample file not found');
-          })
-          .then(blob => {
-            currentGarmentData = {
-              file: blob,
-              name: 'sample-tshirt.glb'
-            };
-            loadGarmentOntoAvatar(currentGarmentData);
-          })
-          .catch(error => {
-            console.log('Sample file not available:', error);
-            const fileInfo = document.getElementById('file-info');
-            fileInfo.innerHTML = `
-              🎯 Sample ${type} would load here<br>
-              📁 Upload your own CLO3D files for full functionality<br>
-              ✨ Professional garment rendering ready
-            `;
-          });
-      } else {
-        const fileInfo = document.getElementById('file-info');
-        fileInfo.innerHTML = `
-          🎯 Sample ${type} would load here<br>
-          📁 Upload your own CLO3D files for full functionality<br>
-          ✨ Professional garment rendering ready
-        `;
-      }
-    }
-
-    function applyPreset(size) {
-      const preset = presets[size];
-      if (!preset) return;
+      // Try to load sample files if they exist
+      const samplePath = `./prototype/assets/garments/${type}.glb`;
       
-      // Clear previous selection
-      document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
-      
-      // Set active preset
-      event.target.classList.add('active');
-      
-      // Apply measurements
-      Object.keys(preset).forEach(key => {
-        const slider = document.getElementById(key);
-        const valueDisplay = document.getElementById(key + '-value');
-        if (slider && valueDisplay) {
-          slider.value = preset[key];
-          valueDisplay.textContent = preset[key];
-        }
-      });
-      
-      updateAvatar();
-      updateStatus(`Applied ${size.toUpperCase()} preset`);
-    }
-
-    function toggleAvatar() {
-      avatarVisible = !avatarVisible;
-      const btn = document.getElementById('avatar-toggle');
-      btn.classList.toggle('active', avatarVisible);
-      btn.textContent = avatarVisible ? 'Show Avatar' : 'Hide Avatar';
-      
-      // In a full implementation, you'd show/hide the avatar part of the combined model
-      updateStatus(`Avatar ${avatarVisible ? 'shown' : 'hidden'}`);
-    }
-
-    function toggleGarment() {
-      garmentVisible = !garmentVisible;
-      const btn = document.getElementById('garment-toggle');
-      btn.classList.toggle('active', garmentVisible);
-      btn.textContent = garmentVisible ? 'Show Garment' : 'Hide Garment';
-      
-      // In a full implementation, you'd show/hide the garment part of the combined model
-      updateStatus(`Garment ${garmentVisible ? 'shown' : 'hidden'}`);
-    }
-
-    function toggleWireframe() {
-      // Toggle wireframe mode for avatar
-      updateStatus('Wireframe mode toggled');
-    }
-
-    function toggleGarmentWireframe() {
-      // Toggle wireframe mode for garment
-      updateStatus('Garment wireframe mode toggled');
+      fetch(samplePath)
+        .then(response => {
+          if (response.ok) {
+            return response.blob();
+          }
+          throw new Error('Sample file not found');
+        })
+        .then(blob => {
+          const objectURL = URL.createObjectURL(blob);
+          currentGarment = objectURL;
+          
+          if (currentModelType === 'garment' || currentModelType === 'both') {
+            modelViewer.src = objectURL;
+          }
+          
+          document.getElementById('fallback').style.display = 'none';
+          updateStatus(`✅ Sample ${type} loaded`);
+        })
+        .catch(error => {
+          console.log('Sample file not available:', error);
+          const fileInfo = document.getElementById('file-info');
+          fileInfo.innerHTML = `
+            🎯 Sample ${type} would load here<br>
+            📁 Upload your own CLO3D files for full functionality<br>
+            ✨ Model Viewer ready for professional rendering<br>
+            🔧 Add sample GLB files to ./prototype/assets/garments/
+          `;
+          updateStatus(`📋 Sample ${type} placeholder`);
+        });
     }
 
     function setEnvironment(envType) {
@@ -787,7 +733,7 @@
       modelViewer.environmentImage = envUrl;
       modelViewer.skyboxImage = envUrl;
       
-      updateStatus(`Environment set to: ${envType}`);
+      updateStatus(`Environment: ${envType}`);
     }
 
     function setAutoRotate(enabled) {
@@ -815,7 +761,7 @@
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `lucifex-avatar-garment-${Date.now()}.png`;
+        a.download = `lucifex-model-${Date.now()}.png`;
         a.click();
         URL.revokeObjectURL(url);
         updateStatus('Screenshot saved');
@@ -824,9 +770,16 @@
 
     function exportScene() {
       const sceneData = {
-        avatar: getCurrentMeasurements(),
-        garment: currentGarmentData ? currentGarmentData.name : null,
+        modelType: currentModelType,
+        avatar: currentAvatar ? 'loaded' : null,
+        garment: currentGarment ? 'loaded' : null,
         environment: document.querySelector('.env-btn.active').dataset.env,
+        settings: {
+          exposure: modelViewer.exposure,
+          shadowIntensity: modelViewer.shadowIntensity,
+          shadowSoftness: modelViewer.shadowSoftness,
+          autoRotate: autoRotateEnabled
+        },
         timestamp: new Date().toISOString()
       };
       
@@ -854,33 +807,29 @@
 
     // Setup control listeners
     function setupControls() {
-      // Avatar measurement controls
-      const avatarSliders = ['height', 'chest', 'waist', 'hips'];
+      // Avatar scale control
+      const avatarScaleSlider = document.getElementById('avatar-scale');
+      const avatarScaleValue = document.getElementById('avatar-scale-value');
       
-      avatarSliders.forEach(id => {
-        const slider = document.getElementById(id);
-        const valueDisplay = document.getElementById(id + '-value');
-        
-        slider.addEventListener('input', (e) => {
-          valueDisplay.textContent = e.target.value;
-          // Clear preset selection when manually adjusting
-          document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
-          // Debounce avatar updates
-          clearTimeout(window.avatarUpdateTimeout);
-          window.avatarUpdateTimeout = setTimeout(updateAvatar, 500);
-        });
+      avatarScaleSlider.addEventListener('input', (e) => {
+        const value = parseFloat(e.target.value);
+        avatarScaleValue.textContent = value.toFixed(2);
+        // Model Viewer handles scaling automatically
+        if (modelViewer.model && currentModelType !== 'garment') {
+          modelViewer.scale = `${value} ${value} ${value}`;
+        }
       });
 
       // Garment scale control
-      const scaleSlider = document.getElementById('garment-scale');
-      const scaleValue = document.getElementById('garment-scale-value');
+      const garmentScaleSlider = document.getElementById('garment-scale');
+      const garmentScaleValue = document.getElementById('garment-scale-value');
       
-      scaleSlider.addEventListener('input', (e) => {
+      garmentScaleSlider.addEventListener('input', (e) => {
         const value = parseFloat(e.target.value);
-        scaleValue.textContent = value.toFixed(2);
-        // Apply scale to garment
-        if (modelViewer.model) {
-          modelViewer.model.scale.setScalar(value);
+        garmentScaleValue.textContent = value.toFixed(2);
+        // Model Viewer handles scaling automatically
+        if (modelViewer.model && currentModelType !== 'avatar') {
+          modelViewer.scale = `${value} ${value} ${value}`;
         }
       });
 
@@ -916,7 +865,10 @@
     // Initialize when page loads
     window.addEventListener('load', () => {
       setupControls();
-      initializeSystem();
+      updateStatus('✅ Model Viewer ready - load avatar or garment');
+      
+      // Load default avatar
+      loadAvatarPreset('female-s');
     });
 
     // Model viewer event listeners
@@ -929,14 +881,19 @@
       updateStatus('❌ Model loading error');
     });
 
+    modelViewer.addEventListener('progress', (event) => {
+      const progress = event.detail.totalProgress;
+      if (progress < 1) {
+        updateStatus(`Loading: ${(progress * 100).toFixed(1)}%`);
+      }
+    });
+
     // Make functions global
+    window.setModelType = setModelType;
+    window.loadAvatarPreset = loadAvatarPreset;
+    window.loadCustomAvatar = loadCustomAvatar;
     window.loadGarmentFile = loadGarmentFile;
     window.loadSampleGarment = loadSampleGarment;
-    window.applyPreset = applyPreset;
-    window.toggleAvatar = toggleAvatar;
-    window.toggleGarment = toggleGarment;
-    window.toggleWireframe = toggleWireframe;
-    window.toggleGarmentWireframe = toggleGarmentWireframe;
     window.setEnvironment = setEnvironment;
     window.setAutoRotate = setAutoRotate;
     window.resetCamera = resetCamera;

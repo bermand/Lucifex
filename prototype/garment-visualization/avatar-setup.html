@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Avatar Setup - Lucifex</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    
+    .setup-card {
+      background: white;
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .option {
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 15px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .option:hover {
+      border-color: #667eea;
+      background: #f8f9ff;
+    }
+    
+    .option.recommended {
+      border-color: #667eea;
+      background: #f0f4ff;
+    }
+    
+    .option h3 {
+      margin-top: 0;
+      color: #333;
+    }
+    
+    .badge {
+      display: inline-block;
+      background: #667eea;
+      color: white;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      margin-left: 10px;
+    }
+    
+    .steps {
+      background: #f9f9f9;
+      border-radius: 6px;
+      padding: 15px;
+      margin-top: 10px;
+    }
+    
+    .steps ol {
+      margin: 0;
+      padding-left: 20px;
+    }
+    
+    .download-btn {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-top: 10px;
+    }
+    
+    .download-btn:hover {
+      background: #5a67d8;
+    }
+    
+    .status {
+      padding: 10px;
+      border-radius: 6px;
+      margin-top: 10px;
+      font-size: 14px;
+    }
+    
+    .status.success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    
+    .status.warning {
+      background: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffeaa7;
+    }
+    
+    .status.error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+  </style>
+</head>
+<body>
+  <h1>🎨 Avatar Setup for Lucifex</h1>
+  <p>Choose how you want to get avatar GLB files for your fashion app:</p>
+
+  <div class="setup-card">
+    <div class="option recommended" onclick="selectOption('readyplayerme')">
+      <h3>Ready Player Me <span class="badge">Recommended</span></h3>
+      <p><strong>Best for fashion apps</strong> - High-quality avatars with extensive customization</p>
+      <ul>
+        <li>✅ Professional quality GLB files</li>
+        <li>✅ Multiple body types and sizes</li>
+        <li>✅ Fashion-ready poses</li>
+        <li>✅ Commercial licensing available</li>
+        <li>✅ API for bulk generation</li>
+      </ul>
+      
+      <div class="steps" id="readyplayerme-steps" style="display: none;">
+        <h4>Setup Steps:</h4>
+        <ol>
+          <li>Go to <a href="https://readyplayer.me/" target="_blank">readyplayer.me</a></li>
+          <li>Create 6 avatars (Female S/M/L, Male S/M/L)</li>
+          <li>Download each as GLB format</li>
+          <li>Rename files: female-s.glb, female-m.glb, etc.</li>
+          <li>Place in <code>prototype/assets/avatars/</code></li>
+        </ol>
+        <button class="download-btn" onclick="openReadyPlayerMe()">Open Ready Player Me</button>
+      </div>
+    </div>
+
+    <div class="option" onclick="selectOption('mixamo')">
+      <h3>Mixamo + Blender</h3>
+      <p><strong>Free option</strong> - Professional game characters, requires conversion</p>
+      <ul>
+        <li>✅ Completely free</li>
+        <li>✅ High-quality models</li>
+        <li>✅ Multiple poses available</li>
+        <li>❌ Requires Blender for GLB conversion</li>
+        <li>❌ More technical setup</li>
+      </ul>
+      
+      <div class="steps" id="mixamo-steps" style="display: none;">
+        <h4>Setup Steps:</h4>
+        <ol>
+          <li>Create Adobe account at <a href="https://mixamo.com" target="_blank">mixamo.com</a></li>
+          <li>Download 6 different characters as FBX</li>
+          <li>Install <a href="https://blender.org" target="_blank">Blender</a> (free)</li>
+          <li>Import FBX files and export as GLB</li>
+          <li>Rename and place in avatar directory</li>
+        </ol>
+        <button class="download-btn" onclick="openMixamo()">Open Mixamo</button>
+      </div>
+    </div>
+
+    <div class="option" onclick="selectOption('sketchfab')">
+      <h3>Sketchfab Free Models</h3>
+      <p><strong>Community option</strong> - Free models from creators worldwide</p>
+      <ul>
+        <li>✅ Many free CC0 models</li>
+        <li>✅ Some already in GLB format</li>
+        <li>✅ Variety of styles</li>
+        <li>❌ Quality varies</li>
+        <li>❌ Need to check licenses</li>
+      </ul>
+      
+      <div class="steps" id="sketchfab-steps" style="display: none;">
+        <h4>Setup Steps:</h4>
+        <ol>
+          <li>Search <a href="https://sketchfab.com/3d-models?features=downloadable&sort_by=-likeCount&q=avatar" target="_blank">Sketchfab</a> for avatars</li>
+          <li>Filter by "Downloadable" and check licenses</li>
+          <li>Download GLB format when available</li>
+          <li>Convert other formats using online tools</li>
+          <li>Rename and organize files</li>
+        </ol>
+        <button class="download-btn" onclick="openSketchfab()">Browse Sketchfab</button>
+      </div>
+    </div>
+
+    <div class="option" onclick="selectOption('custom')">
+      <h3>Create Custom Avatars</h3>
+      <p><strong>Full control</strong> - Create exactly what you need</p>
+      <ul>
+        <li>✅ Perfect for your brand</li>
+        <li>✅ Exact measurements</li>
+        <li>✅ Full commercial rights</li>
+        <li>❌ Requires 3D skills or budget</li>
+        <li>❌ Time-intensive</li>
+      </ul>
+      
+      <div class="steps" id="custom-steps" style="display: none;">
+        <h4>Tools & Options:</h4>
+        <ul>
+          <li><strong>MakeHuman</strong> - Free avatar creator</li>
+          <li><strong>Daz3D</strong> - Professional character creator</li>
+          <li><strong>Blender</strong> - Full 3D modeling suite</li>
+          <li><strong>Commission</strong> - Hire 3D artists on Fiverr/Upwork</li>
+        </ul>
+        <button class="download-btn" onclick="openMakeHuman()">Try MakeHuman</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="setup-card">
+    <h3>📁 File Check</h3>
+    <p>Check if your avatar files are properly set up:</p>
+    <button class="download-btn" onclick="checkAvatarFiles()">Check Avatar Files</button>
+    <div id="file-status"></div>
+  </div>
+
+  <div class="setup-card">
+    <h3>🚀 Quick Start</h3>
+    <p>Don't want to set up avatars right now? You can:</p>
+    <ul>
+      <li>Use the app with placeholder avatars</li>
+      <li>Focus on garment loading first</li>
+      <li>Add avatars later when ready</li>
+    </ul>
+    <button class="download-btn" onclick="skipToApp()">Skip to Main App</button>
+  </div>
+
+  <script>
+    function selectOption(option) {
+      // Hide all steps
+      document.querySelectorAll('.steps').forEach(el => el.style.display = 'none');
+      
+      // Show selected steps
+      document.getElementById(option + '-steps').style.display = 'block';
+      
+      // Update visual selection
+      document.querySelectorAll('.option').forEach(el => el.classList.remove('selected'));
+      event.currentTarget.classList.add('selected');
+    }
+
+    function openReadyPlayerMe() {
+      window.open('https://readyplayer.me/', '_blank');
+    }
+
+    function openMixamo() {
+      window.open('https://mixamo.com/', '_blank');
+    }
+
+    function openSketchfab() {
+      window.open('https://sketchfab.com/3d-models?features=downloadable&sort_by=-likeCount&q=avatar', '_blank');
+    }
+
+    function openMakeHuman() {
+      window.open('http://www.makehumancommunity.org/', '_blank');
+    }
+
+    async function checkAvatarFiles() {
+      const statusDiv = document.getElementById('file-status');
+      statusDiv.innerHTML = '<p>Checking avatar files...</p>';
+
+      const avatarFiles = [
+        'female-s.glb',
+        'female-m.glb', 
+        'female-l.glb',
+        'male-s.glb',
+        'male-m.glb',
+        'male-l.glb'
+      ];
+
+      const results = [];
+      
+      for (const file of avatarFiles) {
+        try {
+          const response = await fetch(`./prototype/assets/avatars/${file}`, { method: 'HEAD' });
+          results.push({
+            file,
+            exists: response.ok,
+            size: response.headers.get('content-length')
+          });
+        } catch (error) {
+          results.push({
+            file,
+            exists: false,
+            error: error.message
+          });
+        }
+      }
+
+      const found = results.filter(r => r.exists).length;
+      const total = results.length;
+
+      let statusClass = 'warning';
+      let statusText = `Found ${found}/${total} avatar files`;
+
+      if (found === total) {
+        statusClass = 'success';
+        statusText = '✅ All avatar files found!';
+      } else if (found === 0) {
+        statusClass = 'error';
+        statusText = '❌ No avatar files found. Please add GLB files to prototype/assets/avatars/';
+      }
+
+      let detailsHtml = `<div class="status ${statusClass}">${statusText}</div>`;
+      
+      if (found < total) {
+        detailsHtml += '<h4>Missing files:</h4><ul>';
+        results.filter(r => !r.exists).forEach(r => {
+          detailsHtml += `<li>${r.file}</li>`;
+        });
+        detailsHtml += '</ul>';
+      }
+
+      if (found > 0) {
+        detailsHtml += '<h4>Available files:</h4><ul>';
+        results.filter(r => r.exists).forEach(r => {
+          const size = r.size ? `(${(r.size / 1024 / 1024).toFixed(2)} MB)` : '';
+          detailsHtml += `<li>✅ ${r.file} ${size}</li>`;
+        });
+        detailsHtml += '</ul>';
+      }
+
+      statusDiv.innerHTML = detailsHtml;
+    }
+
+    function skipToApp() {
+      window.location.href = './index.html';
+    }
+
+    // Auto-check files on page load
+    window.addEventListener('load', () => {
+      setTimeout(checkAvatarFiles, 1000);
+    });
+  </script>
+</body>
+</html>
