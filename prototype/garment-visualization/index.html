@@ -974,4 +974,641 @@ window.loadPhysicsModules = async function() {
         
         // Create new combined container
         const combinedContainer = document.createElement('div');
-        combinedContainer.
+        combinedContainer.id = 'combined-container';
+        combinedContainer.style.cssText = `
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100vw;
+          height: 100vh;
+          background: #f0f0f0;
+        `;
+        
+        // Get current settings
+        const avatarOpacity = parseFloat(document.getElementById('avatar-opacity').value);
+        const garmentOpacity = parseFloat(document.getElementById('garment-opacity').value);
+        const offsetX = parseFloat(document.getElementById('garment-offset-x').value);
+        const offsetY = parseFloat(document.getElementById('garment-offset-y').value);
+        const currentEnv = document.querySelector('.env-btn.active')?.dataset.env || 'studio';
+        
+        console.log('DEBUG: Settings - Avatar opacity:', avatarOpacity, 'Garment opacity:', garmentOpacity);
+        console.log('DEBUG: Offsets - X:', offsetX, 'Y:', offsetY);
+        console.log('DEBUG: Environment:', currentEnv);
+        
+        if (combinationMethod === 'merge') {
+          // Create single model viewer with garment (avatar as context)
+          const combinedViewer = document.createElement('model-viewer');
+          combinedViewer.id = 'combined-viewer';
+          combinedViewer.src = currentGarment; // Primary model is the garment
+          combinedViewer.setAttribute('camera-controls', '');
+          combinedViewer.setAttribute('touch-action', 'pan-y');
+          combinedViewer.setAttribute('auto-rotate', autoRotateEnabled);
+          combinedViewer.setAttribute('auto-rotate-delay', '3000');
+          combinedViewer.setAttribute('rotation-per-second', '30deg');
+          combinedViewer.setAttribute('shadow-intensity', '1');
+          combinedViewer.setAttribute('shadow-softness', '0.5');
+          combinedViewer.setAttribute('exposure', '1');
+          combinedViewer.setAttribute('tone-mapping', 'aces');
+          combinedViewer.setAttribute('environment-image', environments[currentEnv]);
+          combinedViewer.setAttribute('skybox-image', environments[currentEnv]);
+          combinedViewer.style.cssText = `
+            width: 100%;
+            height: 100%;
+            opacity: ${garmentOpacity};
+            transform: translate(${offsetX * 100}px, ${offsetY * 100}px);
+          `;
+          
+          combinedContainer.appendChild(combinedViewer);
+          
+          // Add avatar as background context if needed
+          if (avatarOpacity > 0) {
+            const avatarViewer = document.createElement('model-viewer');
+            avatarViewer.id = 'avatar-context';
+            avatarViewer.src = currentAvatar;
+            avatarViewer.setAttribute('camera-controls', '');
+            avatarViewer.setAttribute('touch-action', 'pan-y');
+            avatarViewer.setAttribute('auto-rotate', autoRotateEnabled);
+            avatarViewer.setAttribute('auto-rotate-delay', '3000');
+            avatarViewer.setAttribute('rotation-per-second', '30deg');
+            avatarViewer.setAttribute('shadow-intensity', '0.5');
+            avatarViewer.setAttribute('shadow-softness', '0.8');
+            avatarViewer.setAttribute('exposure', '0.8');
+            avatarViewer.setAttribute('tone-mapping', 'aces');
+            avatarViewer.setAttribute('environment-image', environments[currentEnv]);
+            avatarViewer.style.cssText = `
+              position: absolute;
+              top: 0;
+              left: 0;
+              width: 100%;
+              height: 100%;
+              opacity: ${avatarOpacity * 0.7}; /* Slightly more transparent for context */
+              z-index: 1;
+              pointer-events: none; /* Don't interfere with garment interaction */
+            `;
+            
+            combinedContainer.appendChild(avatarViewer);
+            
+            // Bring garment to front
+            combinedViewer.style.zIndex = '2';
+          }
+          
+        } else if (combinationMethod === 'offset') {
+          // Side by side with offset
+          const avatarViewer = document.createElement('model-viewer');
+          avatarViewer.src = currentAvatar;
+          avatarViewer.setAttribute('camera-controls', '');
+          avatarViewer.setAttribute('auto-rotate', autoRotateEnabled);
+          avatarViewer.setAttribute('environment-image', environments[currentEnv]);
+          avatarViewer.style.cssText = `
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 50%;
+            height: 100%;
+            opacity: ${avatarOpacity};
+          `;
+          
+          const garmentViewer = document.createElement('model-viewer');
+          garmentViewer.src = currentGarment;
+          garmentViewer.setAttribute('camera-controls', '');
+          garmentViewer.setAttribute('auto-rotate', autoRotateEnabled);
+          garmentViewer.setAttribute('environment-image', environments[currentEnv]);
+          garmentViewer.style.cssText = `
+            position: absolute;
+            right: 0;
+            top: 0;
+            width: 50%;
+            height: 100%;
+            opacity: ${garmentOpacity};
+          `;
+          
+          combinedContainer.appendChild(avatarViewer);
+          combinedContainer.appendChild(garmentViewer);
+        }
+        
+        document.body.appendChild(combinedContainer);
+        
+        updateStatus('✅ Combined view active - ready for physics simulation!');
+        
+        // Switch to combined tab
+        switchTab('combined');
+        updateStatus('Switched to combined tab');
+        
+        // Auto-enable physics if both models are loaded
+        if (!physicsEnabled) {
+          setTimeout(() => {
+            initializePhysics();
+          }, 2000);
+        }
+        
+      } catch (error) {
+        console.error('❌ Failed to create combined view:', error);
+        updateStatus('❌ Failed to create combined view: ' + error.message);
+      }
+    }
+
+    async function initializePhysics() {
+      if (physicsEnabled) {
+        console.log('⚠️ Physics already enabled');
+        return;
+      }
+
+      try {
+        updatePhysicsStatus('🔄 Loading Simple Physics Engine...', 'loading');
+        updateStatus('🔄 Loading Simple Physics Engine...');
+
+        // Load physics modules
+        const modulesLoaded = await window.loadPhysicsModules();
+        if (!modulesLoaded) {
+          throw new Error('Failed to load physics modules');
+        }
+
+        updatePhysicsStatus('🔄 Initializing Simple Physics...', 'loading');
+        updateStatus('🔄 Initializing Simple Physics...');
+
+        // Initialize cloth simulation
+        clothSimulation = new window.ClothSimulation();
+        const initialized = await clothSimulation.initialize();
+
+        if (!initialized) {
+          throw new Error('Failed to initialize cloth simulation');
+        }
+
+        // Setup physics for current models
+        const combinedViewer = document.getElementById('combined-viewer') || document.getElementById('main-viewer');
+        
+        // Setup avatar physics (collider)
+        const avatarSetup = await clothSimulation.setupAvatarPhysics(combinedViewer);
+        if (!avatarSetup) {
+          throw new Error('Failed to setup avatar physics');
+        }
+
+        // Setup garment physics (cloth)
+        const garmentSetup = await clothSimulation.setupGarmentPhysics(combinedViewer);
+        if (!garmentSetup) {
+          throw new Error('Failed to setup garment physics');
+        }
+
+        // Start simulation
+        clothSimulation.startSimulation();
+
+        physicsEnabled = true;
+        updatePhysicsStatus(`✅ ${clothSimulation.getPhysicsType()} simulation active!`, 'active');
+        updateStatus(`✅ ${clothSimulation.getPhysicsType()} simulation active!`);
+
+        // Show physics controls
+        document.getElementById('physics-controls').style.display = 'block';
+        document.getElementById('physics-toggle').textContent = 'Disable Physics';
+
+        // Initialize visual debug
+        if (window.PhysicsVisualDebug) {
+          physicsDebug = new window.PhysicsVisualDebug();
+          physicsDebug.initialize();
+        }
+
+        // Log initial status after a short delay
+        setTimeout(() => {
+          if (clothSimulation) {
+            clothSimulation.logFullStatus();
+          }
+        }, 3000);
+
+      } catch (error) {
+        console.error('❌ Failed to initialize physics:', error);
+        updatePhysicsStatus(`❌ Physics failed: ${error.message}`, 'error');
+        updateStatus(`❌ Physics failed: ${error.message}`);
+      }
+    }
+
+    function togglePhysics() {
+      if (!physicsEnabled) {
+        initializePhysics();
+      } else {
+        // Disable physics
+        if (clothSimulation) {
+          clothSimulation.stopSimulation();
+          clothSimulation.cleanup();
+          clothSimulation = null;
+        }
+        
+        physicsEnabled = false;
+        updatePhysicsStatus('Physics disabled', 'info');
+        document.getElementById('physics-controls').style.display = 'none';
+        document.getElementById('physics-toggle').textContent = 'Enable Physics';
+      }
+    }
+
+    function resetPhysics() {
+      if (clothSimulation) {
+        clothSimulation.stopSimulation();
+        clothSimulation.cleanup();
+        clothSimulation = null;
+      }
+      
+      physicsEnabled = false;
+      updatePhysicsStatus('Physics reset - click Enable to restart', 'info');
+      document.getElementById('physics-controls').style.display = 'none';
+      document.getElementById('physics-toggle').textContent = 'Enable Physics';
+    }
+
+    function togglePhysicsDebug() {
+      if (!physicsDebug) {
+        console.log('⚠️ Physics debug not available');
+        return;
+      }
+
+      debugEnabled = !debugEnabled;
+      physicsDebug.setEnabled(debugEnabled);
+      
+      const debugBtn = document.getElementById('debug-toggle');
+      debugBtn.textContent = debugEnabled ? 'Hide Physics' : 'Show Physics';
+      
+      console.log(debugEnabled ? '👁️ Physics debug enabled' : '👁️ Physics debug disabled');
+    }
+
+    function logPhysicsStatus() {
+      if (clothSimulation) {
+        clothSimulation.logFullStatus();
+      } else {
+        console.log('⚠️ No physics simulation active');
+      }
+    }
+
+    function startDropTest() {
+      if (!clothSimulation) {
+        console.log('⚠️ Physics not enabled - enable physics first');
+        return;
+      }
+
+      // Use the drop test from the physics engine
+      if (clothSimulation.physicsEngine && clothSimulation.physicsEngine.startDropTest) {
+        clothSimulation.physicsEngine.startDropTest();
+      } else {
+        console.log('⚠️ Drop test not available in current physics engine');
+      }
+    }
+
+    async function startBasicTest() {
+      if (!window.PhysicsTest) {
+        console.log('⚠️ PhysicsTest not loaded');
+        return;
+      }
+
+      const test = new window.PhysicsTest();
+      await test.startBasicTest();
+    }
+
+    // Control event handlers
+    document.getElementById('avatar-scale').addEventListener('input', function() {
+      document.getElementById('avatar-scale-value').textContent = this.value;
+      updateModelScale();
+    });
+
+    document.getElementById('garment-scale').addEventListener('input', function() {
+      document.getElementById('garment-scale-value').textContent = this.value;
+      updateModelScale();
+    });
+
+    document.getElementById('avatar-opacity').addEventListener('input', function() {
+      document.getElementById('avatar-opacity-value').textContent = this.value;
+      updateCombinedView();
+    });
+
+    document.getElementById('garment-opacity').addEventListener('input', function() {
+      document.getElementById('garment-opacity-value').textContent = this.value;
+      updateCombinedView();
+    });
+
+    document.getElementById('garment-offset-x').addEventListener('input', function() {
+      document.getElementById('garment-offset-x-value').textContent = this.value;
+      updateCombinedView();
+    });
+
+    document.getElementById('garment-offset-y').addEventListener('input', function() {
+      document.getElementById('garment-offset-y-value').textContent = this.value;
+      updateCombinedView();
+    });
+
+    document.getElementById('exposure').addEventListener('input', function() {
+      document.getElementById('exposure-value').textContent = this.value;
+      modelViewer.exposure = parseFloat(this.value);
+    });
+
+    document.getElementById('shadow-intensity').addEventListener('input', function() {
+      document.getElementById('shadow-intensity-value').textContent = this.value;
+      modelViewer.shadowIntensity = parseFloat(this.value);
+    });
+
+    document.getElementById('shadow-softness').addEventListener('input', function() {
+      document.getElementById('shadow-softness-value').textContent = this.value;
+      modelViewer.shadowSoftness = parseFloat(this.value);
+    });
+
+    document.getElementById('cloth-stiffness').addEventListener('input', function() {
+      document.getElementById('cloth-stiffness-value').textContent = this.value;
+      if (clothSimulation) {
+        clothSimulation.setClothStiffness('main-garment', parseFloat(this.value));
+      }
+    });
+
+    document.getElementById('gravity-strength').addEventListener('input', function() {
+      document.getElementById('gravity-strength-value').textContent = this.value;
+      if (clothSimulation) {
+        clothSimulation.setGravity(0, -parseFloat(this.value), 0);
+      }
+    });
+
+    function updateCombinedView() {
+      // This would update the combined view in real-time
+      // For now, we'll just log the changes
+      const avatarOpacity = document.getElementById('avatar-opacity').value;
+      const garmentOpacity = document.getElementById('garment-opacity').value;
+      const offsetX = document.getElementById('garment-offset-x').value;
+      const offsetY = document.getElementById('garment-offset-y').value;
+      
+      console.log('Combined view updated:', { avatarOpacity, garmentOpacity, offsetX, offsetY });
+    }
+
+    function updateModelScale() {
+      const avatarScale = document.getElementById('avatar-scale').value;
+      const garmentScale = document.getElementById('garment-scale').value;
+      
+      // Apply scale to current model viewer
+      const activeViewer = document.getElementById('combined-viewer') || modelViewer;
+      if (activeViewer) {
+        activeViewer.style.transform = `scale(${currentModelType === 'avatar' ? avatarScale : garmentScale})`;
+      }
+    }
+
+    function switchTab(tabName) {
+      // Hide all tab contents
+      document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+      });
+      
+      // Remove active class from all tabs
+      document.querySelectorAll('.tab').forEach(tab => {
+        tab.classList.remove('active');
+      });
+      
+      // Show selected tab content
+      document.getElementById(tabName + '-tab').classList.add('active');
+      
+      // Add active class to selected tab
+      event.target.classList.add('active');
+    }
+
+    function setModelType(type) {
+      currentModelType = type;
+      
+      // Update button states
+      document.querySelectorAll('.model-btn').forEach(btn => btn.classList.remove('active'));
+      document.getElementById(type === 'avatar' ? 'avatar-mode' : type === 'garment' ? 'garment-mode' : 'both-mode').classList.add('active');
+      
+      loadModel();
+    }
+
+    function loadModel() {
+      let modelUrl = null;
+      
+      if (currentModelType === 'avatar' && currentAvatar) {
+        modelUrl = currentAvatar;
+      } else if (currentModelType === 'garment' && currentGarment) {
+        modelUrl = currentGarment;
+      } else if (currentModelType === 'both') {
+        generateCombinedModel();
+        return;
+      }
+      
+      if (modelUrl) {
+        // Show main viewer
+        const mainViewer = document.getElementById('main-viewer');
+        mainViewer.style.display = 'block';
+        mainViewer.src = modelUrl;
+        
+        // Hide combined container if it exists
+        const combinedContainer = document.getElementById('combined-container');
+        if (combinedContainer) {
+          combinedContainer.style.display = 'none';
+        }
+        
+        updateStatus(`✅ Loaded ${currentModelType}: ${modelUrl.split('/').pop()}`);
+      } else {
+        updateStatus(`❌ No ${currentModelType} file available`);
+      }
+    }
+
+    function loadAvatarPreset(preset) {
+      // Update active state
+      document.querySelectorAll('.avatar-option').forEach(opt => opt.classList.remove('active'));
+      document.querySelector(`[data-avatar="${preset}"]`).classList.add('active');
+      
+      // For now, use the default male avatar for all presets
+      // In a real implementation, you'd have different avatar files
+      if (currentAvatar) {
+        updateStatus(`✅ Avatar preset: ${preset} (using default male avatar)`);
+        updateCombinationStatus();
+      } else {
+        updateStatus(`⚠️ Avatar preset selected: ${preset}, but no avatar file available`);
+      }
+    }
+
+    function loadCustomAvatar(event) {
+      const file = event.target.files[0];
+      if (file) {
+        const url = URL.createObjectURL(file);
+        currentAvatar = url;
+        
+        const avatarInfo = document.getElementById('avatar-file-info');
+        avatarInfo.className = 'file-status success';
+        avatarInfo.innerHTML = `✅ Custom avatar loaded: ${file.name}<br>📊 Size: ${(file.size / 1024 / 1024).toFixed(2)} MB`;
+        
+        updateStatus(`✅ Custom avatar loaded: ${file.name}`);
+        updateCombinationStatus();
+        
+        if (currentModelType === 'avatar') {
+          loadModel();
+        }
+      }
+    }
+
+    function loadGarmentFile(event) {
+      const file = event.target.files[0];
+      if (file) {
+        const url = URL.createObjectURL(file);
+        currentGarment = url;
+        
+        const garmentInfo = document.getElementById('garment-file-info');
+        garmentInfo.className = 'file-status success';
+        garmentInfo.innerHTML = `✅ Custom garment loaded: ${file.name}<br>📊 Size: ${(file.size / 1024 / 1024).toFixed(2)} MB<br>🎨 Ready for Model Viewer rendering`;
+        
+        updateStatus(`✅ Custom garment loaded: ${file.name}`);
+        updateCombinationStatus();
+        
+        if (currentModelType === 'garment') {
+          loadModel();
+        }
+      }
+    }
+
+    function loadSampleGarment(sample) {
+      // Update active state
+      document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
+      document.getElementById(`sample-${sample}`).classList.add('active');
+      
+      // Try to load the sample garment
+      const samplePaths = [
+        `../assets/garments/${sample}.glb`,
+        `./prototype/assets/garments/${sample}.glb`,
+        `prototype/assets/garments/${sample}.glb`,
+        `assets/garments/${sample}.glb`
+      ];
+      
+      // For now, use the current garment if available
+      if (currentGarment) {
+        updateStatus(`✅ Sample garment: ${sample} (using available garment)`);
+        updateCombinationStatus();
+      } else {
+        updateStatus(`⚠️ Sample garment selected: ${sample}, but no garment file available`);
+      }
+    }
+
+    function setCombinationMethod(method) {
+      combinationMethod = method;
+      
+      // Update active state
+      document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
+      document.getElementById(`${method}-method`).classList.add('active');
+      
+      updateStatus(`✅ Combination method: ${method}`);
+      updateCombinationStatus();
+    }
+
+    function setEnvironment(env) {
+      // Update active state
+      document.querySelectorAll('.env-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelector(`[data-env="${env}"]`).classList.add('active');
+      
+      // Apply environment
+      const envUrl = environments[env];
+      modelViewer.environmentImage = envUrl;
+      modelViewer.skyboxImage = envUrl;
+      
+      // Also apply to combined viewers if they exist
+      const combinedViewer = document.getElementById('combined-viewer');
+      if (combinedViewer) {
+        combinedViewer.setAttribute('environment-image', envUrl);
+        combinedViewer.setAttribute('skybox-image', envUrl);
+      }
+      
+      const avatarContext = document.getElementById('avatar-context');
+      if (avatarContext) {
+        avatarContext.setAttribute('environment-image', envUrl);
+      }
+      
+      updateStatus(`✅ Environment: ${env}`);
+    }
+
+    function setAutoRotate(enabled) {
+      autoRotateEnabled = enabled;
+      modelViewer.autoRotate = enabled;
+      
+      // Update button states
+      document.getElementById('auto-rotate-on').classList.toggle('active', enabled);
+      document.getElementById('auto-rotate-off').classList.toggle('active', !enabled);
+      
+      // Apply to combined viewers if they exist
+      const combinedViewer = document.getElementById('combined-viewer');
+      if (combinedViewer) {
+        combinedViewer.autoRotate = enabled;
+      }
+      
+      const avatarContext = document.getElementById('avatar-context');
+      if (avatarContext) {
+        avatarContext.autoRotate = enabled;
+      }
+      
+      updateStatus(`✅ Auto rotate: ${enabled ? 'enabled' : 'disabled'}`);
+    }
+
+    function resetCamera() {
+      modelViewer.resetTurntableRotation();
+      modelViewer.jumpCameraToGoal();
+      updateStatus('✅ Camera reset');
+    }
+
+    function takeScreenshot() {
+      const canvas = modelViewer.toDataURL();
+      const link = document.createElement('a');
+      link.download = 'lucifex-garment-visualization.png';
+      link.href = canvas;
+      link.click();
+      updateStatus('✅ Screenshot saved');
+    }
+
+    function exportScene() {
+      // This would export the current scene configuration
+      const config = {
+        avatar: currentAvatar,
+        garment: currentGarment,
+        combinationMethod: combinationMethod,
+        settings: {
+          avatarOpacity: document.getElementById('avatar-opacity').value,
+          garmentOpacity: document.getElementById('garment-opacity').value,
+          offsetX: document.getElementById('garment-offset-x').value,
+          offsetY: document.getElementById('garment-offset-y').value,
+          environment: document.querySelector('.env-btn.active')?.dataset.env,
+          exposure: document.getElementById('exposure').value,
+          shadowIntensity: document.getElementById('shadow-intensity').value,
+          shadowSoftness: document.getElementById('shadow-softness').value
+        }
+      };
+      
+      const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+      const link = document.createElement('a');
+      link.download = 'lucifex-scene-config.json';
+      link.href = URL.createObjectURL(blob);
+      link.click();
+      
+      updateStatus('✅ Scene configuration exported');
+    }
+
+    function resetCombination() {
+      // Reset to default values
+      document.getElementById('avatar-opacity').value = 1.0;
+      document.getElementById('garment-opacity').value = 1.0;
+      document.getElementById('garment-offset-x').value = 0;
+      document.getElementById('garment-offset-y').value = 0;
+      
+      // Update displays
+      document.getElementById('avatar-opacity-value').textContent = '1.0';
+      document.getElementById('garment-opacity-value').textContent = '1.0';
+      document.getElementById('garment-offset-x-value').textContent = '0.0';
+      document.getElementById('garment-offset-y-value').textContent = '0.0';
+      
+      // Reset combination method
+      combinationMethod = 'merge';
+      document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
+      document.getElementById('merge-method').classList.add('active');
+      
+      updateStatus('✅ Combination settings reset');
+      updateCombinationStatus();
+    }
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('🚀 Lucifex Garment Visualizer initializing...');
+      initializeDefaults();
+    });
+
+    // Handle model viewer events
+    modelViewer.addEventListener('load', function() {
+      updateStatus('✅ Model loaded successfully');
+    });
+
+    modelViewer.addEventListener('error', function(event) {
+      updateStatus('❌ Model loading error: ' + event.detail.message);
+    });
+  </script>
+</body>
+</html>
