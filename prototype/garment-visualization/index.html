@@ -1290,19 +1290,19 @@ window.loadPhysicsModules = async function() {
       
       if (!physicsEnabled) {
         // Enable physics
-        updateStatus('🔄 Loading physics modules...');
-        updatePhysicsStatus('<strong>Loading Physics Engine...</strong><br><small>Trying Ammo.js, will fallback to simple physics if needed</small>', 'loading');
+        updateStatus('🔄 Loading Simple Physics Engine...');
+        updatePhysicsStatus('<strong>Loading Simple Physics...</strong><br><small>Initializing Verlet integration cloth simulation</small>', 'loading');
         
-        // Load physics modules first
+        // Load physics modules
         const modulesLoaded = await window.loadPhysicsModules();
         if (!modulesLoaded) {
           updateStatus('❌ Failed to load physics modules');
-          updatePhysicsStatus('<strong>❌ Failed to Load:</strong><br><small>Could not load any physics modules</small>', 'error');
+          updatePhysicsStatus('<strong>❌ Failed to Load:</strong><br><small>Could not load physics modules</small>', 'error');
           return;
         }
         
-        updateStatus('🔄 Initializing physics engine...');
-        updatePhysicsStatus('<strong>Initializing Physics...</strong><br><small>Setting up cloth simulation</small>', 'loading');
+        updateStatus('🔄 Initializing Simple Physics...');
+        updatePhysicsStatus('<strong>Initializing Simple Physics...</strong><br><small>Creating t-shirt cloth simulation</small>', 'loading');
         
         if (!clothSimulation && window.ClothSimulation) {
           clothSimulation = new window.ClothSimulation();
@@ -1321,7 +1321,7 @@ window.loadPhysicsModules = async function() {
           const garmentViewer = document.getElementById('combined-garment-viewer');
           
           if (avatarViewer && garmentViewer) {
-            updatePhysicsStatus('<strong>Setting up Physics...</strong><br><small>Creating avatar collider and cloth simulation</small>', 'loading');
+            updatePhysicsStatus('<strong>Setting up Physics...</strong><br><small>Creating avatar collider and t-shirt cloth</small>', 'loading');
             
             await clothSimulation.setupAvatarPhysics(avatarViewer);
             await clothSimulation.setupGarmentPhysics(garmentViewer);
@@ -1333,8 +1333,23 @@ window.loadPhysicsModules = async function() {
             controlsDiv.style.display = 'block';
             
             const physicsType = clothSimulation.getPhysicsType();
-            updateStatus(`✅ Physics simulation active using ${physicsType}!`);
-            updatePhysicsStatus(`<strong>✅ ${physicsType} Active:</strong><br><small>Cloth simulation running - garment responds to gravity and collisions</small>`, 'active');
+            updateStatus(`✅ ${physicsType} simulation active!`);
+            
+            // Get detailed status for display
+            const detailedStatus = clothSimulation.getDetailedStatus();
+            const particleCount = detailedStatus.physicsDetails ? detailedStatus.physicsDetails.totalParticles : 'Unknown';
+            const constraintCount = detailedStatus.physicsDetails ? detailedStatus.physicsDetails.totalConstraints : 'Unknown';
+            
+            updatePhysicsStatus(`<strong>✅ ${physicsType} Active:</strong><br>
+              <small>• ${particleCount} particles simulating</small><br>
+              <small>• ${constraintCount} constraints active</small><br>
+              <small>• Real-time cloth physics running</small>`, 'active');
+            
+            // Log detailed status for debugging
+            setTimeout(() => {
+              clothSimulation.logFullStatus();
+            }, 2000);
+            
           } else {
             updateStatus('❌ Combined view required for physics simulation');
             updatePhysicsStatus('<strong>❌ Combined View Required:</strong><br><small>Load both avatar and garment first</small>', 'error');
@@ -1638,16 +1653,18 @@ window.loadPhysicsModules = async function() {
       document.getElementById('shadow-softness-value').textContent = parseFloat(this.value).toFixed(1);
     });
 
-    // Physics control event listeners
+    // Enhanced physics control event listeners
     document.getElementById('cloth-stiffness').addEventListener('input', function() {
       const value = parseFloat(this.value).toFixed(1);
       document.getElementById('cloth-stiffness-value').textContent = value;
       
       if (clothSimulation && physicsEnabled) {
-        // Apply to all cloth bodies
         clothSimulation.clothMeshes.forEach((clothData, clothId) => {
           clothSimulation.setClothStiffness(clothId, parseFloat(value));
         });
+        
+        // Show immediate feedback
+        updateStatus(`🧵 Cloth stiffness adjusted to ${value}`);
       }
     });
 
@@ -1657,6 +1674,7 @@ window.loadPhysicsModules = async function() {
       
       if (clothSimulation && physicsEnabled) {
         clothSimulation.setGravity(0, -parseFloat(value), 0);
+        updateStatus(`🌍 Gravity adjusted to ${value} m/s²`);
       }
     });
 

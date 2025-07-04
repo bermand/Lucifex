@@ -14,8 +14,23 @@ class ClothSimulation {
 
   async initialize() {
     try {
-      // Try to create AmmoPhysics instance first
+      console.log("🎯 Initializing Cloth Simulation Manager...")
+
+      // Always try Simple Physics first since it's more reliable
+      if (window.SimpleClothPhysics) {
+        console.log("🔄 Loading Simple Physics Engine...")
+        this.physics = new window.SimpleClothPhysics()
+        const success = await this.physics.initPhysicsWorld()
+        if (success) {
+          this.usingFallback = true
+          console.log("✅ Cloth simulation ready with Simple Physics!")
+          return true
+        }
+      }
+
+      // Only try Ammo.js if specifically requested or Simple Physics fails
       if (window.AmmoPhysics) {
+        console.log("🔄 Attempting Ammo.js as alternative...")
         this.physics = new window.AmmoPhysics()
         const success = await this.physics.initPhysicsWorld()
         if (success) {
@@ -25,35 +40,10 @@ class ClothSimulation {
         }
       }
 
-      // If Ammo.js fails, fall back to simple physics
-      console.log("🔄 Falling back to simple cloth physics...")
-      if (window.SimpleClothPhysics) {
-        this.physics = new window.SimpleClothPhysics()
-        const success = await this.physics.initPhysicsWorld()
-        if (success) {
-          this.usingFallback = true
-          console.log("✅ Cloth simulation initialized with simple physics")
-          return true
-        }
-      }
-
       console.error("❌ No physics engines available")
       return false
     } catch (error) {
       console.error("❌ Failed to initialize cloth simulation:", error)
-
-      // Try fallback physics
-      if (window.SimpleClothPhysics) {
-        console.log("🔄 Trying fallback physics after error...")
-        this.physics = new window.SimpleClothPhysics()
-        const success = await this.physics.initPhysicsWorld()
-        if (success) {
-          this.usingFallback = true
-          console.log("✅ Cloth simulation initialized with simple physics (fallback)")
-          return true
-        }
-      }
-
       return false
     }
   }
@@ -181,23 +171,29 @@ class ClothSimulation {
       this.physics.startSimulation()
     }
 
+    console.log(`🚀 Starting cloth simulation with ${this.getPhysicsType()}`)
+    console.log(`📊 Simulation details:`)
+    console.log(`  • Cloth meshes: ${this.clothMeshes.size}`)
+    console.log(`  • Avatar collider: ${this.avatarCollider ? "Yes" : "No"}`)
+    console.log(`  • Update frequency: 60 FPS target`)
+
     const animate = (currentTime) => {
       if (!this.isRunning) return
 
-      const deltaTime = Math.min((currentTime - this.lastTime) / 1000, 1 / 30) // Cap at 30fps
+      const deltaTime = Math.min((currentTime - this.lastTime) / 1000, 1 / 30)
       this.lastTime = currentTime
 
       // Update physics
       this.physics.updatePhysics(deltaTime)
 
-      // Update cloth meshes (for visualization feedback)
+      // Update cloth meshes and provide visual feedback
       this.updateClothMeshes()
 
       this.animationId = requestAnimationFrame(animate)
     }
 
     this.animationId = requestAnimationFrame(animate)
-    console.log(`✅ Cloth simulation started (${this.usingFallback ? "Simple Physics" : "Ammo.js"})`)
+    console.log(`✅ Cloth simulation loop started`)
   }
 
   stopSimulation() {
@@ -220,11 +216,28 @@ class ClothSimulation {
       try {
         const updatedVertices = this.physics.getClothVertices(clothId)
         if (updatedVertices) {
-          // For now, we just log that the simulation is running
-          // In a full implementation, we'd update a visual representation
-          if (Math.random() < 0.01) {
-            // Log occasionally to avoid spam
-            console.log(`📊 Cloth simulation running: ${updatedVertices.length / 3} vertices updated`)
+          // Calculate some basic statistics for feedback
+          let minY = Number.POSITIVE_INFINITY,
+            maxY = Number.NEGATIVE_INFINITY
+          for (let i = 1; i < updatedVertices.length; i += 3) {
+            minY = Math.min(minY, updatedVertices[i])
+            maxY = Math.max(maxY, updatedVertices[i])
+          }
+
+          // Store stats for status reporting
+          clothData.stats = {
+            vertexCount: updatedVertices.length / 3,
+            heightRange: maxY - minY,
+            lastUpdate: Date.now(),
+          }
+
+          // Log occasionally to show it's working
+          if (Math.random() < 0.005) {
+            // ~0.5% chance per frame
+            console.log(`📊 Cloth ${clothId} active:`)
+            console.log(`  • ${clothData.stats.vertexCount} vertices updated`)
+            console.log(`  • Height range: ${clothData.stats.heightRange.toFixed(3)}m`)
+            console.log(`  • Physics type: ${this.getPhysicsType()}`)
           }
         }
       } catch (error) {
@@ -268,6 +281,39 @@ class ClothSimulation {
       clothCount: this.clothMeshes.size,
       hasAvatarCollider: !!this.avatarCollider,
     }
+  }
+
+  getDetailedStatus() {
+    const baseStatus = {
+      isRunning: this.isRunning,
+      physicsType: this.getPhysicsType(),
+      clothCount: this.clothMeshes.size,
+      hasAvatarCollider: !!this.avatarCollider,
+      usingFallback: this.usingFallback,
+    }
+
+    // Add physics engine specific details
+    if (this.physics && this.physics.getDetailedStatus) {
+      baseStatus.physicsDetails = this.physics.getDetailedStatus()
+    }
+
+    // Add cloth mesh details
+    baseStatus.clothDetails = {}
+    this.clothMeshes.forEach((clothData, clothId) => {
+      baseStatus.clothDetails[clothId] = {
+        hasStats: !!clothData.stats,
+        isStandard: clothData.isStandard || false,
+        lastUpdate: clothData.stats ? clothData.stats.lastUpdate : null,
+      }
+    })
+
+    return baseStatus
+  }
+
+  logFullStatus() {
+    const status = this.getDetailedStatus()
+    console.log("🔍 Full Cloth Simulation Status:")
+    console.log(JSON.stringify(status, null, 2))
   }
 }
 
