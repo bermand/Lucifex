@@ -472,23 +472,23 @@ window.loadPhysicsModules = async function() {
         testScript.onerror = () => reject(new Error('Failed to load physics-test.js'));
       });
     }
-
-    // Load drop test
-    if (!window.PhysicsDropTest) {
-      const dropTestScript = document.createElement('script');
-      dropTestScript.src = './physics/drop-test.js';
-      document.head.appendChild(dropTestScript);
+    
+    // Load mesh updater
+    if (!window.PhysicsMeshUpdater) {
+      const meshScript = document.createElement('script');
+      meshScript.src = './physics/mesh-updater.js';
+      document.head.appendChild(meshScript);
       
       await new Promise((resolve, reject) => {
-        dropTestScript.onload = () => {
-          if (window.PhysicsDropTest) {
-            console.log('✅ PhysicsDropTest loaded');
+        meshScript.onload = () => {
+          if (window.PhysicsMeshUpdater) {
+            console.log('✅ PhysicsMeshUpdater loaded');
             resolve();
           } else {
-            reject(new Error('PhysicsDropTest not found after loading script'));
+            reject(new Error('PhysicsMeshUpdater not found after loading script'));
           }
         };
-        dropTestScript.onerror = () => reject(new Error('Failed to load drop-test.js'));
+        meshScript.onerror = () => reject(new Error('Failed to load mesh-updater.js'));
       });
     }
     
@@ -805,6 +805,7 @@ window.loadPhysicsModules = async function() {
     let physicsEnabled = false;
     let physicsDebug = null;
     let debugEnabled = false;
+    let meshUpdater = null; // Add this line
 
     // Environment HDR URLs - high quality for fashion
     const environments = {
@@ -1171,6 +1172,17 @@ window.loadPhysicsModules = async function() {
         if (!garmentSetup) {
           throw new Error('Failed to setup garment physics');
         }
+        
+        // Initialize mesh updater for visual feedback
+        if (window.PhysicsMeshUpdater) {
+          meshUpdater = new window.PhysicsMeshUpdater();
+          const meshInitialized = meshUpdater.initialize(clothSimulation, combinedViewer);
+          
+          if (meshInitialized) {
+            meshUpdater.startUpdating();
+            console.log('✅ Mesh updater started - garment will now visually respond to physics');
+          }
+        }
 
         // Start simulation
         clothSimulation.startSimulation();
@@ -1257,32 +1269,28 @@ window.loadPhysicsModules = async function() {
       }
     }
 
-    async function startDropTest() {
-      if (!clothSimulation || !physicsEnabled) {
+    function startDropTest() {
+      if (!clothSimulation) {
         console.log('⚠️ Physics not enabled - enable physics first');
         return;
       }
 
-      // Create drop test instance
-      if (!dropTest) {
-        dropTest = new window.PhysicsDropTest(clothSimulation);
-      }
-
-      const success = await dropTest.startDropTest();
-      if (success) {
-        updateStatus('🧪 Drop test started - watch the garment fall dramatically!');
-        document.getElementById('drop-test').textContent = 'Stop Test';
-        document.getElementById('drop-test').onclick = stopDropTest;
+      // Use the drop test from the physics engine
+      if (clothSimulation.physicsEngine && clothSimulation.physicsEngine.startDropTest) {
+        clothSimulation.physicsEngine.startDropTest();
+      } else {
+        console.log('⚠️ Drop test not available in current physics engine');
       }
     }
 
-    function stopDropTest() {
-      if (dropTest) {
-        dropTest.stopDropTest();
-        document.getElementById('drop-test').textContent = 'Drop Test';
-        document.getElementById('drop-test').onclick = startDropTest;
-        updateStatus('🧪 Drop test stopped');
+    async function startBasicTest() {
+      if (!window.PhysicsTest) {
+        console.log('⚠️ PhysicsTest not loaded');
+        return;
       }
+
+      const test = new window.PhysicsTest();
+      await test.startBasicTest();
     }
 
     // Control event handlers
@@ -1652,6 +1660,7 @@ function resetClothPosition() {
   }
 
   console.log('🔄 Resetting cloth to starting position...');
+  updateStatus('🔄 Resetting cloth - watch it fall and drape!');
   
   const physicsEngine = clothSimulation.physicsEngine;
   
@@ -1681,7 +1690,13 @@ function resetClothPosition() {
     console.log(`✅ Cloth ${clothId} reset to starting position`);
   });
   
-  updateStatus('🔄 Cloth reset - watch it fall again!');
+  // Reset model viewer transform
+  const combinedViewer = document.getElementById('combined-viewer');
+  if (combinedViewer && combinedViewer.style) {
+    combinedViewer.style.transform = 'none';
+  }
+  
+  updateStatus('🎬 Cloth reset complete - physics simulation will now make it fall and drape!');
 }
 
 async function startDropTest() {
