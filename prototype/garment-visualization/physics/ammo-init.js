@@ -1,5 +1,5 @@
 // Ammo.js Physics Engine Initialization
-// Handles loading and initializing the Ammo.js physics library
+// Handles loading and initializing Ammo.js for cloth simulation
 
 // Import Ammo.js library
 const Ammo = require("ammo.js")
@@ -11,6 +11,7 @@ class AmmoPhysics {
     this.isInitialized = false
     this.clothBodies = new Map()
     this.avatarColliders = new Map()
+    this.avatarBodies = new Map()
     this.clothIdCounter = 0
   }
 
@@ -227,8 +228,13 @@ class AmmoPhysics {
         this.world.removeRigidBody(body)
       })
 
+      this.avatarBodies.forEach((body) => {
+        this.world.removeRigidBody(body)
+      })
+
       this.clothBodies.clear()
       this.avatarColliders.clear()
+      this.avatarBodies.clear()
 
       // Destroy world
       Ammo.destroy(this.world)

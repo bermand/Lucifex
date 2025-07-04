@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Garment Visualizer - Lucifex</title>
   <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+  <!-- Three.js for cloth rendering -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r158/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/examples/js/controls/OrbitControls.js"></script>
   <style>
     body { 
       margin: 0; 
@@ -392,6 +395,39 @@
       font-size: 12px;
       color: #333;
     }
+
+    .threejs-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1;
+      background: #f0f0f0;
+    }
+
+    .renderer-selector {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 15px;
+    }
+
+    .renderer-btn {
+      flex: 1;
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      background: white;
+      cursor: pointer;
+      font-size: 11px;
+      transition: all 0.2s;
+    }
+
+    .renderer-btn.active {
+      background: #667eea;
+      color: white;
+      border-color: #667eea;
+    }
   </style>
   <script>
 // Load physics modules dynamically to avoid reference errors
@@ -413,6 +449,21 @@ window.loadPhysicsModules = async function() {
           }
         };
         simpleScript.onerror = () => reject(new Error('Failed to load simple-cloth-physics.js'));
+      });
+    }
+
+    // Load ammo init (fallback)
+    if (!window.AmmoPhysics) {
+      const ammoScript = document.createElement('script');
+      ammoScript.src = './physics/ammo-init.js';
+      document.head.appendChild(ammoScript);
+      
+      await new Promise((resolve, reject) => {
+        ammoScript.onload = () => {
+          console.log('✅ AmmoPhysics (fallback) loaded');
+          resolve();
+        };
+        ammoScript.onerror = () => reject(new Error('Failed to load ammo-init.js'));
       });
     }
 
@@ -451,6 +502,25 @@ window.loadPhysicsModules = async function() {
           }
         };
         debugScript.onerror = () => reject(new Error('Failed to load visual-debug.js'));
+      });
+    }
+
+    // Load Three.js cloth renderer
+    if (!window.ThreeJSClothRenderer) {
+      const rendererScript = document.createElement('script');
+      rendererScript.src = './physics/threejs-cloth-renderer.js';
+      document.head.appendChild(rendererScript);
+      
+      await new Promise((resolve, reject) => {
+        rendererScript.onload = () => {
+          if (window.ThreeJSClothRenderer) {
+            console.log('✅ ThreeJSClothRenderer loaded');
+            resolve();
+          } else {
+            reject(new Error('ThreeJSClothRenderer not found after loading script'));
+          }
+        };
+        rendererScript.onerror = () => reject(new Error('Failed to load threejs-cloth-renderer.js'));
       });
     }
     
@@ -607,6 +677,14 @@ window.loadPhysicsModules = async function() {
       </div>
       
       <div class="control-group">
+        <label>Renderer:</label>
+        <div class="renderer-selector">
+          <button class="renderer-btn active" onclick="setRenderer('model-viewer')" id="model-viewer-renderer">Model Viewer</button>
+          <button class="renderer-btn" onclick="setRenderer('threejs')" id="threejs-renderer">Three.js Physics</button>
+        </div>
+      </div>
+      
+      <div class="control-group">
         <label>Combination Method:</label>
         <div class="preset-buttons">
           <button class="preset-btn active" onclick="setCombinationMethod('merge')" id="merge-method">Overlay</button>
@@ -683,10 +761,10 @@ window.loadPhysicsModules = async function() {
         <div style="font-size: 11px; color: #666; background: #f9f9f9; padding: 10px; border-radius: 6px;">
           <strong>For best results:</strong><br>
           • Use avatars and garments with similar scales<br>
-          • Adjust garment position to fit avatar<br>
-          • Use opacity to see through garments<br>
+          • Switch to "Three.js Physics" to see actual cloth movement<br>
           • Enable physics to see cloth simulation<br>
-          • Use visual debug to see physics working
+          • Use visual debug to see physics working<br>
+          • Model Viewer for static display, Three.js for physics
         </div>
       </div>
     </div>
@@ -740,7 +818,9 @@ window.loadPhysicsModules = async function() {
   </div>
 
   <div class="viewer-controls">
-    <strong>Model Viewer Controls:</strong><br>
+    <strong>Current Renderer:</strong><br>
+    <span id="current-renderer-info">Model Viewer</span><br><br>
+    <strong>Controls:</strong><br>
     🖱️ Drag to rotate<br>
     🔍 Scroll to zoom<br>
     📱 Touch & drag on mobile<br>
@@ -756,12 +836,14 @@ window.loadPhysicsModules = async function() {
     let currentGarment = null;
     let combinedModel = null;
     let combinationMethod = 'merge';
+    let currentRenderer = 'model-viewer';
 
     // Physics simulation
     let clothSimulation = null;
     let physicsEnabled = false;
     let physicsDebug = null;
     let debugEnabled = false;
+    let threeJSRenderer = null;
 
     // Environment HDR URLs - high quality for fashion
     const environments = {
@@ -804,6 +886,29 @@ window.loadPhysicsModules = async function() {
       if (physicsStatus) {
         physicsStatus.className = `physics-status ${type}`;
         physicsStatus.innerHTML = message;
+      }
+    }
+
+    function setRenderer(rendererType) {
+      currentRenderer = rendererType;
+      
+      // Update UI
+      document.querySelectorAll('.renderer-btn').forEach(btn => btn.classList.remove('active'));
+      document.getElementById(rendererType + '-renderer').classList.add('active');
+      
+      // Update info display
+      const infoDisplay = document.getElementById('current-renderer-info');
+      if (rendererType === 'model-viewer') {
+        infoDisplay.textContent = 'Model Viewer (Static)';
+      } else {
+        infoDisplay.textContent = 'Three.js (Physics)';
+      }
+      
+      updateStatus(`Renderer set to: ${rendererType}`);
+      
+      // If combined view is active, regenerate with new renderer
+      if (combinedModel) {
+        generateCombinedModel();
       }
     }
 
@@ -904,11 +1009,11 @@ window.loadPhysicsModules = async function() {
       if (currentAvatar && currentGarment) {
         statusDiv.className = 'combination-status ready';
         statusDiv.innerHTML = `
-          <strong>✅ Ready for Model Viewer Combination:</strong><br>
+          <strong>✅ Ready for Combination:</strong><br>
           Avatar: ${currentAvatar.split('/').pop()}<br>
           Garment: ${currentGarment.split('/').pop()}<br>
-          Method: ${combinationMethod}<br>
-          <small>💡 Model Viewer will show garment with avatar context</small>
+          Renderer: ${currentRenderer}<br>
+          <small>💡 Switch to Three.js for physics simulation</small>
         `;
       } else if (currentAvatar || currentGarment) {
         statusDiv.className = 'combination-status partial';
@@ -936,7 +1041,7 @@ window.loadPhysicsModules = async function() {
       updateStatus('🔄 Creating combined view...');
       console.log('DEBUG: Avatar URL:', currentAvatar);
       console.log('DEBUG: Garment URL:', currentGarment);
-      console.log('DEBUG: Combination method:', combinationMethod);
+      console.log('DEBUG: Renderer:', currentRenderer);
 
       try {
         // Hide main viewer
@@ -949,142 +1054,39 @@ window.loadPhysicsModules = async function() {
           existingContainer.remove();
         }
         
-        // Create new combined container
-        const combinedContainer = document.createElement('div');
-        combinedContainer.id = 'combined-container';
-        combinedContainer.style.cssText = `
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: 100vw;
-          height: 100vh;
-          background: #f0f0f0;
-          z-index: 1;
-        `;
-        document.body.appendChild(combinedContainer);
+        // Clean up existing Three.js renderer
+        if (threeJSRenderer) {
+          threeJSRenderer.cleanup();
+          threeJSRenderer = null;
+        }
         
-        // Get current settings
-        const avatarOpacity = parseFloat(document.getElementById('avatar-opacity').value);
-        const garmentOpacity = parseFloat(document.getElementById('garment-opacity').value);
-        const offsetX = parseFloat(document.getElementById('garment-offset-x').value);
-        const offsetY = parseFloat(document.getElementById('garment-offset-y').value);
-        
-        // Get current environment
-        const activeEnvBtn = document.querySelector('.env-btn.active');
-        const currentEnv = activeEnvBtn ? activeEnvBtn.dataset.env : 'studio';
-        
-        console.log('DEBUG: Settings - Avatar opacity:', avatarOpacity, 'Garment opacity:', garmentOpacity);
-        console.log('DEBUG: Offsets - X:', offsetX, 'Y:', offsetY);
-        console.log('DEBUG: Environment:', currentEnv);
-        
-        if (combinationMethod === 'separate') {
-          // Side-by-side view
-          combinedContainer.innerHTML = `
-            <div style="display: flex; width: 100%; height: 100%;">
-              <div style="position: relative; width: 50%; height: 100%; border-right: 2px solid #667eea;">
-                <model-viewer 
-                  id="combined-avatar-viewer"
-                  src="${currentAvatar}"
-                  camera-controls 
-                  touch-action="pan-y"
-                  auto-rotate
-                  auto-rotate-delay="3000"
-                  rotation-per-second="30deg"
-                  shadow-intensity="1"
-                  shadow-softness="0.5"
-                  exposure="1"
-                  tone-mapping="aces"
-                  environment-image="${environments[currentEnv]}"
-                  skybox-image="${environments[currentEnv]}"
-                  style="width: 100%; height: 100%; opacity: ${avatarOpacity}; background-color: #f0f0f0;">
-                  <div slot="progress-bar" style="display: none;"></div>
-                </model-viewer>
-                <div style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: white; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: bold; z-index: 10;">Avatar</div>
-              </div>
-              <div style="position: relative; width: 50%; height: 100%;">
-                <model-viewer 
-                  id="combined-garment-viewer"
-                  src="${currentGarment}"
-                  camera-controls 
-                  touch-action="pan-y"
-                  auto-rotate
-                  auto-rotate-delay="3000"
-                  rotation-per-second="30deg"
-                  shadow-intensity="1"
-                  shadow-softness="0.5"
-                  exposure="1"
-                  tone-mapping="aces"
-                  environment-image="${environments[currentEnv]}"
-                  skybox-image="${environments[currentEnv]}"
-                  style="width: 100%; height: 100%; opacity: ${garmentOpacity}; background-color: #f0f0f0;">
-                  <div slot="progress-bar" style="display: none;"></div>
-                </model-viewer>
-                <div style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: white; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: bold; z-index: 10;">Garment</div>
-              </div>
-            </div>
-          `;
+        if (currentRenderer === 'threejs') {
+          // Create Three.js physics renderer
+          await createThreeJSPhysicsView();
         } else {
-          // Overlay/merge view - both models in same space
-          combinedContainer.innerHTML = `
-            <div style="position: relative; width: 100%; height: 100%;">
-              <model-viewer 
-                id="combined-avatar-viewer"
-                src="${currentAvatar}"
-                camera-controls 
-                touch-action="pan-y"
-                auto-rotate
-                auto-rotate-delay="3000"
-                rotation-per-second="30deg"
-                shadow-intensity="1"
-                shadow-softness="0.5"
-                exposure="1"
-                tone-mapping="aces"
-                camera-orbit="0deg 75deg 4m"
-                camera-target="0m 1m 0m"
-                environment-image="${environments[currentEnv]}"
-                skybox-image="${environments[currentEnv]}"
-                style="position: absolute; width: 100%; height: 100%; opacity: ${avatarOpacity}; z-index: 1; background-color: #f0f0f0;">
-                <div slot="progress-bar" style="display: none;"></div>
-              </model-viewer>
-              <model-viewer 
-                id="combined-garment-viewer"
-                src="${currentGarment}"
-                shadow-intensity="0.8"
-                exposure="1.2"
-                tone-mapping="aces"
-                camera-orbit="0deg 75deg 4m"
-                camera-target="0m 1m 0m"
-                environment-image="${environments[currentEnv]}"
-                skybox-image="${environments[currentEnv]}"
-                style="position: absolute; width: 100%; height: 100%; opacity: ${garmentOpacity}; z-index: 2; pointer-events: none; transform: translate(${offsetX * 100}px, ${offsetY * 100}px) scale(1.05); background-color: transparent;">
-                <div slot="progress-bar" style="display: none;"></div>
-              </model-viewer>
-              <div style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: white; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: bold; z-index: 10;">
-                Combined View (${combinationMethod})<br>
-                <small>Avatar: ${(avatarOpacity * 100).toFixed(0)}% | Garment: ${(garmentOpacity * 100).toFixed(0)}%</small>
-              </div>
-              <div style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.6); color: white; padding: 6px 10px; border-radius: 4px; font-size: 10px; z-index: 10;">
-                💡 Enable physics to see cloth simulation
-              </div>
-            </div>
-          `;
+          // Create Model Viewer combined view
+          await createModelViewerCombinedView();
         }
         
         combinedModel = 'combined-active';
         
         // Update status after a moment
         setTimeout(() => {
-          updateStatus('✅ Combined view active - ready for physics simulation!');
+          if (currentRenderer === 'threejs') {
+            updateStatus('✅ Three.js physics view active - enable physics to see cloth movement!');
+          } else {
+            updateStatus('✅ Model Viewer combined view active!');
+          }
           
           // Update status display
           const statusDiv = document.getElementById('combination-status');
           statusDiv.className = 'combination-status ready';
           statusDiv.innerHTML = `
             <strong>✅ Combined View Active:</strong><br>
-            Avatar: Visible (${(avatarOpacity * 100).toFixed(0)}% opacity)<br>
-            Garment: Visible (${(garmentOpacity * 100).toFixed(0)}% opacity)<br>
-            Method: ${combinationMethod}<br>
-            <small>🧬 Ready for physics simulation</small>
+            Renderer: ${currentRenderer === 'threejs' ? 'Three.js Physics' : 'Model Viewer'}<br>
+            Avatar: Loaded<br>
+            Garment: Loaded<br>
+            <small>${currentRenderer === 'threejs' ? '🧬 Ready for physics simulation' : '🎨 Static display mode'}</small>
           `;
         }, 1000);
         
@@ -1094,11 +1096,128 @@ window.loadPhysicsModules = async function() {
       }
     }
 
+    async function createThreeJSPhysicsView() {
+      // Load physics modules first
+      const modulesLoaded = await window.loadPhysicsModules();
+      if (!modulesLoaded) {
+        throw new Error('Failed to load physics modules');
+      }
+
+      // Create Three.js container
+      const combinedContainer = document.createElement('div');
+      combinedContainer.id = 'combined-container';
+      combinedContainer.className = 'threejs-container';
+      document.body.appendChild(combinedContainer);
+
+      // Initialize cloth simulation
+      if (!clothSimulation && window.ClothSimulation) {
+        clothSimulation = new window.ClothSimulation();
+        const success = await clothSimulation.initialize();
+        if (!success) {
+          throw new Error('Failed to initialize cloth simulation');
+        }
+      }
+
+      // Initialize Three.js renderer
+      if (window.ThreeJSClothRenderer) {
+        threeJSRenderer = new window.ThreeJSClothRenderer();
+        const success = await threeJSRenderer.initialize(combinedContainer, clothSimulation);
+        if (!success) {
+          throw new Error('Failed to initialize Three.js renderer');
+        }
+
+        // Start rendering
+        threeJSRenderer.startRendering();
+        
+        console.log('✅ Three.js physics view created');
+      } else {
+        throw new Error('ThreeJSClothRenderer not available');
+      }
+    }
+
+    async function createModelViewerCombinedView() {
+      // Create new combined container
+      const combinedContainer = document.createElement('div');
+      combinedContainer.id = 'combined-container';
+      combinedContainer.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: #f0f0f0;
+        z-index: 1;
+      `;
+      document.body.appendChild(combinedContainer);
+      
+      // Get current settings
+      const avatarOpacity = parseFloat(document.getElementById('avatar-opacity').value);
+      const garmentOpacity = parseFloat(document.getElementById('garment-opacity').value);
+      const offsetX = parseFloat(document.getElementById('garment-offset-x').value);
+      const offsetY = parseFloat(document.getElementById('garment-offset-y').value);
+      
+      // Get current environment
+      const activeEnvBtn = document.querySelector('.env-btn.active');
+      const currentEnv = activeEnvBtn ? activeEnvBtn.dataset.env : 'studio';
+      
+      // Create overlay view (most common for Model Viewer)
+      combinedContainer.innerHTML = `
+        <div style="position: relative; width: 100%; height: 100%;">
+          <model-viewer 
+            id="combined-avatar-viewer"
+            src="${currentAvatar}"
+            camera-controls 
+            touch-action="pan-y"
+            auto-rotate
+            auto-rotate-delay="3000"
+            rotation-per-second="30deg"
+            shadow-intensity="1"
+            shadow-softness="0.5"
+            exposure="1"
+            tone-mapping="aces"
+            camera-orbit="0deg 75deg 4m"
+            camera-target="0m 1m 0m"
+            environment-image="${environments[currentEnv]}"
+            skybox-image="${environments[currentEnv]}"
+            style="position: absolute; width: 100%; height: 100%; opacity: ${avatarOpacity}; z-index: 1; background-color: #f0f0f0;">
+            <div slot="progress-bar" style="display: none;"></div>
+          </model-viewer>
+          <model-viewer 
+            id="combined-garment-viewer"
+            src="${currentGarment}"
+            shadow-intensity="0.8"
+            exposure="1.2"
+            tone-mapping="aces"
+            camera-orbit="0deg 75deg 4m"
+            camera-target="0m 1m 0m"
+            environment-image="${environments[currentEnv]}"
+            skybox-image="${environments[currentEnv]}"
+            style="position: absolute; width: 100%; height: 100%; opacity: ${garmentOpacity}; z-index: 2; pointer-events: none; transform: translate(${offsetX * 100}px, ${offsetY * 100}px) scale(1.05); background-color: transparent;">
+            <div slot="progress-bar" style="display: none;"></div>
+          </model-viewer>
+          <div style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: white; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: bold; z-index: 10;">
+            Model Viewer Combined View<br>
+            <small>Avatar: ${(avatarOpacity * 100).toFixed(0)}% | Garment: ${(garmentOpacity * 100).toFixed(0)}%</small>
+          </div>
+          <div style="position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.6); color: white; padding: 6px 10px; border-radius: 4px; font-size: 10px; z-index: 10;">
+            💡 Switch to Three.js for physics simulation
+          </div>
+        </div>
+      `;
+    }
+
     async function togglePhysics() {
       const toggleBtn = document.getElementById('physics-toggle');
       const controlsDiv = document.getElementById('physics-controls');
       
       if (!physicsEnabled) {
+        // Check if we're using Three.js renderer
+        if (currentRenderer !== 'threejs') {
+          updateStatus('⚠️ Switch to Three.js renderer for physics simulation');
+          updatePhysicsStatus('<strong>⚠️ Three.js Required:</strong><br><small>Switch to "Three.js Physics" renderer first</small>', 'error');
+          return;
+        }
+
         // Enable physics
         updateStatus('🔄 Loading Simple Physics Engine...');
         updatePhysicsStatus('<strong>Loading Simple Physics...</strong><br><small>Initializing Verlet integration cloth simulation</small>', 'loading');
@@ -1126,54 +1245,46 @@ window.loadPhysicsModules = async function() {
         }
         
         // Setup physics for current models
-        if (combinedModel && currentAvatar && currentGarment) {
-          const avatarViewer = document.getElementById('combined-avatar-viewer');
-          const garmentViewer = document.getElementById('combined-garment-viewer');
+        if (combinedModel && currentAvatar && currentGarment && threeJSRenderer) {
+          updatePhysicsStatus('<strong>Setting up Physics...</strong><br><small>Creating avatar collider and t-shirt cloth</small>', 'loading');
           
-          if (avatarViewer && garmentViewer) {
-            updatePhysicsStatus('<strong>Setting up Physics...</strong><br><small>Creating avatar collider and t-shirt cloth</small>', 'loading');
-            
-            await clothSimulation.setupAvatarPhysics(avatarViewer);
-            await clothSimulation.setupGarmentPhysics(garmentViewer);
-            clothSimulation.startSimulation();
-            
-            physicsEnabled = true;
-            toggleBtn.textContent = 'Disable Physics';
-            toggleBtn.classList.add('active');
-            controlsDiv.style.display = 'block';
-            
-            const physicsType = clothSimulation.getPhysicsType();
-            updateStatus(`✅ ${physicsType} simulation active!`);
-            
-            // Get detailed status for display
-            const detailedStatus = clothSimulation.getDetailedStatus();
-            const particleCount = detailedStatus.physicsDetails ? detailedStatus.physicsDetails.totalParticles : 'Unknown';
-            const constraintCount = detailedStatus.physicsDetails ? detailedStatus.physicsDetails.totalConstraints : 'Unknown';
-            
-            updatePhysicsStatus(`<strong>✅ ${physicsType} Active:</strong><br>
-              <small>• ${particleCount} particles simulating</small><br>
-              <small>• ${constraintCount} constraints active</small><br>
-              <small>• Real-time cloth physics running</small><br>
-              <small>• Use visual debug to see simulation</small>`, 'active');
-            
-            // Initialize physics debug
-            if (!physicsDebug && window.PhysicsVisualDebug) {
-              physicsDebug = new window.PhysicsVisualDebug();
-              physicsDebug.initialize(clothSimulation);
-            }
-            
-            // Log detailed status for debugging
-            setTimeout(() => {
-              clothSimulation.logFullStatus();
-            }, 2000);
-            
-          } else {
-            updateStatus('❌ Combined view required for physics simulation');
-            updatePhysicsStatus('<strong>❌ Combined View Required:</strong><br><small>Load both avatar and garment first</small>', 'error');
+          await clothSimulation.setupAvatarPhysics(null); // Three.js handles the avatar
+          await clothSimulation.setupGarmentPhysics(null); // Three.js handles the garment
+          clothSimulation.startSimulation();
+          
+          physicsEnabled = true;
+          toggleBtn.textContent = 'Disable Physics';
+          toggleBtn.classList.add('active');
+          controlsDiv.style.display = 'block';
+          
+          const physicsType = clothSimulation.getPhysicsType();
+          updateStatus(`✅ ${physicsType} simulation active with Three.js rendering!`);
+          
+          // Get detailed status for display
+          const detailedStatus = clothSimulation.getDetailedStatus();
+          const particleCount = detailedStatus.physicsDetails ? detailedStatus.physicsDetails.totalParticles : 'Unknown';
+          const constraintCount = detailedStatus.physicsDetails ? detailedStatus.physicsDetails.totalConstraints : 'Unknown';
+          
+          updatePhysicsStatus(`<strong>✅ ${physicsType} Active:</strong><br>
+            <small>• ${particleCount} particles simulating</small><br>
+            <small>• ${constraintCount} constraints active</small><br>
+            <small>• Real-time cloth physics with Three.js</small><br>
+            <small>• Visible cloth movement in 3D</small>`, 'active');
+          
+          // Initialize physics debug
+          if (!physicsDebug && window.PhysicsVisualDebug) {
+            physicsDebug = new window.PhysicsVisualDebug();
+            physicsDebug.initialize(clothSimulation);
           }
+          
+          // Log detailed status for debugging
+          setTimeout(() => {
+            clothSimulation.logFullStatus();
+          }, 2000);
+          
         } else {
-          updateStatus('❌ Load both avatar and garment first');
-          updatePhysicsStatus('<strong>❌ Models Required:</strong><br><small>Load both avatar and garment to enable physics</small>', 'error');
+          updateStatus('❌ Three.js combined view required for physics simulation');
+          updatePhysicsStatus('<strong>❌ Three.js View Required:</strong><br><small>Generate combined view with Three.js renderer first</small>', 'error');
         }
       } else {
         // Disable physics
@@ -1278,6 +1389,12 @@ window.loadPhysicsModules = async function() {
       // Reset physics if active
       if (physicsEnabled) {
         resetPhysics();
+      }
+
+      // Clean up Three.js renderer
+      if (threeJSRenderer) {
+        threeJSRenderer.cleanup();
+        threeJSRenderer = null;
       }
 
       // Show main viewer
@@ -1609,6 +1726,7 @@ window.loadPhysicsModules = async function() {
     window.resetPhysics = resetPhysics;
     window.togglePhysicsDebug = togglePhysicsDebug;
     window.logPhysicsStatus = logPhysicsStatus;
+    window.setRenderer = setRenderer;
 </script>
 </body>
 </html>
