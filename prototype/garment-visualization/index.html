@@ -648,40 +648,42 @@
         return;
       }
 
-      updateStatus('🔄 Creating true combined view...');
+      updateStatus('🔄 Creating combined view...');
 
       try {
         // Hide main viewer
         const mainViewer = document.getElementById('main-viewer');
         mainViewer.style.display = 'none';
         
-        // Create or get combined container
-        let combinedContainer = document.getElementById('combined-container');
-        if (!combinedContainer) {
-          combinedContainer = document.createElement('div');
-          combinedContainer.id = 'combined-container';
-          combinedContainer.style.cssText = `
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            display: block;
-            z-index: 1;
-          `;
-          document.body.appendChild(combinedContainer);
+        // Remove any existing combined container
+        const existingContainer = document.getElementById('combined-container');
+        if (existingContainer) {
+          existingContainer.remove();
         }
         
-        // Clear previous content
-        combinedContainer.innerHTML = '';
+        // Create new combined container
+        const combinedContainer = document.createElement('div');
+        combinedContainer.id = 'combined-container';
+        combinedContainer.style.cssText = `
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100vw;
+          height: 100vh;
+          background: #f0f0f0;
+          z-index: 1;
+        `;
+        document.body.appendChild(combinedContainer);
         
         // Get current settings
         const avatarOpacity = parseFloat(document.getElementById('avatar-opacity').value);
         const garmentOpacity = parseFloat(document.getElementById('garment-opacity').value);
-        const avatarScale = parseFloat(document.getElementById('avatar-scale').value);
-        const garmentScale = parseFloat(document.getElementById('garment-scale').value);
         const offsetX = parseFloat(document.getElementById('garment-offset-x').value);
         const offsetY = parseFloat(document.getElementById('garment-offset-y').value);
+        
+        // Get current environment
+        const activeEnvBtn = document.querySelector('.env-btn.active');
+        const currentEnv = activeEnvBtn ? activeEnvBtn.dataset.env : 'studio';
         
         if (combinationMethod === 'separate') {
           // Side-by-side view
@@ -689,83 +691,92 @@
             <div style="display: flex; width: 100%; height: 100%;">
               <div style="position: relative; width: 50%; height: 100%; border-right: 2px solid #667eea;">
                 <model-viewer 
-                  id="avatar-viewer"
                   src="${currentAvatar}"
                   camera-controls 
                   touch-action="pan-y"
                   auto-rotate
+                  auto-rotate-delay="3000"
+                  rotation-per-second="30deg"
                   shadow-intensity="1"
                   shadow-softness="0.5"
                   exposure="1"
                   tone-mapping="aces"
-                  environment-image="${environments[document.querySelector('.env-btn.active').dataset.env]}"
-                  style="width: 100%; height: 100%; opacity: ${avatarOpacity};">
+                  environment-image="${environments[currentEnv]}"
+                  skybox-image="${environments[currentEnv]}"
+                  style="width: 100%; height: 100%; opacity: ${avatarOpacity}; background-color: #f0f0f0;">
                 </model-viewer>
-                <div style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 5px 10px; border-radius: 5px; font-size: 12px; font-weight: bold;">Avatar</div>
+                <div style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: white; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: bold; z-index: 10;">Avatar</div>
               </div>
               <div style="position: relative; width: 50%; height: 100%;">
                 <model-viewer 
-                  id="garment-viewer"
                   src="${currentGarment}"
                   camera-controls 
                   touch-action="pan-y"
                   auto-rotate
+                  auto-rotate-delay="3000"
+                  rotation-per-second="30deg"
                   shadow-intensity="1"
                   shadow-softness="0.5"
                   exposure="1"
                   tone-mapping="aces"
-                  environment-image="${environments[document.querySelector('.env-btn.active').dataset.env]}"
-                  style="width: 100%; height: 100%; opacity: ${garmentOpacity};">
+                  environment-image="${environments[currentEnv]}"
+                  skybox-image="${environments[currentEnv]}"
+                  style="width: 100%; height: 100%; opacity: ${garmentOpacity}; background-color: #f0f0f0;">
                 </model-viewer>
-                <div style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 5px 10px; border-radius: 5px; font-size: 12px; font-weight: bold;">Garment</div>
+                <div style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: white; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: bold; z-index: 10;">Garment</div>
               </div>
             </div>
           `;
         } else {
           // Overlay/merge view - both models in same space
           combinedContainer.innerHTML = `
-            <model-viewer 
-              id="avatar-viewer"
-              src="${currentAvatar}"
-              camera-controls 
-              touch-action="pan-y"
-              auto-rotate
-              shadow-intensity="1"
-              shadow-softness="0.5"
-              exposure="1"
-              tone-mapping="aces"
-              environment-image="${environments[document.querySelector('.env-btn.active').dataset.env]}"
-              style="position: absolute; width: 100%; height: 100%; opacity: ${avatarOpacity}; z-index: 1;">
-            </model-viewer>
-            <model-viewer 
-              id="garment-viewer"
-              src="${currentGarment}"
-              camera-controls 
-              touch-action="pan-y"
-              shadow-intensity="0.5"
-              exposure="1"
-              tone-mapping="aces"
-              environment-image="${environments[document.querySelector('.env-btn.active').dataset.env]}"
-              style="position: absolute; width: 100%; height: 100%; opacity: ${garmentOpacity}; z-index: 2; pointer-events: none; transform: translate(${offsetX * 100}px, ${offsetY * 100}px);">
-            </model-viewer>
-            <div style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: white; padding: 5px 10px; border-radius: 5px; font-size: 12px; font-weight: bold; z-index: 3;">Combined View</div>
+            <div style="position: relative; width: 100%; height: 100%;">
+              <model-viewer 
+                src="${currentAvatar}"
+                camera-controls 
+                touch-action="pan-y"
+                auto-rotate
+                auto-rotate-delay="3000"
+                rotation-per-second="30deg"
+                shadow-intensity="1"
+                shadow-softness="0.5"
+                exposure="1"
+                tone-mapping="aces"
+                environment-image="${environments[currentEnv]}"
+                skybox-image="${environments[currentEnv]}"
+                style="position: absolute; width: 100%; height: 100%; opacity: ${avatarOpacity}; z-index: 1; background-color: #f0f0f0;">
+              </model-viewer>
+              <model-viewer 
+                src="${currentGarment}"
+                shadow-intensity="0.5"
+                exposure="1"
+                tone-mapping="aces"
+                environment-image="${environments[currentEnv]}"
+                skybox-image="${environments[currentEnv]}"
+                style="position: absolute; width: 100%; height: 100%; opacity: ${garmentOpacity}; z-index: 2; pointer-events: none; transform: translate(${offsetX * 100}px, ${offsetY * 100}px); background-color: transparent;">
+              </model-viewer>
+              <div style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: white; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: bold; z-index: 10;">Combined View (${combinationMethod})</div>
+            </div>
           `;
         }
         
         combinedModel = 'combined-active';
         
-        updateStatus('✅ Combined view active - both models visible!');
-        
-        // Update status display
-        const statusDiv = document.getElementById('combination-status');
-        statusDiv.className = 'combination-status ready';
-        statusDiv.innerHTML = `
-          <strong>✅ Combined View Active:</strong><br>
-          Avatar: Visible (${(avatarOpacity * 100).toFixed(0)}% opacity)<br>
-          Garment: Visible (${(garmentOpacity * 100).toFixed(0)}% opacity)<br>
-          Method: ${combinationMethod}<br>
-          <small>💡 Both models rendered with Model Viewer</small>
-        `;
+        // Wait a moment for the model-viewers to initialize
+        setTimeout(() => {
+          updateStatus('✅ Combined view active - both models visible!');
+          
+          // Update status display
+          const statusDiv = document.getElementById('combination-status');
+          statusDiv.className = 'combination-status ready';
+          statusDiv.innerHTML = `
+            <strong>✅ Combined View Active:</strong><br>
+            Avatar: Visible (${(avatarOpacity * 100).toFixed(0)}% opacity)<br>
+            Garment: Visible (${(garmentOpacity * 100).toFixed(0)}% opacity)<br>
+            Method: ${combinationMethod}<br>
+            <small>💡 Both models rendered with Model Viewer</small>
+          `;
+        }, 500);
 
       } catch (error) {
         console.error('Error creating combined view:', error);
@@ -782,6 +793,11 @@
       
       updateStatus(`Combination method: ${method}`);
       updateCombinationStatus();
+      
+      // If combined view is active, regenerate it with new method
+      if (combinedModel) {
+        generateCombinedModel();
+      }
     }
 
     function resetCombination() {
@@ -792,7 +808,6 @@
       // Hide and remove combined container
       const combinedContainer = document.getElementById('combined-container');
       if (combinedContainer) {
-        combinedContainer.style.display = 'none';
         combinedContainer.remove();
       }
       
@@ -810,7 +825,7 @@
       
       updateStatus('✅ Combined view stopped - back to single model');
       updateCombinationStatus();
-}
+    }
 
     function switchTab(tabName) {
       // Update tab buttons
@@ -959,29 +974,67 @@
       }
     }
 
-    // Range input handling
+    // Range input handling with real-time updates for combined view
+    document.getElementById('avatar-opacity').addEventListener('input', function() {
+      const value = parseFloat(this.value).toFixed(1);
+      document.getElementById('avatar-opacity-value').textContent = value;
+      
+      // Update combined view in real-time if active
+      if (combinedModel) {
+        const avatarViewer = document.querySelector('#combined-container model-viewer[src*="' + currentAvatar.split('/').pop() + '"]');
+        if (avatarViewer) {
+          avatarViewer.style.opacity = value;
+        }
+      }
+    });
+
+    document.getElementById('garment-opacity').addEventListener('input', function() {
+      const value = parseFloat(this.value).toFixed(1);
+      document.getElementById('garment-opacity-value').textContent = value;
+      
+      // Update combined view in real-time if active
+      if (combinedModel) {
+        const garmentViewer = document.querySelector('#combined-container model-viewer[src*="' + currentGarment.split('/').pop() + '"]');
+        if (garmentViewer) {
+          garmentViewer.style.opacity = value;
+        }
+      }
+    });
+
+    document.getElementById('garment-offset-x').addEventListener('input', function() {
+      const value = parseFloat(this.value).toFixed(2);
+      document.getElementById('garment-offset-x-value').textContent = value;
+      
+      // Update combined view in real-time if active
+      if (combinedModel && combinationMethod !== 'separate') {
+        const garmentViewer = document.querySelector('#combined-container model-viewer[src*="' + currentGarment.split('/').pop() + '"]');
+        if (garmentViewer) {
+          const offsetY = parseFloat(document.getElementById('garment-offset-y').value);
+          garmentViewer.style.transform = `translate(${value * 100}px, ${offsetY * 100}px)`;
+        }
+      }
+    });
+
+    document.getElementById('garment-offset-y').addEventListener('input', function() {
+      const value = parseFloat(this.value).toFixed(2);
+      document.getElementById('garment-offset-y-value').textContent = value;
+      
+      // Update combined view in real-time if active
+      if (combinedModel && combinationMethod !== 'separate') {
+        const garmentViewer = document.querySelector('#combined-container model-viewer[src*="' + currentGarment.split('/').pop() + '"]');
+        if (garmentViewer) {
+          const offsetX = parseFloat(document.getElementById('garment-offset-x').value);
+          garmentViewer.style.transform = `translate(${offsetX * 100}px, ${value * 100}px)`;
+        }
+      }
+    });
+
     document.getElementById('avatar-scale').addEventListener('input', function() {
       document.getElementById('avatar-scale-value').textContent = parseFloat(this.value).toFixed(2);
     });
 
     document.getElementById('garment-scale').addEventListener('input', function() {
       document.getElementById('garment-scale-value').textContent = parseFloat(this.value).toFixed(2);
-    });
-
-    document.getElementById('avatar-opacity').addEventListener('input', function() {
-      document.getElementById('avatar-opacity-value').textContent = parseFloat(this.value).toFixed(1);
-    });
-
-    document.getElementById('garment-opacity').addEventListener('input', function() {
-      document.getElementById('garment-opacity-value').textContent = parseFloat(this.value).toFixed(1);
-    });
-
-    document.getElementById('garment-offset-y').addEventListener('input', function() {
-      document.getElementById('garment-offset-y-value').textContent = parseFloat(this.value).toFixed(2);
-    });
-
-    document.getElementById('garment-offset-x').addEventListener('input', function() {
-      document.getElementById('garment-offset-x-value').textContent = parseFloat(this.value).toFixed(2);
     });
 
     document.getElementById('exposure').addEventListener('input', function() {
