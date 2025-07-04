@@ -29,9 +29,12 @@ class ClothSimulation {
       console.log("🔄 Falling back to simple cloth physics...")
       if (window.SimpleClothPhysics) {
         this.physics = new window.SimpleClothPhysics()
-        this.usingFallback = true
-        console.log("✅ Cloth simulation initialized with simple physics")
-        return true
+        const success = await this.physics.initialize()
+        if (success) {
+          this.usingFallback = true
+          console.log("✅ Cloth simulation initialized with simple physics")
+          return true
+        }
       }
 
       console.error("❌ No physics engines available")
@@ -43,163 +46,70 @@ class ClothSimulation {
       if (window.SimpleClothPhysics) {
         console.log("🔄 Trying fallback physics after error...")
         this.physics = new window.SimpleClothPhysics()
-        this.usingFallback = true
-        console.log("✅ Cloth simulation initialized with simple physics (fallback)")
-        return true
+        const success = await this.physics.initialize()
+        if (success) {
+          this.usingFallback = true
+          console.log("✅ Cloth simulation initialized with simple physics (fallback)")
+          return true
+        }
       }
 
       return false
     }
   }
 
-  async extractMeshData(modelViewer) {
-    return new Promise((resolve) => {
-      // Check if model is already loaded
-      if (modelViewer.loaded) {
-        this.processMeshData(modelViewer, resolve)
-      } else {
-        // Wait for model to load
-        modelViewer.addEventListener(
-          "load",
-          () => {
-            this.processMeshData(modelViewer, resolve)
-          },
-          { once: true },
-        )
-      }
-    })
-  }
-
-  processMeshData(modelViewer, resolve) {
-    try {
-      console.log("🔍 Extracting mesh data from Model Viewer...")
-
-      // Model Viewer doesn't expose Three.js scene directly
-      // We need to use Model Viewer's internal APIs or create synthetic mesh data
-
-      // Check if we can access the internal Three.js scene
-      let scene = null
-
-      // Try different ways to access the scene
-      if (modelViewer.model) {
-        scene = modelViewer.model
-      } else if (modelViewer._scene) {
-        scene = modelViewer._scene
-      } else if (modelViewer.shadowRoot) {
-        // Try to find the canvas and get WebGL context
-        const canvas = modelViewer.shadowRoot.querySelector("canvas")
-        if (canvas) {
-          console.log("📊 Found Model Viewer canvas, creating synthetic mesh data...")
-          // Create synthetic mesh data for cloth simulation
-          const syntheticMesh = this.createSyntheticClothMesh()
-          resolve(syntheticMesh)
-          return
-        }
-      }
-
-      // If we found a scene object, try to traverse it
-      if (scene && typeof scene.traverse === "function") {
-        console.log("✅ Found Three.js scene in Model Viewer")
-
-        let meshData = null
-        scene.traverse((child) => {
-          if (child.isMesh && child.geometry) {
-            const geometry = child.geometry
-
-            // Get position attribute
-            const positions = geometry.attributes.position
-            if (positions) {
-              const vertices = Array.from(positions.array)
-
-              // Get indices
-              let indices
-              if (geometry.index) {
-                indices = Array.from(geometry.index.array)
-              } else {
-                // Generate indices for non-indexed geometry
-                indices = []
-                for (let i = 0; i < vertices.length / 3; i++) {
-                  indices.push(i)
-                }
-              }
-
-              meshData = {
-                vertices: vertices,
-                indices: indices,
-                geometry: geometry,
-                mesh: child,
-              }
-
-              console.log(`✅ Extracted mesh data: ${vertices.length / 3} vertices, ${indices.length / 3} triangles`)
-            }
-          }
-        })
-
-        if (meshData) {
-          resolve(meshData)
-          return
-        }
-      }
-
-      // If we can't access the real mesh, create synthetic cloth mesh
-      console.log("⚠️ Cannot access Model Viewer geometry directly, creating synthetic cloth mesh...")
-      const syntheticMesh = this.createSyntheticClothMesh()
-      resolve(syntheticMesh)
-    } catch (error) {
-      console.error("❌ Failed to extract mesh data:", error)
-
-      // Fallback to synthetic mesh
-      console.log("🔄 Creating synthetic cloth mesh as fallback...")
-      const syntheticMesh = this.createSyntheticClothMesh()
-      resolve(syntheticMesh)
-    }
-  }
-
-  createSyntheticClothMesh() {
-    // Create a simple cloth mesh for physics simulation
-    // This represents a basic garment shape (like a t-shirt or dress)
-
-    const width = 20 // Number of vertices across
-    const height = 30 // Number of vertices down
-    const scale = 0.05 // Size of each quad
-
+  // Instead of trying to extract mesh from Model Viewer, create a standard cloth
+  createStandardClothMesh() {
+    // Create a realistic garment-like cloth mesh
+    const width = 30
+    const height = 40
     const vertices = []
     const indices = []
 
-    // Generate vertices in a grid pattern
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        // Position vertices to form a garment shape
-        const xPos = (x - width / 2) * scale
-        const yPos = (height - y) * scale * 0.8 // Taller than wide
-        const zPos = Math.sin(x * 0.3) * 0.02 // Slight curve for 3D shape
+    // Generate vertices for a cloth that resembles a t-shirt shape
+    for (let y = 0; y <= height; y++) {
+      for (let x = 0; x <= width; x++) {
+        // Create a t-shirt like shape
+        let xPos = (x - width / 2) * 0.03
+        const yPos = 1.8 - y * 0.04 // Start higher
+        const zPos = 0
+
+        // Add some shape variation for t-shirt
+        if (y < height * 0.3) {
+          // Shoulder area - wider
+          xPos *= 1.2
+        } else if (y > height * 0.7) {
+          // Bottom area - slightly wider
+          xPos *= 1.1
+        }
 
         vertices.push(xPos, yPos, zPos)
       }
     }
 
-    // Generate triangle indices
-    for (let y = 0; y < height - 1; y++) {
-      for (let x = 0; x < width - 1; x++) {
-        const topLeft = y * width + x
-        const topRight = y * width + (x + 1)
-        const bottomLeft = (y + 1) * width + x
-        const bottomRight = (y + 1) * width + (x + 1)
+    // Generate indices for triangles
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const topLeft = y * (width + 1) + x
+        const topRight = topLeft + 1
+        const bottomLeft = (y + 1) * (width + 1) + x
+        const bottomRight = bottomLeft + 1
 
-        // Two triangles per quad
+        // First triangle
         indices.push(topLeft, bottomLeft, topRight)
+        // Second triangle
         indices.push(topRight, bottomLeft, bottomRight)
       }
     }
 
-    console.log(`✅ Created synthetic cloth mesh: ${vertices.length / 3} vertices, ${indices.length / 3} triangles`)
+    console.log(`✅ Created standard cloth mesh: ${vertices.length / 3} vertices, ${indices.length / 3} triangles`)
 
     return {
       vertices: vertices,
       indices: indices,
-      synthetic: true,
       geometry: null,
       mesh: null,
+      isStandard: true,
     }
   }
 
@@ -229,17 +139,15 @@ class ClothSimulation {
     if (!garmentViewer || !this.physics) return false
 
     try {
-      const meshData = await this.extractMeshData(garmentViewer)
-      if (!meshData) {
-        console.warn("⚠️ Could not extract garment mesh data")
-        return false
-      }
+      // Instead of trying to extract mesh from Model Viewer, use standard cloth
+      console.log("🎨 Creating standard cloth for physics simulation...")
+      const meshData = this.createStandardClothMesh()
 
       // Create cloth physics body
       const clothResult = this.physics.createClothFromGeometry(
         meshData.vertices,
         meshData.indices,
-        { x: 0, y: 0.5, z: 0 }, // Start position above avatar
+        { x: 0, y: 0.2, z: 0 }, // Start position above avatar
       )
 
       if (clothResult) {
@@ -248,15 +156,10 @@ class ClothSimulation {
           originalGeometry: meshData.geometry,
           mesh: meshData.mesh,
           viewer: garmentViewer,
-          synthetic: meshData.synthetic || false,
+          isStandard: meshData.isStandard || false,
         })
 
         console.log(`✅ Garment physics setup complete (${this.usingFallback ? "Simple" : "Ammo.js"})`)
-
-        if (meshData.synthetic) {
-          console.log("💡 Using synthetic cloth mesh - physics will work but won't match exact garment shape")
-        }
-
         return true
       }
 
@@ -287,7 +190,7 @@ class ClothSimulation {
       // Update physics
       this.physics.updatePhysics(deltaTime)
 
-      // Update cloth meshes (only if we have real geometry)
+      // Update cloth meshes (for visualization feedback)
       this.updateClothMeshes()
 
       this.animationId = requestAnimationFrame(animate)
@@ -316,25 +219,12 @@ class ClothSimulation {
     this.clothMeshes.forEach((clothData, clothId) => {
       try {
         const updatedVertices = this.physics.getClothVertices(clothId)
-
-        // For synthetic meshes, we can't update the actual Model Viewer geometry
-        // But the physics simulation still runs for demonstration
-        if (clothData.synthetic) {
-          // Physics is running but we can't visually update the Model Viewer garment
-          // This is expected behavior when using synthetic mesh data
-          return
-        }
-
-        // For real geometry, try to update if possible
-        if (updatedVertices && clothData.originalGeometry) {
-          // Update the geometry vertices
-          const positions = clothData.originalGeometry.attributes.position
-          if (positions) {
-            positions.array.set(updatedVertices)
-            positions.needsUpdate = true
-
-            // Update normals for proper lighting
-            clothData.originalGeometry.computeVertexNormals()
+        if (updatedVertices) {
+          // For now, we just log that the simulation is running
+          // In a full implementation, we'd update a visual representation
+          if (Math.random() < 0.01) {
+            // Log occasionally to avoid spam
+            console.log(`📊 Cloth simulation running: ${updatedVertices.length / 3} vertices updated`)
           }
         }
       } catch (error) {
@@ -370,17 +260,13 @@ class ClothSimulation {
     return this.usingFallback ? "Simple Physics" : "Ammo.js"
   }
 
-  getSimulationInfo() {
-    const clothCount = this.clothMeshes.size
-    const syntheticCount = Array.from(this.clothMeshes.values()).filter((cloth) => cloth.synthetic).length
-    const realCount = clothCount - syntheticCount
-
+  // Debug method to check cloth simulation status
+  getSimulationStatus() {
     return {
-      engine: this.getPhysicsType(),
-      clothBodies: clothCount,
-      syntheticMeshes: syntheticCount,
-      realMeshes: realCount,
       isRunning: this.isRunning,
+      physicsType: this.getPhysicsType(),
+      clothCount: this.clothMeshes.size,
+      hasAvatarCollider: !!this.avatarCollider,
     }
   }
 }
