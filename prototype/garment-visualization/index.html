@@ -513,11 +513,19 @@
             return null;
           }
           
-          // For GLTF files without embedded binary data, create a simple placeholder mesh
-          const geometry = new THREE.BoxGeometry(0.3, 0.6, 0.2); // Simple garment-like shape
-          const material = new THREE.MeshLambertMaterial({ color: 0xcccccc });
+          // For GLTF files without embedded binary data, create a visible placeholder mesh
+          console.log('Creating GLTF placeholder mesh');
+          const geometry = new THREE.BoxGeometry(0.3, 0.6, 0.2); // Garment-like shape
+          const material = new THREE.MeshLambertMaterial({ 
+            color: 0xff6b6b, // Bright red so it's clearly visible
+            transparent: true,
+            opacity: 0.8
+          });
           
-          return new THREE.Mesh(geometry, material);
+          const mesh = new THREE.Mesh(geometry, material);
+          mesh.position.set(0, 0, 0); // Center it
+          
+          return mesh;
         },
 
         parseGLB: function(data) {
@@ -1125,27 +1133,66 @@
     function processCLO3DModel(model, filename) {
       garmentGroup.clear();
       
+      // Debug: Log the model structure
+      console.log('Loaded model:', model);
+      console.log('Model children:', model.children.length);
+      
       // Scale and position the CLO3D model to fit our avatar
-      model.scale.setScalar(0.01); // CLO3D models are often in cm, we need meters
-      model.position.y = 0; // Adjust as needed
+      if (filename.endsWith('.glb')) {
+        // GLB files might have proper scale
+        model.scale.setScalar(0.01); // CLO3D models are often in cm, we need meters
+      } else {
+        // GLTF placeholder - make it visible
+        model.scale.setScalar(1.0); // Keep normal size for placeholder
+      }
+      
+      model.position.set(0, 1.2, 0); // Position at torso level
       
       // Apply current material settings to all meshes
+      let meshCount = 0;
       model.traverse(function(child) {
         if (child.isMesh) {
+          meshCount++;
+          console.log('Found mesh:', child);
+          
           // Apply our material system
           const newMaterial = createGarmentMaterial();
           child.material = newMaterial;
           child.castShadow = true;
           child.receiveShadow = true;
+          
+          // Make sure geometry is valid
+          if (child.geometry) {
+            child.geometry.computeBoundingBox();
+            console.log('Mesh bounding box:', child.geometry.boundingBox);
+          }
         }
       });
+      
+      console.log('Total meshes found:', meshCount);
+      
+      // If no meshes found, create a visible placeholder
+      if (meshCount === 0) {
+        console.log('No meshes found, creating visible placeholder');
+        const geometry = new THREE.BoxGeometry(0.3, 0.6, 0.2);
+        const material = createGarmentMaterial();
+        const placeholder = new THREE.Mesh(geometry, material);
+        placeholder.position.set(0, 1.2, 0);
+        placeholder.castShadow = true;
+        placeholder.receiveShadow = true;
+        model.add(placeholder);
+        meshCount = 1;
+      }
       
       garmentGroup.add(model);
       garmentVisible = true;
       currentGarment = 'clo3d_' + filename;
       
-      updateStatus(`✅ Loaded CLO3D garment: ${filename}`);
-      document.getElementById('file-info').textContent = `✅ Loaded: ${filename}`;
+      updateStatus(`✅ Loaded CLO3D garment: ${filename} (${meshCount} meshes)`);
+      document.getElementById('file-info').textContent = `✅ Loaded: ${filename} (${meshCount} meshes)`;
+      
+      // Force a render update
+      updateGarmentFit();
     }
     
     function animate() {
@@ -1170,6 +1217,32 @@
     window.toggleGarment = toggleGarment;
     window.exportLook = exportLook;
     window.loadGarmentFile = loadGarmentFile;
+
+    // Debug function to check what's in the scene
+    function debugScene() {
+      console.log('=== SCENE DEBUG ===');
+      console.log('Avatar group children:', avatarGroup.children.length);
+      console.log('Garment group children:', garmentGroup.children.length);
+      console.log('Garment group visible:', garmentGroup.visible);
+      console.log('Current garment:', currentGarment);
+      console.log('Garment visible flag:', garmentVisible);
+      
+      garmentGroup.traverse(function(child) {
+        if (child.isMesh) {
+          console.log('Garment mesh:', child);
+          console.log('  - Position:', child.position);
+          console.log('  - Scale:', child.scale);
+          console.log('  - Visible:', child.visible);
+          console.log('  - Material:', child.material);
+          if (child.geometry && child.geometry.boundingBox) {
+            console.log('  - Bounding box:', child.geometry.boundingBox);
+          }
+        }
+      });
+    }
+
+    // Make debug function global
+    window.debugScene = debugScene;
   </script>
 </body>
 </html>
