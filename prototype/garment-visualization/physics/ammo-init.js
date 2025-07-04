@@ -246,5 +246,5 @@ class AmmoPhysics {
   }
 }
 
-// Export for use in main application
+// Export for use in main application - using window global instead of ES6 export
 window.AmmoPhysics = AmmoPhysics

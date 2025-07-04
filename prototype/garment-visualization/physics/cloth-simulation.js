@@ -1,12 +1,9 @@
 // Cloth Simulation Manager
 // Handles the integration between Model Viewer and Ammo.js physics
 
-// Import AmmoPhysics
-import AmmoPhysics from "./ammo-physics"
-
 class ClothSimulation {
   constructor() {
-    this.physics = new AmmoPhysics()
+    this.physics = null
     this.isRunning = false
     this.animationId = null
     this.lastTime = 0
@@ -16,10 +13,16 @@ class ClothSimulation {
 
   async initialize() {
     try {
-      const success = await this.physics.initPhysicsWorld()
-      if (success) {
-        console.log("✅ Cloth simulation initialized")
-        return true
+      // Create AmmoPhysics instance
+      if (window.AmmoPhysics) {
+        this.physics = new window.AmmoPhysics()
+        const success = await this.physics.initPhysicsWorld()
+        if (success) {
+          console.log("✅ Cloth simulation initialized")
+          return true
+        }
+      } else {
+        console.error("❌ AmmoPhysics not available")
       }
       return false
     } catch (error) {
@@ -81,7 +84,7 @@ class ClothSimulation {
   }
 
   async setupAvatarPhysics(avatarViewer) {
-    if (!avatarViewer) return false
+    if (!avatarViewer || !this.physics) return false
 
     try {
       // Create avatar collider
@@ -99,7 +102,7 @@ class ClothSimulation {
   }
 
   async setupGarmentPhysics(garmentViewer) {
-    if (!garmentViewer) return false
+    if (!garmentViewer || !this.physics) return false
 
     try {
       const meshData = await this.extractMeshData(garmentViewer)
@@ -135,7 +138,7 @@ class ClothSimulation {
   }
 
   startSimulation() {
-    if (this.isRunning) return
+    if (this.isRunning || !this.physics) return
 
     this.isRunning = true
     this.lastTime = performance.now()
@@ -191,7 +194,9 @@ class ClothSimulation {
 
   cleanup() {
     this.stopSimulation()
-    this.physics.cleanup()
+    if (this.physics) {
+      this.physics.cleanup()
+    }
     this.clothMeshes.clear()
     this.avatarCollider = null
     console.log("✅ Cloth simulation cleanup complete")
@@ -200,7 +205,7 @@ class ClothSimulation {
   // Utility methods for adjusting physics parameters
   setClothStiffness(clothId, stiffness) {
     const clothData = this.clothMeshes.get(clothId)
-    if (clothData) {
+    if (clothData && this.physics && this.physics.AmmoLib) {
       const material = clothData.body.get_m_materials().at(0)
       material.set_m_kLST(stiffness)
       material.set_m_kAST(stiffness)
@@ -209,7 +214,7 @@ class ClothSimulation {
   }
 
   setGravity(x, y, z) {
-    if (this.physics.physicsWorld) {
+    if (this.physics && this.physics.physicsWorld && this.physics.AmmoLib) {
       const gravity = new this.physics.AmmoLib.btVector3(x, y, z)
       this.physics.physicsWorld.setGravity(gravity)
       this.physics.physicsWorld.getWorldInfo().set_m_gravity(gravity)
@@ -217,5 +222,5 @@ class ClothSimulation {
   }
 }
 
-// Export for use in main application
+// Export for use in main application - using window global instead of ES6 export
 window.ClothSimulation = ClothSimulation

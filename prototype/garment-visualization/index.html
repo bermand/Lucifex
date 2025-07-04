@@ -355,14 +355,23 @@
 // Load physics modules dynamically to avoid reference errors
 window.loadPhysicsModules = async function() {
   try {
-    // Load Ammo.js first
+    // Load Ammo.js physics first
     if (!window.AmmoPhysics) {
       const ammoScript = document.createElement('script');
       ammoScript.src = './physics/ammo-init.js';
       document.head.appendChild(ammoScript);
       
-      await new Promise((resolve) => {
-        ammoScript.onload = resolve;
+      await new Promise((resolve, reject) => {
+        ammoScript.onload = () => {
+          // Check if AmmoPhysics is now available
+          if (window.AmmoPhysics) {
+            console.log('✅ AmmoPhysics loaded');
+            resolve();
+          } else {
+            reject(new Error('AmmoPhysics not found after loading script'));
+          }
+        };
+        ammoScript.onerror = () => reject(new Error('Failed to load ammo-init.js'));
       });
     }
     
@@ -372,14 +381,24 @@ window.loadPhysicsModules = async function() {
       clothScript.src = './physics/cloth-simulation.js';
       document.head.appendChild(clothScript);
       
-      await new Promise((resolve) => {
-        clothScript.onload = resolve;
+      await new Promise((resolve, reject) => {
+        clothScript.onload = () => {
+          // Check if ClothSimulation is now available
+          if (window.ClothSimulation) {
+            console.log('✅ ClothSimulation loaded');
+            resolve();
+          } else {
+            reject(new Error('ClothSimulation not found after loading script'));
+          }
+        };
+        clothScript.onerror = () => reject(new Error('Failed to load cloth-simulation.js'));
       });
     }
     
+    console.log('✅ All physics modules loaded successfully');
     return true;
   } catch (error) {
-    console.error('Failed to load physics modules:', error);
+    console.error('❌ Failed to load physics modules:', error);
     return false;
   }
 };
