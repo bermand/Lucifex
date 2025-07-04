@@ -288,6 +288,17 @@
           Sample garments for testing (placeholder models)
         </div>
       </div>
+
+      <div class="control-group">
+        <label>📋 CLO3D Export Tips:</label>
+        <div style="font-size: 11px; color: #666; background: #f9f9f9; padding: 10px; border-radius: 6px;">
+          <strong>For best results:</strong><br>
+          • Export as <strong>GLB format</strong> (embeds all data)<br>
+          • Include materials and textures<br>
+          • Use "Export for Web" settings if available<br>
+          • Avoid GLTF + separate .bin files
+        </div>
+      </div>
     </div>
 
     <!-- Lighting Tab -->
@@ -380,11 +391,31 @@
       if (!file) return;
       
       const fileInfo = document.getElementById('file-info');
-      fileInfo.innerHTML = `
-        📁 Loading: ${file.name}<br>
-        📊 Size: ${(file.size / 1024 / 1024).toFixed(2)} MB<br>
-        ⏳ Processing garment data...
-      `;
+      const fileName = file.name.toLowerCase();
+      
+      // Check file format and provide specific guidance
+      if (fileName.endsWith('.gltf')) {
+        fileInfo.innerHTML = `
+          📁 Loading: ${file.name}<br>
+          ⚠️ GLTF format detected - may need companion .bin files<br>
+          💡 For best results, use GLB format from CLO3D<br>
+          ⏳ Attempting to load...
+        `;
+      } else if (fileName.endsWith('.glb')) {
+        fileInfo.innerHTML = `
+          📁 Loading: ${file.name}<br>
+          ✅ GLB format - all data embedded<br>
+          📊 Size: ${(file.size / 1024 / 1024).toFixed(2)} MB<br>
+          ⏳ Processing garment data...
+        `;
+      } else {
+        fileInfo.innerHTML = `
+          ❌ Unsupported format: ${file.name}<br>
+          📋 Please use GLB or GLTF files from CLO3D<br>
+          💡 GLB format recommended for best compatibility
+        `;
+        return;
+      }
       
       // Create object URL for the file
       const objectURL = URL.createObjectURL(file);
@@ -395,29 +426,60 @@
       // Hide fallback content
       document.getElementById('fallback').style.display = 'none';
       
-      // Update file info when model loads
+      // Update file info when model loads successfully
       modelViewer.addEventListener('load', function() {
         fileInfo.innerHTML = `
-          ✅ Loaded: ${file.name}<br>
+          ✅ Successfully loaded: ${file.name}<br>
           📊 Size: ${(file.size / 1024 / 1024).toFixed(2)} MB<br>
           🎨 Full detail rendering active<br>
-          🔍 Materials and textures loaded
+          🔍 Materials and textures loaded<br>
+          🎯 Ready for visualization
         `;
         
         // Clean up the object URL after loading
         setTimeout(() => URL.revokeObjectURL(objectURL), 1000);
       }, { once: true });
       
-      // Handle loading errors
+      // Handle loading errors with detailed feedback
       modelViewer.addEventListener('error', function(event) {
-        fileInfo.innerHTML = `
-          ❌ Error loading: ${file.name}<br>
-          💡 Try a different GLB/GLTF file<br>
-          🔧 Check file format compatibility<br>
-          📋 Ensure CLO3D export settings are correct
-        `;
         console.error('Model loading error:', event);
+        
+        if (fileName.endsWith('.gltf')) {
+          fileInfo.innerHTML = `
+            ❌ GLTF loading failed: ${file.name}<br>
+            🔍 Missing companion files (*.bin, textures)<br>
+            💡 <strong>Solution:</strong> Export as GLB from CLO3D<br>
+            📋 GLB embeds all data in one file<br>
+            🔧 Or ensure all referenced files are available
+          `;
+        } else {
+          fileInfo.innerHTML = `
+            ❌ Error loading: ${file.name}<br>
+            🔍 File may be corrupted or incompatible<br>
+            💡 Try re-exporting from CLO3D<br>
+            📋 Ensure proper GLB/GLTF export settings<br>
+            🔧 Check CLO3D export documentation
+          `;
+        }
+        
+        // Show fallback content again
+        document.getElementById('fallback').style.display = 'flex';
+        
+        // Clean up the object URL
+        setTimeout(() => URL.revokeObjectURL(objectURL), 1000);
       }, { once: true });
+      
+      // Add progress tracking
+      modelViewer.addEventListener('progress', function(event) {
+        const progress = event.detail.totalProgress;
+        if (progress < 1) {
+          fileInfo.innerHTML = `
+            📁 Loading: ${file.name}<br>
+            📊 Progress: ${(progress * 100).toFixed(1)}%<br>
+            ⏳ Processing garment data...
+          `;
+        }
+      });
     }
 
     function loadSampleGarment(type) {
