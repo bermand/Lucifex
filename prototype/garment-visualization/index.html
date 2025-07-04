@@ -521,32 +521,55 @@
     }
 
     function setModelType(type) {
+      const previousType = currentModelType;
       currentModelType = type;
       
       // Update UI
       document.querySelectorAll('.model-btn').forEach(btn => btn.classList.remove('active'));
       document.getElementById(type === 'avatar' ? 'avatar-mode' : 
-                           type === 'garment' ? 'garment-mode' : 'both-mode').classList.add('active');
+                         type === 'garment' ? 'garment-mode' : 'both-mode').classList.add('active');
       
-      updateStatus(`Mode: ${type}`);
+      updateStatus(`Switching to ${type} mode...`);
       
       // Update display based on mode
       switch(type) {
         case 'avatar':
           if (currentAvatar) {
             modelViewer.src = currentAvatar;
+            updateStatus(`Displaying avatar`);
+          } else {
+            updateStatus(`No avatar loaded - select an avatar first`);
           }
           break;
+          
         case 'garment':
           if (currentGarment) {
             modelViewer.src = currentGarment;
+            updateStatus(`Displaying garment`);
+          } else {
+            updateStatus(`No garment loaded - load a garment file first`);
           }
           break;
+          
         case 'both':
-          // In a full implementation, you'd combine both models
-          // For now, show the garment if available, otherwise avatar
-          modelViewer.src = currentGarment || currentAvatar;
+          // For now, prioritize garment if available, otherwise show avatar
+          if (currentGarment) {
+            modelViewer.src = currentGarment;
+            updateStatus(`Displaying garment (combined mode - avatar integration coming soon)`);
+          } else if (currentAvatar) {
+            modelViewer.src = currentAvatar;
+            updateStatus(`Displaying avatar (combined mode - load garment to see both)`);
+          } else {
+            updateStatus(`Combined mode - load avatar and garment`);
+          }
           break;
+      }
+      
+      // Hide fallback if we have something to show
+      if ((type === 'avatar' && currentAvatar) || 
+          (type === 'garment' && currentGarment) || 
+          (type === 'both' && (currentAvatar || currentGarment))) {
+        document.getElementById('fallback').style.display = 'none';
       }
     }
 
@@ -611,6 +634,10 @@
       const fileInfo = document.getElementById('file-info');
       const fileName = file.name.toLowerCase();
       
+      // Clear any previous error states
+      modelViewer.removeEventListener('error', handleGarmentError);
+      modelViewer.removeEventListener('load', handleGarmentLoad);
+      
       // Provide format-specific guidance
       if (fileName.endsWith('.gltf')) {
         fileInfo.innerHTML = `
@@ -634,15 +661,11 @@
       const objectURL = URL.createObjectURL(file);
       currentGarment = objectURL;
       
-      if (currentModelType === 'garment' || currentModelType === 'both') {
-        modelViewer.src = objectURL;
-      }
+      // Force switch to garment mode when loading a garment
+      setModelType('garment');
       
-      // Hide fallback content
-      document.getElementById('fallback').style.display = 'none';
-      
-      // Update file info when model loads successfully
-      modelViewer.addEventListener('load', function() {
+      // Add event listeners before setting src
+      function handleGarmentLoad() {
         fileInfo.innerHTML = `
           ✅ Successfully loaded: ${file.name}<br>
           📊 Size: ${(file.size / 1024 / 1024).toFixed(2)} MB<br>
@@ -653,13 +676,19 @@
         
         updateStatus(`✅ Garment loaded: ${file.name}`);
         
+        // Hide fallback content
+        document.getElementById('fallback').style.display = 'none';
+        
         // Clean up the object URL after loading
-        setTimeout(() => URL.revokeObjectURL(objectURL), 1000);
-      }, { once: true });
+        setTimeout(() => URL.revokeObjectURL(objectURL), 5000);
+        
+        // Remove event listeners
+        modelViewer.removeEventListener('error', handleGarmentError);
+        modelViewer.removeEventListener('load', handleGarmentLoad);
+      }
       
-      // Handle loading errors with detailed feedback
-      modelViewer.addEventListener('error', function(event) {
-        console.error('Model loading error:', event);
+      function handleGarmentError(event) {
+        console.error('Garment loading error:', event);
         
         if (fileName.endsWith('.gltf')) {
           fileInfo.innerHTML = `
@@ -683,7 +712,33 @@
         
         // Clean up the object URL
         setTimeout(() => URL.revokeObjectURL(objectURL), 1000);
-      }, { once: true });
+        
+        // Remove event listeners
+        modelViewer.removeEventListener('error', handleGarmentError);
+        modelViewer.removeEventListener('load', handleGarmentLoad);
+      }
+      
+      // Add event listeners
+      modelViewer.addEventListener('load', handleGarmentLoad, { once: true });
+      modelViewer.addEventListener('error', handleGarmentError, { once: true });
+      
+      // Set the model source - this should trigger loading
+      modelViewer.src = objectURL;
+      
+      // Add progress tracking
+      modelViewer.addEventListener('progress', function handleProgress(event) {
+        const progress = event.detail.totalProgress;
+        if (progress < 1) {
+          updateStatus(`Loading garment: ${(progress * 100).toFixed(1)}%`);
+          fileInfo.innerHTML = `
+            📁 Loading: ${file.name}<br>
+            📊 Progress: ${(progress * 100).toFixed(1)}%<br>
+            ⏳ Processing garment data...
+          `;
+        } else {
+          modelViewer.removeEventListener('progress', handleProgress);
+        }
+      });
     }
 
     function loadSampleGarment(type) {
