@@ -348,43 +348,6 @@ class SimpleClothPhysics {
       }
     })
 
-    // Debug: Log particle movement every 60 frames
-    if (Math.floor(this.simulationTime * 60) % 60 === 0) {
-      let totalMovement = 0
-      let maxMovement = 0
-      let movingParticles = 0
-
-      particles.forEach((particle, index) => {
-        const velX = particle.position.x - particle.oldPosition.x
-        const velY = particle.position.y - particle.oldPosition.y
-        const velZ = particle.position.z - particle.oldPosition.z
-        const velocity = Math.sqrt(velX * velX + velY * velY + velZ * velZ)
-
-        totalMovement += velocity
-        maxMovement = Math.max(maxMovement, velocity)
-
-        if (velocity > 0.001) {
-          movingParticles++
-        }
-
-        // Log first few particles in detail
-        if (index < 3) {
-          console.log(
-            `🔍 Particle ${index}: pos(${particle.position.x.toFixed(3)}, ${particle.position.y.toFixed(3)}, ${particle.position.z.toFixed(3)}) vel=${velocity.toFixed(6)} pinned=${particle.pinned}`,
-          )
-        }
-      })
-
-      const avgMovement = totalMovement / particles.length
-      console.log(`🔍 DETAILED MOVEMENT DEBUG:`)
-      console.log(`   • Average velocity: ${avgMovement.toFixed(6)}m/frame`)
-      console.log(`   • Max velocity: ${maxMovement.toFixed(6)}m/frame`)
-      console.log(`   • Moving particles (>0.001): ${movingParticles}/${particles.length}`)
-      console.log(`   • Gravity: ${this.gravity.y}m/s²`)
-      console.log(`   • Damping: ${this.damping}`)
-      console.log(`   • Constraint iterations: ${this.constraintIterations}`)
-    }
-
     // Satisfy constraints with fewer iterations for more flexibility
     for (let iteration = 0; iteration < this.constraintIterations; iteration++) {
       constraints.forEach((constraint) => {

@@ -3,19 +3,55 @@
 
 class PhysicsVisualDebug {
   constructor() {
+    this.canvas = null
+    this.ctx = null
     this.enabled = false
-    this.debugCanvas = null
-    this.debugContext = null
     this.clothSimulation = null
     this.animationFrame = null
+    this.particleColors = {
+      pinned: "#ff0000", // Red for pinned particles
+      free: "#00ff00", // Green for free particles
+      moving: "#ffff00", // Yellow for moving particles
+      static: "#888888", // Gray for static particles
+    }
+    this.constraintColors = {
+      structural: "#0066cc", // Blue for structural constraints
+      shear: "#cc6600", // Orange for shear constraints
+      bend: "#cc00cc", // Purple for bend constraints
+    }
   }
 
   initialize(clothSimulation = null) {
-    try {
-      console.log("🎨 Initializing Physics Visual Debug...")
+    console.log("🎨 Initializing Physics Visual Debug...")
 
-      this.clothSimulation = clothSimulation
-      this.createDebugCanvas()
+    try {
+      // Create debug canvas overlay
+      this.canvas = document.createElement("canvas")
+      this.canvas.id = "physics-debug-canvas"
+      this.canvas.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        pointer-events: none;
+        z-index: 1000;
+        background: transparent;
+      `
+
+      this.ctx = this.canvas.getContext("2d")
+      this.resizeCanvas()
+
+      // Add to document
+      document.body.appendChild(this.canvas)
+
+      // Store cloth simulation reference
+      if (clothSimulation) {
+        this.clothSimulation = clothSimulation
+      }
+
+      // Handle window resize
+      window.addEventListener("resize", () => this.resizeCanvas())
 
       console.log("✅ Physics visual debug initialized")
       return true
@@ -25,56 +61,31 @@ class PhysicsVisualDebug {
     }
   }
 
-  createDebugCanvas() {
-    // Create debug canvas overlay
-    this.debugCanvas = document.createElement("canvas")
-    this.debugCanvas.id = "physics-debug-canvas"
-    this.debugCanvas.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      pointer-events: none;
-      z-index: 1000;
-      background: transparent;
-    `
+  resizeCanvas() {
+    if (!this.canvas) return
 
-    this.debugCanvas.width = window.innerWidth
-    this.debugCanvas.height = window.innerHeight
-    this.debugContext = this.debugCanvas.getContext("2d")
-
-    // Handle window resize
-    window.addEventListener("resize", () => {
-      this.debugCanvas.width = window.innerWidth
-      this.debugCanvas.height = window.innerHeight
-    })
+    this.canvas.width = window.innerWidth
+    this.canvas.height = window.innerHeight
   }
 
   enable() {
-    if (this.enabled) return
+    if (!this.canvas) {
+      console.error("❌ Visual debug not initialized")
+      return
+    }
 
     this.enabled = true
-    document.body.appendChild(this.debugCanvas)
-    this.startDebugLoop()
-
+    this.canvas.style.display = "block"
+    this.startRenderLoop()
     console.log("👁️ Physics visual debug enabled")
   }
 
   disable() {
-    if (!this.enabled) return
-
     this.enabled = false
-
-    if (this.debugCanvas && this.debugCanvas.parentNode) {
-      this.debugCanvas.parentNode.removeChild(this.debugCanvas)
+    if (this.canvas) {
+      this.canvas.style.display = "none"
     }
-
-    if (this.animationFrame) {
-      cancelAnimationFrame(this.animationFrame)
-      this.animationFrame = null
-    }
-
+    this.stopRenderLoop()
     console.log("👁️ Physics visual debug disabled")
   }
 
@@ -86,189 +97,201 @@ class PhysicsVisualDebug {
     }
   }
 
-  startDebugLoop() {
+  startRenderLoop() {
     if (!this.enabled) return
 
-    this.drawDebugInfo()
-    this.animationFrame = requestAnimationFrame(() => this.startDebugLoop())
+    this.render()
+    this.animationFrame = requestAnimationFrame(() => this.startRenderLoop())
   }
 
-  drawDebugInfo() {
-    if (!this.debugContext || !this.clothSimulation) return
-
-    // Clear canvas
-    this.debugContext.clearRect(0, 0, this.debugCanvas.width, this.debugCanvas.height)
-
-    // Draw debug information
-    this.drawPhysicsStatus()
-    this.drawParticleInfo()
-
-    if (this.clothSimulation.physicsEngine) {
-      this.drawClothParticles()
+  stopRenderLoop() {
+    if (this.animationFrame) {
+      cancelAnimationFrame(this.animationFrame)
+      this.animationFrame = null
     }
   }
 
-  drawPhysicsStatus() {
-    const ctx = this.debugContext
-    const x = 20
-    let y = 50
+  render() {
+    if (!this.enabled || !this.ctx || !this.clothSimulation) return
 
-    ctx.fillStyle = "rgba(0, 0, 0, 0.8)"
-    ctx.fillRect(x - 10, y - 30, 300, 120)
+    try {
+      // Clear canvas
+      this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
 
-    ctx.fillStyle = "#00ff00"
-    ctx.font = "14px monospace"
-    ctx.fillText("🔍 PHYSICS DEBUG", x, y)
+      // Get physics data
+      const physicsEngine = this.clothSimulation.physicsEngine
+      if (!physicsEngine || !physicsEngine.clothMeshes) return
 
-    y += 20
-    ctx.fillStyle = "#ffffff"
-    ctx.font = "12px monospace"
+      // Render each cloth
+      physicsEngine.clothMeshes.forEach((clothData, clothId) => {
+        this.renderCloth(clothData, clothId)
+      })
 
-    if (this.clothSimulation.isRunning) {
-      ctx.fillText(`Status: RUNNING (${this.clothSimulation.updateCount} updates)`, x, y)
-      y += 15
-      ctx.fillText(`Engine: ${this.clothSimulation.getPhysicsType()}`, x, y)
-      y += 15
-      ctx.fillText(`Cloths: ${this.clothSimulation.clothMeshes.size}`, x, y)
-      y += 15
-      ctx.fillText(`Colliders: ${this.clothSimulation.avatarColliders.size}`, x, y)
-    } else {
-      ctx.fillStyle = "#ff6666"
-      ctx.fillText("Status: NOT RUNNING", x, y)
+      // Render avatar colliders
+      physicsEngine.avatarColliders.forEach((colliders, colliderId) => {
+        this.renderAvatarColliders(colliders, colliderId)
+      })
+
+      // Render debug info
+      this.renderDebugInfo()
+    } catch (error) {
+      console.error("❌ Visual debug render error:", error)
     }
   }
 
-  drawParticleInfo() {
-    if (!this.clothSimulation.physicsEngine || !this.clothSimulation.physicsEngine.clothMeshes) return
+  renderCloth(clothData, clothId) {
+    const { particles, constraints } = clothData
 
-    const ctx = this.debugContext
-    const x = 20
-    let y = 200
+    // Project 3D positions to 2D screen coordinates
+    const projectedParticles = particles.map((particle) => {
+      return this.project3DTo2D(particle.position)
+    })
 
-    ctx.fillStyle = "rgba(0, 0, 0, 0.8)"
-    ctx.fillRect(x - 10, y - 20, 280, 100)
+    // Render constraints first (behind particles)
+    this.renderConstraints(constraints, projectedParticles)
 
-    ctx.fillStyle = "#ffff00"
-    ctx.font = "12px monospace"
-    ctx.fillText("🧵 CLOTH PARTICLES", x, y)
+    // Render particles on top
+    this.renderParticles(particles, projectedParticles)
+  }
 
-    y += 20
-    ctx.fillStyle = "#ffffff"
+  renderConstraints(constraints, projectedParticles) {
+    this.ctx.lineWidth = 1
+    this.ctx.globalAlpha = 0.3
 
-    this.clothSimulation.physicsEngine.clothMeshes.forEach((clothData, clothId) => {
-      const particles = clothData.particles
-      const constraints = clothData.constraints
-      const pinnedCount = particles.filter((p) => p.pinned).length
+    constraints.forEach((constraint) => {
+      const p1 = projectedParticles[constraint.p1]
+      const p2 = projectedParticles[constraint.p2]
 
-      ctx.fillText(`Cloth ${clothId}:`, x, y)
-      y += 15
-      ctx.fillText(`  Particles: ${particles.length} (${pinnedCount} pinned)`, x, y)
-      y += 15
-      ctx.fillText(`  Constraints: ${constraints.length}`, x, y)
-      y += 15
+      if (!p1 || !p2) return
+
+      // Set color based on constraint type
+      this.ctx.strokeStyle = this.constraintColors[constraint.type] || "#666666"
+
+      // Draw constraint line
+      this.ctx.beginPath()
+      this.ctx.moveTo(p1.x, p1.y)
+      this.ctx.lineTo(p2.x, p2.y)
+      this.ctx.stroke()
+    })
+
+    this.ctx.globalAlpha = 1.0
+  }
+
+  renderParticles(particles, projectedParticles) {
+    particles.forEach((particle, index) => {
+      const projected = projectedParticles[index]
+      if (!projected) return
+
+      // Determine particle color based on state
+      let color = this.particleColors.free
+      if (particle.pinned) {
+        color = this.particleColors.pinned
+      } else {
+        // Calculate velocity to determine if moving
+        const velX = particle.position.x - particle.oldPosition.x
+        const velY = particle.position.y - particle.oldPosition.y
+        const velZ = particle.position.z - particle.oldPosition.z
+        const velocity = Math.sqrt(velX * velX + velY * velY + velZ * velZ)
+
+        if (velocity > 0.001) {
+          color = this.particleColors.moving
+        } else if (velocity < 0.0001) {
+          color = this.particleColors.static
+        }
+      }
+
+      // Draw particle
+      this.ctx.fillStyle = color
+      this.ctx.beginPath()
+      this.ctx.arc(projected.x, projected.y, particle.pinned ? 4 : 2, 0, Math.PI * 2)
+      this.ctx.fill()
+
+      // Draw particle index for debugging (only for first few)
+      if (index < 10) {
+        this.ctx.fillStyle = "#ffffff"
+        this.ctx.font = "10px monospace"
+        this.ctx.fillText(index.toString(), projected.x + 5, projected.y - 5)
+      }
     })
   }
 
-  drawClothParticles() {
-    if (!this.clothSimulation.physicsEngine || !this.clothSimulation.physicsEngine.clothMeshes) return
+  renderAvatarColliders(colliders, colliderId) {
+    this.ctx.strokeStyle = "#ff6600"
+    this.ctx.lineWidth = 2
+    this.ctx.globalAlpha = 0.5
 
-    const ctx = this.debugContext
-    const centerX = this.debugCanvas.width / 2
-    const centerY = this.debugCanvas.height / 2
-    const scale = 100 // Scale factor for visualization
+    colliders.forEach((collider) => {
+      const projected = this.project3DTo2D(collider.position)
+      if (!projected) return
 
-    this.clothSimulation.physicsEngine.clothMeshes.forEach((clothData, clothId) => {
-      const particles = clothData.particles
-
-      // Draw particles
-      particles.forEach((particle, index) => {
-        const screenX = centerX + particle.position.x * scale
-        const screenY = centerY - particle.position.y * scale // Flip Y for screen coordinates
-
-        ctx.beginPath()
-        ctx.arc(screenX, screenY, particle.pinned ? 4 : 2, 0, 2 * Math.PI)
-
-        if (particle.pinned) {
-          ctx.fillStyle = "#ff0000" // Red for pinned particles
-        } else {
-          ctx.fillStyle = "#00ff00" // Green for free particles
-        }
-
-        ctx.fill()
-
-        // Draw particle index for debugging (only for first few)
-        if (index < 10) {
-          ctx.fillStyle = "#ffffff"
-          ctx.font = "10px monospace"
-          ctx.fillText(index.toString(), screenX + 5, screenY - 5)
-        }
-      })
-
-      // Draw constraints
-      const constraints = clothData.constraints
-      constraints.forEach((constraint, index) => {
-        // Only draw every 10th constraint to avoid clutter
-        if (index % 10 !== 0) return
-
-        const p1 = particles[constraint.p1]
-        const p2 = particles[constraint.p2]
-
-        if (!p1 || !p2) return
-
-        const x1 = centerX + p1.position.x * scale
-        const y1 = centerY - p1.position.y * scale
-        const x2 = centerX + p2.position.x * scale
-        const y2 = centerY - p2.position.y * scale
-
-        ctx.beginPath()
-        ctx.moveTo(x1, y1)
-        ctx.lineTo(x2, y2)
-
-        // Color code by constraint type
-        if (constraint.type === "structural") {
-          ctx.strokeStyle = "rgba(255, 255, 255, 0.3)"
-        } else if (constraint.type === "shear") {
-          ctx.strokeStyle = "rgba(255, 255, 0, 0.2)"
-        } else if (constraint.type === "bend") {
-          ctx.strokeStyle = "rgba(0, 255, 255, 0.1)"
-        }
-
-        ctx.lineWidth = 1
-        ctx.stroke()
-      })
+      if (collider.type === "sphere") {
+        // Draw sphere as circle
+        this.ctx.beginPath()
+        this.ctx.arc(projected.x, projected.y, collider.radius * 100, 0, Math.PI * 2)
+        this.ctx.stroke()
+      } else if (collider.type === "capsule") {
+        // Draw capsule as circle (simplified)
+        this.ctx.beginPath()
+        this.ctx.arc(projected.x, projected.y, collider.radius * 100, 0, Math.PI * 2)
+        this.ctx.stroke()
+      }
     })
 
-    // Draw coordinate system
-    ctx.strokeStyle = "#666666"
-    ctx.lineWidth = 1
-    ctx.beginPath()
-    ctx.moveTo(centerX - 50, centerY)
-    ctx.lineTo(centerX + 50, centerY)
-    ctx.moveTo(centerX, centerY - 50)
-    ctx.lineTo(centerX, centerY + 50)
-    ctx.stroke()
+    this.ctx.globalAlpha = 1.0
+  }
 
-    // Draw scale reference
-    ctx.fillStyle = "#ffffff"
-    ctx.font = "10px monospace"
-    ctx.fillText("1m", centerX + 100, centerY + 15)
-    ctx.strokeStyle = "#ffffff"
-    ctx.beginPath()
-    ctx.moveTo(centerX, centerY)
-    ctx.lineTo(centerX + 100, centerY)
-    ctx.stroke()
+  project3DTo2D(position3D) {
+    // Simple orthographic projection
+    // In a real implementation, you'd use the camera's projection matrix
+    const scale = 100 // Scale factor for visibility
+    const offsetX = this.canvas.width / 2
+    const offsetY = this.canvas.height / 2
+
+    return {
+      x: offsetX + position3D.x * scale,
+      y: offsetY - position3D.y * scale, // Flip Y axis
+    }
+  }
+
+  renderDebugInfo() {
+    if (!this.clothSimulation) return
+
+    // Render debug text overlay
+    this.ctx.fillStyle = "rgba(0, 0, 0, 0.8)"
+    this.ctx.fillRect(10, 10, 300, 120)
+
+    this.ctx.fillStyle = "#ffffff"
+    this.ctx.font = "12px monospace"
+
+    const status = this.clothSimulation.getDetailedStatus()
+    const lines = [
+      `Physics Debug Active`,
+      `Engine: ${status.engine}`,
+      `Particles: ${status.physicsDetails?.totalParticles || 0}`,
+      `Constraints: ${status.physicsDetails?.totalConstraints || 0}`,
+      `Update Count: ${status.updateCount}`,
+      ``,
+      `Legend:`,
+      `🔴 Pinned  🟢 Free  🟡 Moving  ⚫ Static`,
+    ]
+
+    lines.forEach((line, index) => {
+      this.ctx.fillText(line, 20, 30 + index * 14)
+    })
   }
 
   cleanup() {
     this.disable()
-    this.clothSimulation = null
 
-    if (this.debugCanvas) {
-      this.debugCanvas = null
-      this.debugContext = null
+    if (this.canvas && this.canvas.parentNode) {
+      this.canvas.parentNode.removeChild(this.canvas)
     }
 
-    console.log("✅ Physics visual debug cleanup complete")
+    this.canvas = null
+    this.ctx = null
+    this.clothSimulation = null
+
+    console.log("✅ Visual debug cleanup complete")
   }
 }
 

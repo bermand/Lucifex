@@ -473,25 +473,6 @@ window.loadPhysicsModules = async function() {
       });
     }
     
-    // Load physics diagnostics
-    if (!window.PhysicsDiagnostics) {
-      const diagnosticsScript = document.createElement('script');
-      diagnosticsScript.src = './physics/physics-diagnostics.js';
-      document.head.appendChild(diagnosticsScript);
-      
-      await new Promise((resolve, reject) => {
-        diagnosticsScript.onload = () => {
-          if (window.PhysicsDiagnostics) {
-            console.log('✅ PhysicsDiagnostics loaded');
-            resolve();
-          } else {
-            reject(new Error('PhysicsDiagnostics not found after loading script'));
-          }
-        };
-        diagnosticsScript.onerror = () => reject(new Error('Failed to load physics-diagnostics.js'));
-      });
-    }
-    
     console.log('✅ All physics modules loaded successfully');
     return true;
   } catch (error) {
@@ -706,15 +687,12 @@ window.loadPhysicsModules = async function() {
             <button class="preset-btn" onclick="logPhysicsStatus()" id="debug-log">Log Status</button>
             <button class="preset-btn" onclick="startDropTest()" id="drop-test">Drop Test</button>
             <button class="preset-btn" onclick="startBasicTest()" id="basic-test">Basic Test</button>
-            <button class="preset-btn" onclick="startDiagnostics()" id="diagnostics">Diagnostics</button>
-            <button class="preset-btn" onclick="quickPhysicsTest()" id="quick-test">Quick Test</button>
+            <button class="preset-btn" onclick="resetClothPosition()" id="reset-cloth">Reset Cloth</button>
           </div>
           <div style="font-size: 10px; color: #666; margin-top: 8px;">
             Visual debug shows particles, constraints, and colliders<br>
             Drop test demonstrates dramatic cloth falling<br>
-            Basic test verifies core physics engine<br>
-            Diagnostics provides detailed movement analysis<br>
-            Quick test verifies basic Verlet integration
+            Basic test verifies core physics engine
           </div>
         </div>
       </div>
@@ -808,7 +786,6 @@ window.loadPhysicsModules = async function() {
     let physicsEnabled = false;
     let physicsDebug = null;
     let debugEnabled = false;
-    let physicsDiagnostics = null;
 
     // Environment HDR URLs - high quality for fashion
     const environments = {
@@ -1285,39 +1262,6 @@ window.loadPhysicsModules = async function() {
       await test.startBasicTest();
     }
 
-    let physicsDiagnostics = null;
-
-    function startDiagnostics() {
-      if (!clothSimulation) {
-        console.log('⚠️ Physics not enabled - enable physics first');
-        return;
-      }
-
-      if (!physicsDiagnostics) {
-        physicsDiagnostics = new window.PhysicsDiagnostics();
-      }
-
-      physicsDiagnostics.startDiagnostics(clothSimulation);
-      
-      const diagnosticsBtn = document.getElementById('diagnostics');
-      diagnosticsBtn.textContent = 'Stop Diagnostics';
-      diagnosticsBtn.onclick = stopDiagnostics;
-    }
-
-    function stopDiagnostics() {
-      if (physicsDiagnostics) {
-        physicsDiagnostics.stopDiagnostics();
-      }
-      
-      const diagnosticsBtn = document.getElementById('diagnostics');
-      diagnosticsBtn.textContent = 'Diagnostics';
-      diagnosticsBtn.onclick = startDiagnostics;
-    }
-
-    function quickPhysicsTest() {
-      window.PhysicsDiagnostics.quickPhysicsTest();
-    }
-
     // Control event handlers
     document.getElementById('avatar-scale').addEventListener('input', function() {
       document.getElementById('avatar-scale-value').textContent = this.value;
@@ -1674,6 +1618,76 @@ window.loadPhysicsModules = async function() {
     modelViewer.addEventListener('error', function(event) {
       updateStatus('❌ Model loading error: ' + event.detail.message);
     });
+
+    // Add after the other physics functions
+    let dropTest = null;
+
+function resetClothPosition() {
+  if (!clothSimulation || !physicsEnabled) {
+    console.log('⚠️ Physics not enabled - enable physics first');
+    return;
+  }
+
+  console.log('🔄 Resetting cloth to starting position...');
+  
+  const physicsEngine = clothSimulation.physicsEngine;
+  
+  physicsEngine.clothMeshes.forEach((clothData, clothId) => {
+    const { particles } = clothData;
+    
+    // Reset all particles to original high position
+    particles.forEach((particle, index) => {
+      const gridX = particle.gridX || (index % 16);
+      const gridY = particle.gridY || Math.floor(index / 16);
+      
+      // Calculate original position
+      const normalizedX = gridX / 15; // 0 to 1
+      const normalizedY = gridY / 19; // 0 to 1
+      
+      // Reset to high starting position
+      particle.position.x = (normalizedX - 0.5) * 1.0; // -0.5 to 0.5
+      particle.position.y = 2.5 - normalizedY * 1.2; // 2.5 to 1.3
+      particle.position.z = (Math.random() - 0.5) * 0.1; // Small Z variation
+      
+      // Reset old position for initial velocity
+      particle.oldPosition.x = particle.position.x + (Math.random() - 0.5) * 0.05;
+      particle.oldPosition.y = particle.position.y + 0.1; // Small upward velocity
+      particle.oldPosition.z = particle.position.z + (Math.random() - 0.5) * 0.05;
+    });
+    
+    console.log(`✅ Cloth ${clothId} reset to starting position`);
+  });
+  
+  updateStatus('🔄 Cloth reset - watch it fall again!');
+}
+
+async function startDropTest() {
+  if (!clothSimulation || !physicsEnabled) {
+    console.log('⚠️ Physics not enabled - enable physics first');
+    return;
+  }
+
+  // Load drop test if needed
+  if (!dropTest) {
+    dropTest = new window.PhysicsDropTest(clothSimulation);
+  }
+
+  const success = await dropTest.startDropTest();
+  if (success) {
+    updateStatus('🧪 Drop test started - dramatic cloth falling!');
+    document.getElementById('drop-test').textContent = 'Stop Test';
+    document.getElementById('drop-test').onclick = stopDropTest;
+  }
+}
+
+function stopDropTest() {
+  if (dropTest) {
+    dropTest.stopDropTest();
+    document.getElementById('drop-test').textContent = 'Drop Test';
+    document.getElementById('drop-test').onclick = startDropTest;
+    updateStatus('🧪 Drop test stopped');
+  }
+}
   </script>
 </body>
 </html>
