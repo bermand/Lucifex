@@ -27,14 +27,7 @@ class AmmoPhysics {
         return await this.createPhysicsWorld()
       }
 
-      // Method 3: Try dynamic import (modern browsers)
-      const importSuccess = await this.tryDynamicImport()
-      if (importSuccess) {
-        return await this.createPhysicsWorld()
-      }
-
       throw new Error("All Ammo.js loading methods failed")
-
     } catch (error) {
       console.error("❌ Failed to initialize Ammo.js:", error)
       console.log("💡 Recommendation: Use local Ammo.js files or stick with Simple Physics")
@@ -45,24 +38,19 @@ class AmmoPhysics {
   async tryLocalAmmo() {
     try {
       // Check if Ammo.js is already loaded locally
-      if (typeof window.Ammo === 'function') {
+      if (typeof window.Ammo === "function") {
         console.log("✅ Ammo.js already available globally")
         this.AmmoLib = await window.Ammo()
         return true
       }
 
       // Try to load from local files
-      const localPaths = [
-        './libs/ammo.js',
-        './physics/libs/ammo.js',
-        '../libs/ammo.js',
-        './ammo.js'
-      ]
+      const localPaths = ["./libs/ammo.js", "./physics/libs/ammo.js", "../libs/ammo.js", "./ammo.js"]
 
       for (const path of localPaths) {
         try {
           await this.loadScript(path)
-          if (typeof window.Ammo === 'function') {
+          if (typeof window.Ammo === "function") {
             console.log(`✅ Ammo.js loaded from local path: ${path}`)
             this.AmmoLib = await window.Ammo()
             return true
@@ -85,16 +73,16 @@ class AmmoPhysics {
       const reliableSources = [
         {
           url: "https://cdn.babylonjs.com/ammo.js",
-          name: "Babylon.js CDN"
-        }
+          name: "Babylon.js CDN",
+        },
       ]
 
       for (const source of reliableSources) {
         try {
           console.log(`🔄 Trying ${source.name}...`)
           await this.loadScript(source.url)
-          
-          if (typeof window.Ammo === 'function') {
+
+          if (typeof window.Ammo === "function") {
             console.log(`✅ Ammo.js loaded from ${source.name}`)
             this.AmmoLib = await window.Ammo()
             return true
@@ -111,37 +99,18 @@ class AmmoPhysics {
     }
   }
 
-  async tryDynamicImport() {
-    try {
-      // Try modern ES6 dynamic import (if available)
-      if (typeof import === 'function') {
-        console.log("🔄 Trying dynamic import...")
-        
-        // This would work if we had Ammo.js as an ES6 module
-        // const AmmoModule = await import('https://unpkg.com/ammo.js@0.21.0/builds/ammo.js')
-        // For now, this is just a placeholder
-        
-        return false
-      }
-      return false
-    } catch (error) {
-      console.log("❌ Dynamic import failed:", error.message)
-      return false
-    }
-  }
-
   async loadScript(url) {
     return new Promise((resolve, reject) => {
-      const script = document.createElement('script')
+      const script = document.createElement("script")
       script.src = url
       script.onload = resolve
       script.onerror = () => reject(new Error(`Failed to load ${url}`))
-      
+
       // Set timeout to prevent hanging
       setTimeout(() => {
         reject(new Error(`Timeout loading ${url}`))
       }, 10000)
-      
+
       document.head.appendChild(script)
     })
   }
@@ -166,7 +135,7 @@ class AmmoPhysics {
         overlappingPairCache,
         solver,
         collisionConfiguration,
-        softBodySolver
+        softBodySolver,
       )
 
       // Set gravity
@@ -177,7 +146,6 @@ class AmmoPhysics {
       this.isInitialized = true
       console.log("✅ Ammo.js physics world created successfully")
       return true
-
     } catch (error) {
       console.error("❌ Failed to create physics world:", error)
       return false
@@ -224,16 +192,37 @@ class AmmoPhysics {
       const clothWidth = 1.0
       const clothHeight = 1.2
 
-      const clothCorner00 = new this.AmmoLib.btVector3(position.x - clothWidth / 2, position.y, position.z - clothHeight / 2)
-      const clothCorner01 = new this.AmmoLib.btVector3(position.x - clothWidth / 2, position.y, position.z + clothHeight / 2)
-      const clothCorner10 = new this.AmmoLib.btVector3(position.x + clothWidth / 2, position.y, position.z - clothHeight / 2)
-      const clothCorner11 = new this.AmmoLib.btVector3(position.x + clothWidth / 2, position.y, position.z + clothHeight / 2)
+      const clothCorner00 = new this.AmmoLib.btVector3(
+        position.x - clothWidth / 2,
+        position.y,
+        position.z - clothHeight / 2,
+      )
+      const clothCorner01 = new this.AmmoLib.btVector3(
+        position.x - clothWidth / 2,
+        position.y,
+        position.z + clothHeight / 2,
+      )
+      const clothCorner10 = new this.AmmoLib.btVector3(
+        position.x + clothWidth / 2,
+        position.y,
+        position.z - clothHeight / 2,
+      )
+      const clothCorner11 = new this.AmmoLib.btVector3(
+        position.x + clothWidth / 2,
+        position.y,
+        position.z + clothHeight / 2,
+      )
 
       const clothBody = this.AmmoLib.btSoftBodyHelpers.CreatePatch(
         this.physicsWorld.getWorldInfo(),
-        clothCorner00, clothCorner01, clothCorner10, clothCorner11,
-        clothResolution, clothResolution,
-        0, true
+        clothCorner00,
+        clothCorner01,
+        clothCorner10,
+        clothCorner11,
+        clothResolution,
+        clothResolution,
+        0,
+        true,
       )
 
       if (!clothBody) {
@@ -355,6 +344,38 @@ class AmmoPhysics {
 
     this.isInitialized = false
     console.log("✅ Ammo.js cleanup complete")
+  }
+
+  // Additional methods for compatibility
+  getPhysicsType() {
+    return "Ammo.js (Bullet Physics)"
+  }
+
+  getDetailedStatus() {
+    const totalCloths = this.clothBodies.size
+    const totalColliders = this.avatarColliders.size
+
+    return {
+      engine: "Ammo.js",
+      initialized: this.isInitialized,
+      clothBodies: totalCloths,
+      avatarColliders: totalColliders,
+      physicsDetails: {
+        totalParticles: "Variable (Ammo.js managed)",
+        totalConstraints: "Variable (Ammo.js managed)",
+        worldActive: !!this.physicsWorld,
+      },
+    }
+  }
+
+  logFullStatus() {
+    const status = this.getDetailedStatus()
+    console.log("📊 Ammo.js Full Status:")
+    console.log("   Engine:", status.engine)
+    console.log("   Initialized:", status.initialized)
+    console.log("   Cloth Bodies:", status.clothBodies)
+    console.log("   Avatar Colliders:", status.avatarColliders)
+    console.log("   Physics World Active:", status.physicsDetails.worldActive)
   }
 }
 
