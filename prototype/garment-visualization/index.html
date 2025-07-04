@@ -351,8 +351,39 @@
       border: 1px solid #f5c6cb;
     }
   </style>
-  <script src="./physics/ammo-init.js"></script>
-  <script src="./physics/cloth-simulation.js"></script>
+  <script>
+// Load physics modules dynamically to avoid reference errors
+window.loadPhysicsModules = async function() {
+  try {
+    // Load Ammo.js first
+    if (!window.AmmoPhysics) {
+      const ammoScript = document.createElement('script');
+      ammoScript.src = './physics/ammo-init.js';
+      document.head.appendChild(ammoScript);
+      
+      await new Promise((resolve) => {
+        ammoScript.onload = resolve;
+      });
+    }
+    
+    // Then load cloth simulation
+    if (!window.ClothSimulation) {
+      const clothScript = document.createElement('script');
+      clothScript.src = './physics/cloth-simulation.js';
+      document.head.appendChild(clothScript);
+      
+      await new Promise((resolve) => {
+        clothScript.onload = resolve;
+      });
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Failed to load physics modules:', error);
+    return false;
+  }
+};
+</script>
 </head>
 <body>
   <model-viewer 
@@ -1209,59 +1240,68 @@
     }
 
     async function togglePhysics() {
-      const toggleBtn = document.getElementById('physics-toggle');
-      const controlsDiv = document.getElementById('physics-controls');
+  const toggleBtn = document.getElementById('physics-toggle');
+  const controlsDiv = document.getElementById('physics-controls');
+  
+  if (!physicsEnabled) {
+    // Enable physics
+    updateStatus('🔄 Loading physics modules...');
+    
+    // Load physics modules first
+    const modulesLoaded = await window.loadPhysicsModules();
+    if (!modulesLoaded) {
+      updateStatus('❌ Failed to load physics modules');
+      return;
+    }
+    
+    updateStatus('🔄 Initializing physics engine...');
+    
+    if (!clothSimulation && window.ClothSimulation) {
+      clothSimulation = new window.ClothSimulation();
+      const success = await clothSimulation.initialize();
       
-      if (!physicsEnabled) {
-        // Enable physics
-        updateStatus('🔄 Initializing physics engine...');
-        
-        if (!clothSimulation) {
-          clothSimulation = new ClothSimulation();
-          const success = await clothSimulation.initialize();
-          
-          if (!success) {
-            updateStatus('❌ Failed to initialize physics engine');
-            return;
-          }
-        }
-        
-        // Setup physics for current models
-        if (combinedModel && currentAvatar && currentGarment) {
-          const avatarViewer = document.getElementById('combined-avatar-viewer');
-          const garmentViewer = document.getElementById('combined-garment-viewer');
-          
-          if (avatarViewer && garmentViewer) {
-            await clothSimulation.setupAvatarPhysics(avatarViewer);
-            await clothSimulation.setupGarmentPhysics(garmentViewer);
-            clothSimulation.startSimulation();
-            
-            physicsEnabled = true;
-            toggleBtn.textContent = 'Disable Physics';
-            toggleBtn.classList.add('active');
-            controlsDiv.style.display = 'block';
-            
-            updateStatus('✅ Physics simulation active - garment will interact with avatar!');
-          } else {
-            updateStatus('❌ Combined view required for physics simulation');
-          }
-        } else {
-          updateStatus('❌ Load both avatar and garment first');
-        }
-      } else {
-        // Disable physics
-        if (clothSimulation) {
-          clothSimulation.stopSimulation();
-        }
-        
-        physicsEnabled = false;
-        toggleBtn.textContent = 'Enable Physics';
-        toggleBtn.classList.remove('active');
-        controlsDiv.style.display = 'none';
-        
-        updateStatus('⏹️ Physics simulation disabled');
+      if (!success) {
+        updateStatus('❌ Failed to initialize physics engine');
+        return;
       }
     }
+    
+    // Setup physics for current models
+    if (combinedModel && currentAvatar && currentGarment) {
+      const avatarViewer = document.getElementById('combined-avatar-viewer');
+      const garmentViewer = document.getElementById('combined-garment-viewer');
+      
+      if (avatarViewer && garmentViewer) {
+        await clothSimulation.setupAvatarPhysics(avatarViewer);
+        await clothSimulation.setupGarmentPhysics(garmentViewer);
+        clothSimulation.startSimulation();
+        
+        physicsEnabled = true;
+        toggleBtn.textContent = 'Disable Physics';
+        toggleBtn.classList.add('active');
+        controlsDiv.style.display = 'block';
+        
+        updateStatus('✅ Physics simulation active - garment will interact with avatar!');
+      } else {
+        updateStatus('❌ Combined view required for physics simulation');
+      }
+    } else {
+      updateStatus('❌ Load both avatar and garment first');
+    }
+  } else {
+    // Disable physics (rest of function remains the same)
+    if (clothSimulation) {
+      clothSimulation.stopSimulation();
+    }
+    
+    physicsEnabled = false;
+    toggleBtn.textContent = 'Enable Physics';
+    toggleBtn.classList.remove('active');
+    controlsDiv.style.display = 'none';
+    
+    updateStatus('⏹️ Physics simulation disabled');
+  }
+}
 
     function resetPhysics() {
       if (clothSimulation) {
