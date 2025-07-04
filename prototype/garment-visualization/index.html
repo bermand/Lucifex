@@ -811,4 +811,201 @@
       updateStatus('✅ Combined view stopped - back to single model');
       updateCombinationStatus();
 }
-\`\`\`
+
+    function switchTab(tabName) {
+      // Update tab buttons
+      document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+      event.target.classList.add('active');
+      
+      // Update tab content
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+      document.getElementById(tabName + '-tab').classList.add('active');
+      
+      updateStatus(`Switched to ${tabName} tab`);
+    }
+
+    function setModelType(type) {
+      currentModelType = type;
+      
+      // Update UI
+      document.querySelectorAll('.model-btn').forEach(btn => btn.classList.remove('active'));
+      document.getElementById(type + '-mode').classList.add('active');
+      
+      updateStatus(`Model type set to: ${type}`);
+    }
+
+    function loadAvatarPreset(presetName) {
+      const preset = avatarPresets[presetName];
+      if (!preset) {
+        updateStatus('❌ Invalid avatar preset');
+        return;
+      }
+      
+      // In a real app, you'd load the actual GLB file here
+      currentAvatar = 'models/placeholder-avatar.glb'; // Replace with actual URL
+      
+      // Update UI
+      document.querySelectorAll('.avatar-option').forEach(option => option.classList.remove('active'));
+      document.querySelector(`.avatar-option[data-avatar="${presetName}"]`).classList.add('active');
+      
+      updateStatus(`Avatar preset loaded: ${preset.name}`);
+      updateCombinationStatus();
+      loadModel();
+    }
+
+    function loadCustomAvatar(event) {
+      const file = event.target.files[0];
+      if (!file) {
+        updateStatus('❌ No avatar file selected');
+        return;
+      }
+      
+      const url = URL.createObjectURL(file);
+      currentAvatar = url;
+      
+      updateStatus(`Custom avatar loaded: ${file.name}`);
+      updateCombinationStatus();
+      loadModel();
+    }
+
+    function loadGarmentFile(event) {
+      const file = event.target.files[0];
+      if (!file) {
+        updateStatus('❌ No garment file selected');
+        return;
+      }
+      
+      const url = URL.createObjectURL(file);
+      currentGarment = url;
+      
+      updateStatus(`Garment loaded: ${file.name}`);
+      updateCombinationStatus();
+      loadModel();
+    }
+
+    function loadSampleGarment(garmentName) {
+      currentGarment = `models/${garmentName}.glb`; // Replace with actual URL
+      
+      updateStatus(`Sample garment loaded: ${garmentName}`);
+      updateCombinationStatus();
+      loadModel();
+    }
+
+    function setEnvironment(envName) {
+      modelViewer.environmentImage = environments[envName];
+      modelViewer.skyboxImage = environments[envName];
+      
+      // Update UI
+      document.querySelectorAll('.env-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelector(`.env-btn[data-env="${envName}"]`).classList.add('active');
+      
+      updateStatus(`Environment set to: ${envName}`);
+    }
+
+    function setAutoRotate(enabled) {
+      autoRotateEnabled = enabled;
+      modelViewer.autoRotate = enabled;
+      
+      // Update UI
+      document.getElementById('auto-rotate-on').classList.toggle('active', enabled);
+      document.getElementById('auto-rotate-off').classList.toggle('active', !enabled);
+      
+      updateStatus(`Auto rotate: ${enabled ? 'On' : 'Off'}`);
+    }
+
+    function resetCamera() {
+      modelViewer.cameraOrbit = '0deg 75deg 3m';
+      modelViewer.cameraTarget = '0m 1m 0m';
+      updateStatus('Camera reset to default');
+    }
+
+    function takeScreenshot() {
+      const screenshot = modelViewer.toDataURL('image/png', 1.0);
+      const link = document.createElement('a');
+      link.href = screenshot;
+      link.download = 'model-viewer-screenshot.png';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      updateStatus('Screenshot saved');
+    }
+
+    function exportScene() {
+      updateStatus('Export function not implemented yet');
+    }
+
+    function loadModel() {
+      if (currentModelType === 'avatar' && currentAvatar) {
+        modelViewer.src = currentAvatar;
+        updateStatus('Loading avatar model...');
+      } else if (currentModelType === 'garment' && currentGarment) {
+        modelViewer.src = currentGarment;
+        updateStatus('Loading garment model...');
+      } else if (currentModelType === 'both' && currentAvatar && currentGarment) {
+        updateStatus('Loading combined models...');
+        generateCombinedModel();
+      } else {
+        updateStatus('Ready to load models...');
+      }
+    }
+
+    // Range input handling
+    document.getElementById('avatar-scale').addEventListener('input', function() {
+      document.getElementById('avatar-scale-value').textContent = parseFloat(this.value).toFixed(2);
+    });
+
+    document.getElementById('garment-scale').addEventListener('input', function() {
+      document.getElementById('garment-scale-value').textContent = parseFloat(this.value).toFixed(2);
+    });
+
+    document.getElementById('avatar-opacity').addEventListener('input', function() {
+      document.getElementById('avatar-opacity-value').textContent = parseFloat(this.value).toFixed(1);
+    });
+
+    document.getElementById('garment-opacity').addEventListener('input', function() {
+      document.getElementById('garment-opacity-value').textContent = parseFloat(this.value).toFixed(1);
+    });
+
+    document.getElementById('garment-offset-y').addEventListener('input', function() {
+      document.getElementById('garment-offset-y-value').textContent = parseFloat(this.value).toFixed(2);
+    });
+
+    document.getElementById('garment-offset-x').addEventListener('input', function() {
+      document.getElementById('garment-offset-x-value').textContent = parseFloat(this.value).toFixed(2);
+    });
+
+    document.getElementById('exposure').addEventListener('input', function() {
+      modelViewer.exposure = parseFloat(this.value);
+      document.getElementById('exposure-value').textContent = parseFloat(this.value).toFixed(1);
+    });
+
+    document.getElementById('shadow-intensity').addEventListener('input', function() {
+      modelViewer.shadowIntensity = parseFloat(this.value);
+      document.getElementById('shadow-intensity-value').textContent = parseFloat(this.value).toFixed(1);
+    });
+
+    document.getElementById('shadow-softness').addEventListener('input', function() {
+      modelViewer.shadowSoftness = parseFloat(this.value);
+      document.getElementById('shadow-softness-value').textContent = parseFloat(this.value).toFixed(1);
+    });
+
+    // Make ALL functions global for HTML onclick handlers
+    window.updateStatus = updateStatus;
+    window.updateCombinationStatus = updateCombinationStatus;
+    window.generateCombinedModel = generateCombinedModel;
+    window.setCombinationMethod = setCombinationMethod;
+    window.resetCombination = resetCombination;
+    window.setModelType = setModelType;
+    window.loadAvatarPreset = loadAvatarPreset;
+    window.loadCustomAvatar = loadCustomAvatar;
+    window.loadGarmentFile = loadGarmentFile;
+    window.loadSampleGarment = loadSampleGarment;
+    window.setEnvironment = setEnvironment;
+    window.setAutoRotate = setAutoRotate;
+    window.resetCamera = resetCamera;
+    window.takeScreenshot = takeScreenshot;
+    window.exportScene = exportScene;
+    window.switchTab = switchTab;
+</script>
+</body>
+</html>
