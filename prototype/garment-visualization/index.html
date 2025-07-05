@@ -52,18 +52,7 @@
       transition: all 0.3s ease-out;
     }
     
-    /* Fixed background for combined view */
-    #combined-background {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: #f0f0f0;
-      z-index: 0;
-    }
-    
-    /* Model positioning for combined view - no individual backgrounds */
+    /* Single shared background for combined view */
     .model-avatar {
       position: absolute;
       top: 0;
@@ -71,7 +60,8 @@
       width: 100%;
       height: 100%;
       z-index: 1;
-      background: transparent !important;
+      /* Remove individual background - use transparent */
+      --poster-color: transparent;
     }
     
     .model-garment {
@@ -82,13 +72,23 @@
       height: 100%;
       z-index: 2;
       transform-origin: center center;
+      /* Remove individual background - use transparent */
+      --poster-color: transparent;
+    }
+    
+    /* Force transparent backgrounds on model viewers in combined mode */
+    .model-avatar::part(default-viewer) {
       background: transparent !important;
     }
     
-    /* Prevent background/environment from moving with transforms */
-    .model-avatar::part(default-viewer),
     .model-garment::part(default-viewer) {
       background: transparent !important;
+    }
+    
+    /* Hide environment/skybox on the garment viewer to prevent double backgrounds */
+    .model-garment {
+      --environment-image: none;
+      --skybox-image: none;
     }
     
     .control-group {
@@ -837,7 +837,7 @@ window.loadPhysicsModules = async function() {
           </div>
           <div style="font-size: 10px; color: #666; margin-top: 8px;">
             <strong>🎬 Drop Test:</strong> Dramatic cloth falling demo<br>
-            <strong>🔍 Show Physics:</strong> Visualize particles & colliders<br>
+            <strong>🔍 Show Physics:</strong> Visualize particles & constraints<br>
             <strong>📊 Log Status:</strong> Check physics engine status<br>
             <strong>🔄 Reset Cloth:</strong> Watch garment fall again!
           </div>
@@ -852,12 +852,12 @@ window.loadPhysicsModules = async function() {
       <div class="control-group">
         <label>💡 Physics Tips:</label>
         <div style="font-size: 11px; color: #666; background: #f9f9f9; padding: 10px; border-radius: 6px;">
-          <strong>🎬 No test cloth - physics affects real garment:</strong><br>
-          • Physics simulation works directly on loaded garment<br>
+          <strong>🎬 Realistic cloth draping physics:</strong><br>
+          • Physics creates subtle falling and draping motion<br>
           • Use "Garment Scale" to resize during physics<br>
           • Use "Reset Cloth" to see it fall and drape again<br>
           • Adjust gravity for different draping effects<br>
-          • Fixed background movement issue
+          • Fixed spinning issue - now proper cloth behavior
         </div>
       </div>
     </div>
@@ -1133,7 +1133,7 @@ window.loadPhysicsModules = async function() {
         return;
       }
 
-      updateStatus('🔄 Creating combined view with shared environment...');
+      updateStatus('🔄 Creating combined view with unified background...');
       
       try {
         // Hide main viewer
@@ -1146,7 +1146,7 @@ window.loadPhysicsModules = async function() {
           existingContainer.remove();
         }
         
-        // Create new combined container with shared environment
+        // Create new combined container with unified background
         const combinedContainer = document.createElement('div');
         combinedContainer.id = 'combined-container';
         combinedContainer.innerHTML = `
@@ -1178,9 +1178,7 @@ window.loadPhysicsModules = async function() {
             shadow-intensity="1"
             shadow-softness="0.5"
             exposure="1"
-            tone-mapping="aces"
-            environment-image="https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/studio_small_03_1k.hdr"
-            skybox-image="https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/studio_small_03_1k.hdr">
+            tone-mapping="aces">
           </model-viewer>
         `;
         
@@ -1194,7 +1192,7 @@ window.loadPhysicsModules = async function() {
         updateModelOpacity('avatar', 0.7);
         updateModelOpacity('garment', 1.0);
         
-        updateStatus('✅ Combined view created successfully');
+        updateStatus('✅ Combined view created with unified background');
         updateCombinationStatus();
         
       } catch (error) {
@@ -1326,7 +1324,9 @@ window.loadPhysicsModules = async function() {
       if (type === 'avatar' && avatarViewer) {
         avatarViewer.style.transform = `scale(${scale})`;
       } else if (type === 'garment' && garmentViewer) {
-        garmentViewer.style.transform = `scale(${scale}) translate(${document.getElementById('garment-offset-x').value * 100}px, ${document.getElementById('garment-offset-y').value * -100}px)`;
+        const offsetX = parseFloat(document.getElementById('garment-offset-x').value);
+        const offsetY = parseFloat(document.getElementById('garment-offset-y').value);
+        garmentViewer.style.transform = `scale(${scale}) translate(${offsetX * 100}px, ${offsetY * -100}px)`;
       } else if (type === 'avatar') {
         const mainViewer = document.getElementById('main-viewer');
         if (mainViewer.style.display !== 'none') {
@@ -1394,8 +1394,8 @@ window.loadPhysicsModules = async function() {
       
       const envUrl = envUrls[env] || envUrls.studio;
       
-      // Update all viewers
-      const viewers = [document.getElementById('main-viewer'), avatarViewer, garmentViewer].filter(v => v);
+      // Update only the avatar viewer (which provides the background)
+      const viewers = [document.getElementById('main-viewer'), avatarViewer].filter(v => v);
       viewers.forEach(viewer => {
         viewer.setAttribute('environment-image', envUrl);
         viewer.setAttribute('skybox-image', envUrl);
@@ -1531,8 +1531,8 @@ window.loadPhysicsModules = async function() {
             document.getElementById('physics-toggle').classList.add('active');
             document.getElementById('physics-controls').style.display = 'block';
             
-            updatePhysicsStatus('✅ Physics simulation active - cloth is falling!');
-            showPhysicsEffect('🎬 Physics Enabled!\nCloth is falling and draping on avatar');
+            updatePhysicsStatus('✅ Physics simulation active - cloth draping!');
+            showPhysicsEffect('🎬 Physics Enabled!\nCloth is falling and draping naturally');
           } else {
             throw new Error('Failed to initialize cloth simulation');
           }
@@ -1581,7 +1581,7 @@ window.loadPhysicsModules = async function() {
       const gravity = parseFloat(document.getElementById('gravity-strength').value);
       
       clothSimulation.setGravity(0, -gravity, 0);
-      clothSimulation.setClothStiffness(null,stiffness);
+      clothSimulation.setClothStiffness(null, stiffness);
     }
 
     function togglePhysicsDebug() {

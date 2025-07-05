@@ -6,27 +6,26 @@ class SimpleClothPhysics {
     this.particles = []
     this.constraints = []
     this.isInitialized = false
+    this.isRunning = false
     this.clothIdCounter = 0
     this.clothMeshes = new Map()
     this.avatarColliders = new Map()
     this.gravity = { x: 0, y: -9.81, z: 0 }
-    this.damping = 0.95 // Reduced from 0.98 for more movement
+    this.damping = 0.99 // Updated damping value
     this.timeStep = 1 / 60
-    this.constraintIterations = 2 // Increased back to 2 for better collision
+    this.iterations = 3 // Updated constraint iterations
     this.simulationTime = 0
+
+    console.log("🧬 SimpleClothPhysics initialized")
   }
 
-  async initPhysicsWorld() {
+  async initialize() {
     try {
-      console.log("🔄 Initializing Simple Physics Engine with improved collision...")
-
-      // Simple physics doesn't need external libraries
       this.isInitialized = true
-
-      console.log("✅ Simple Physics Engine initialized successfully")
+      console.log("✅ SimpleClothPhysics ready")
       return true
     } catch (error) {
-      console.error("❌ Failed to initialize Simple Physics:", error)
+      console.error("❌ SimpleClothPhysics initialization failed:", error)
       return false
     }
   }
@@ -333,7 +332,7 @@ class SimpleClothPhysics {
   }
 
   updatePhysics(deltaTime) {
-    if (!this.isInitialized) return
+    if (!this.isInitialized || !this.isRunning) return
 
     try {
       const dt = Math.min(deltaTime, this.timeStep)
@@ -397,7 +396,7 @@ class SimpleClothPhysics {
     })
 
     // Satisfy constraints with more iterations for better collision
-    for (let iteration = 0; iteration < this.constraintIterations; iteration++) {
+    for (let iteration = 0; iteration < this.iterations; iteration++) {
       constraints.forEach((constraint) => {
         const p1 = particles[constraint.p1]
         const p2 = particles[constraint.p2]
@@ -410,23 +409,22 @@ class SimpleClothPhysics {
         const distance = Math.sqrt(dx * dx + dy * dy + dz * dz)
 
         if (distance > 0) {
-          const difference = (constraint.restLength - distance) / distance
-          const translate = {
-            x: dx * difference * constraint.stiffness * 0.5,
-            y: dy * difference * constraint.stiffness * 0.5,
-            z: dz * difference * constraint.stiffness * 0.5,
-          }
+          const difference = ((constraint.restLength - distance) / distance) * 0.5
+
+          const translateX = dx * difference
+          const translateY = dy * difference
+          const translateZ = dz * difference
 
           if (!p1.pinned) {
-            p1.position.x -= translate.x
-            p1.position.y -= translate.y
-            p1.position.z -= translate.z
+            p1.position.x -= translateX
+            p1.position.y -= translateY
+            p1.position.z -= translateZ
           }
 
           if (!p2.pinned) {
-            p2.position.x += translate.x
-            p2.position.y += translate.y
-            p2.position.z += translate.z
+            p2.position.x += translateX
+            p2.position.y += translateY
+            p2.position.z += translateZ
           }
         }
       })
@@ -572,6 +570,7 @@ class SimpleClothPhysics {
     this.particles = []
     this.constraints = []
     this.isInitialized = false
+    this.isRunning = false
     this.simulationTime = 0
     console.log("✅ Enhanced Simple Physics cleanup complete")
   }
@@ -591,6 +590,7 @@ class SimpleClothPhysics {
     return {
       engine: "Enhanced Simple Physics",
       initialized: this.isInitialized,
+      running: this.isRunning,
       clothMeshes: this.clothMeshes.size,
       avatarColliders: this.avatarColliders.size,
       simulationTime: this.simulationTime,
@@ -600,7 +600,7 @@ class SimpleClothPhysics {
         gravity: this.gravity,
         damping: this.damping,
         timeStep: this.timeStep,
-        constraintIterations: this.constraintIterations,
+        iterations: this.iterations,
       },
     }
   }
@@ -610,6 +610,7 @@ class SimpleClothPhysics {
     console.log("📊 Enhanced Simple Physics Full Status:")
     console.log("   Engine:", status.engine)
     console.log("   Initialized:", status.initialized)
+    console.log("   Running:", status.running)
     console.log("   Simulation Time:", status.simulationTime.toFixed(1) + "s")
     console.log("   Cloth Meshes:", status.clothMeshes)
     console.log("   Avatar Colliders:", status.avatarColliders)
@@ -618,7 +619,7 @@ class SimpleClothPhysics {
     console.log("   Gravity:", status.physicsDetails.gravity)
     console.log("   Damping:", status.physicsDetails.damping)
     console.log("   Time Step:", status.physicsDetails.timeStep)
-    console.log("   Constraint Iterations:", status.physicsDetails.constraintIterations)
+    console.log("   Iterations:", status.physicsDetails.iterations)
 
     // Log individual cloth details
     this.clothMeshes.forEach((clothData, clothId) => {
@@ -641,7 +642,56 @@ class SimpleClothPhysics {
       })
     })
   }
+
+  start() {
+    this.isRunning = true
+    console.log("▶️ SimpleClothPhysics started")
+  }
+
+  stop() {
+    this.isRunning = false
+    console.log("⏹️ SimpleClothPhysics stopped")
+  }
+
+  reset() {
+    this.stop()
+    // Reset would reinitialize particles
+    console.log("🔄 SimpleClothPhysics reset")
+  }
+
+  getParticles() {
+    return this.particles
+  }
+
+  getConstraints() {
+    return this.constraints
+  }
+
+  updateSettings(settings) {
+    if (settings.gravity !== undefined) this.gravity.y = -settings.gravity
+    if (settings.stiffness !== undefined) this.damping = settings.stiffness
+    console.log("🔧 SimpleClothPhysics settings updated")
+  }
+
+  getStatus() {
+    return {
+      isRunning: this.isRunning,
+      particleCount: this.particles.length,
+      constraintCount: this.constraints.length,
+    }
+  }
+
+  setMeshUpdater(meshUpdater) {
+    this.meshUpdater = meshUpdater
+    console.log("🔗 Mesh updater connected")
+  }
+
+  resetClothPosition() {
+    this.reset()
+    this.start()
+  }
 }
 
-// Export for use in main application
+// Export for global use
 window.SimpleClothPhysics = SimpleClothPhysics
+console.log("✅ SimpleClothPhysics class loaded")
