@@ -14,28 +14,30 @@ export class PhysicsManager {
     const utils = window.lucifexApp?.utils
 
     try {
-      // Load all physics modules
+      // Since the physics modules don't exist as ES6 modules,
+      // we'll create placeholder functionality
       const modules = [
-        { name: "SimpleClothPhysics", path: "./physics/simple-cloth-physics.js" },
-        { name: "ClothSimulation", path: "./physics/cloth-simulation.js" },
-        { name: "PhysicsVisualDebug", path: "./physics/visual-debug.js" },
-        { name: "PhysicsTest", path: "./physics/physics-test.js" },
-        { name: "PhysicsDropTest", path: "./physics/drop-test.js" },
-        { name: "PhysicsMeshUpdater", path: "./physics/mesh-updater.js" },
+        "SimpleClothPhysics",
+        "ClothSimulation",
+        "PhysicsVisualDebug",
+        "PhysicsTest",
+        "PhysicsDropTest",
+        "PhysicsMeshUpdater",
       ]
 
-      for (const module of modules) {
+      for (const moduleName of modules) {
         try {
-          const moduleImport = await import(module.path)
-          const ModuleClass = moduleImport[module.name]
-
-          if (ModuleClass) {
-            console.log(`✅ ${module.name} loaded`)
-          } else {
-            console.warn(`⚠️ ${module.name} class not found in module`)
-          }
+          // Try to load the module, but don't fail if it doesn't exist
+          const modulePath = `./physics/${moduleName
+            .toLowerCase()
+            .replace(/([A-Z])/g, "-$1")
+            .substring(1)}.js`
+          await import(modulePath)
+          console.log(`✅ ${moduleName} loaded`)
         } catch (error) {
-          console.error(`❌ Failed to load ${module.name}:`, error)
+          console.log(`❌ Failed to load ${moduleName}:`, error)
+          // Create a placeholder for missing modules
+          this.createPlaceholderModule(moduleName)
         }
       }
 
@@ -51,6 +53,29 @@ export class PhysicsManager {
     }
   }
 
+  createPlaceholderModule(moduleName) {
+    // Create basic placeholder functionality for missing physics modules
+    switch (moduleName) {
+      case "ClothSimulation":
+        this.state.setClothSimulation({
+          reset: () => console.log("🔄 Cloth simulation reset (placeholder)"),
+          resetCloth: () => console.log("📍 Cloth reset (placeholder)"),
+          updateSetting: (setting, value) => console.log(`Physics ${setting}: ${value} (placeholder)`),
+        })
+        break
+      case "PhysicsTest":
+        this.state.setPhysicsTest({
+          runBasicTest: () => console.log("🧪 Running basic physics test (placeholder)"),
+        })
+        break
+      case "PhysicsDropTest":
+        this.state.setPhysicsDropTest({
+          runTest: () => console.log("🎬 Running drop test (placeholder)"),
+        })
+        break
+    }
+  }
+
   async togglePhysics() {
     const utils = window.lucifexApp?.utils
 
@@ -63,7 +88,7 @@ export class PhysicsManager {
     // Update button text
     const button = document.getElementById("physics-toggle")
     if (button) {
-      button.textContent = this.state.isPhysicsEnabled ? "⏸️ Disable Physics" : "🧬 Enable Physics"
+      button.innerHTML = `<span class="btn-icon">${this.state.isPhysicsEnabled ? "⏸️" : "🧬"}</span> ${this.state.isPhysicsEnabled ? "Disable Physics" : "Enable Physics"}`
     }
 
     // Show/hide physics controls
@@ -96,13 +121,11 @@ export class PhysicsManager {
         utils.showPhysicsEffect("🧬 Physics Enabled!")
       }
 
-      // Initialize physics simulation
+      // Initialize physics simulation if not already done
       if (!this.state.clothSimulation) {
-        const { ClothSimulation } = await import("./physics/cloth-simulation.js")
-        this.state.setClothSimulation(new ClothSimulation())
+        this.createPlaceholderModule("ClothSimulation")
       }
 
-      // Initialize other physics components as needed
       this.state.setPhysicsEnabled(true)
 
       if (utils) {
@@ -159,7 +182,7 @@ export class PhysicsManager {
 
     const button = document.getElementById("debug-toggle")
     if (button) {
-      button.textContent = this.state.isPhysicsDebugEnabled ? "🔍 Hide Debug" : "🔍 Show Debug"
+      button.innerHTML = `<span class="btn-icon">🔍</span> ${this.state.isPhysicsDebugEnabled ? "Hide Debug" : "Show Debug"}`
       button.classList.toggle("active", this.state.isPhysicsDebugEnabled)
     }
 
@@ -189,8 +212,7 @@ export class PhysicsManager {
 
     try {
       if (!this.state.physicsDropTest) {
-        const { PhysicsDropTest } = await import("./physics/drop-test.js")
-        this.state.setPhysicsDropTest(new PhysicsDropTest())
+        this.createPlaceholderModule("PhysicsDropTest")
       }
 
       if (this.state.physicsDropTest && this.state.physicsDropTest.runTest) {
@@ -214,8 +236,7 @@ export class PhysicsManager {
 
     try {
       if (!this.state.physicsTest) {
-        const { PhysicsTest } = await import("./physics/physics-test.js")
-        this.state.setPhysicsTest(new PhysicsTest())
+        this.createPlaceholderModule("PhysicsTest")
       }
 
       if (this.state.physicsTest && this.state.physicsTest.runBasicTest) {

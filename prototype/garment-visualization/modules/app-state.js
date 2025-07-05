@@ -1,30 +1,32 @@
-// Application State Management
+// Application state management
 export class AppState {
   constructor() {
     // Model URLs
     this.currentAvatarUrl = null
     this.currentGarmentUrl = null
 
-    // Model viewers
-    this.mainViewer = null
-    this.avatarViewer = null
-    this.garmentViewer = null
+    // Model states
+    this.hasAvatar = false
+    this.hasGarment = false
 
-    // UI state
+    // UI states
     this.currentTab = "avatar"
     this.currentModelType = "both"
     this.currentEnvironment = "studio"
     this.currentCombinationMethod = "overlay"
-    this.isAutoRotating = false
 
-    // Physics state
+    // Physics states
     this.isPhysicsEnabled = false
     this.isPhysicsDebugEnabled = false
+
+    // Physics objects
     this.clothSimulation = null
-    this.physicsVisualDebug = null
-    this.physicsMeshUpdater = null
     this.physicsTest = null
     this.physicsDropTest = null
+
+    // Viewer references
+    this.mainViewer = null
+    this.combinedViewerContainer = null
 
     console.log("📊 AppState initialized")
   }
@@ -32,114 +34,115 @@ export class AppState {
   // Avatar methods
   setAvatarUrl(url) {
     this.currentAvatarUrl = url
+    this.hasAvatar = !!url
     console.log("📊 Avatar URL updated:", url)
   }
 
-  get hasAvatar() {
-    return !!this.currentAvatarUrl
+  getAvatarUrl() {
+    return this.currentAvatarUrl
   }
 
   // Garment methods
   setGarmentUrl(url) {
     this.currentGarmentUrl = url
+    this.hasGarment = !!url
     console.log("📊 Garment URL updated:", url)
   }
 
-  get hasGarment() {
-    return !!this.currentGarmentUrl
+  getGarmentUrl() {
+    return this.currentGarmentUrl
   }
 
-  // Current tab
+  // Tab methods
   setCurrentTab(tab) {
     this.currentTab = tab
     console.log("📊 Current tab updated:", tab)
   }
 
-  // Model type
-  setModelType(type) {
+  getCurrentTab() {
+    return this.currentTab
+  }
+
+  // Model type methods
+  setCurrentModelType(type) {
     this.currentModelType = type
     console.log("📊 Model type updated:", type)
   }
 
-  get isInCombinedMode() {
-    return this.currentModelType === "both"
+  getCurrentModelType() {
+    return this.currentModelType
   }
 
-  // Environment
-  setEnvironment(environment) {
+  // Environment methods
+  setCurrentEnvironment(environment) {
     this.currentEnvironment = environment
     console.log("📊 Environment updated:", environment)
   }
 
-  // Combination
+  getCurrentEnvironment() {
+    return this.currentEnvironment
+  }
+
+  // Physics methods
+  setPhysicsEnabled(enabled) {
+    this.isPhysicsEnabled = enabled
+    console.log("📊 Physics enabled:", enabled)
+  }
+
+  setPhysicsDebugEnabled(enabled) {
+    this.isPhysicsDebugEnabled = enabled
+    console.log("📊 Physics debug enabled:", enabled)
+  }
+
+  setClothSimulation(simulation) {
+    this.clothSimulation = simulation
+    console.log("📊 Cloth simulation set")
+  }
+
+  setPhysicsTest(test) {
+    this.physicsTest = test
+    console.log("📊 Physics test set")
+  }
+
+  setPhysicsDropTest(test) {
+    this.physicsDropTest = test
+    console.log("📊 Physics drop test set")
+  }
+
+  // Viewer methods
+  setMainViewer(viewer) {
+    this.mainViewer = viewer
+    console.log("📊 Main viewer set")
+  }
+
+  setCombinedViewerContainer(container) {
+    this.combinedViewerContainer = container
+    console.log("📊 Combined viewer container set")
+  }
+
+  // Combination method
   setCombinationMethod(method) {
     this.currentCombinationMethod = method
     console.log("📊 Combination method updated:", method)
   }
 
-  get canCombine() {
-    return this.hasAvatar && this.hasGarment
+  getCombinationMethod() {
+    return this.currentCombinationMethod
   }
 
-  // Viewers
-  setMainViewer(viewer) {
-    this.mainViewer = viewer
-  }
-
-  setAvatarViewer(viewer) {
-    this.avatarViewer = viewer
-  }
-
-  setGarmentViewer(viewer) {
-    this.garmentViewer = viewer
-  }
-
-  // Physics
-  setPhysicsEnabled(enabled) {
-    this.isPhysicsEnabled = enabled
-  }
-
-  setPhysicsDebugEnabled(enabled) {
-    this.isPhysicsDebugEnabled = enabled
-  }
-
-  setClothSimulation(simulation) {
-    this.clothSimulation = simulation
-  }
-
-  setPhysicsVisualDebug(debug) {
-    this.physicsVisualDebug = debug
-  }
-
-  setPhysicsMeshUpdater(updater) {
-    this.physicsMeshUpdater = updater
-  }
-
-  setPhysicsTest(test) {
-    this.physicsTest = test
-  }
-
-  setPhysicsDropTest(dropTest) {
-    this.physicsDropTest = dropTest
-  }
-
-  // Auto rotate
-  setAutoRotating(rotating) {
-    this.isAutoRotating = rotating
-  }
-
-  // Get current state summary
+  // State getters
   getState() {
     return {
+      currentAvatarUrl: this.currentAvatarUrl,
+      currentGarmentUrl: this.currentGarmentUrl,
       hasAvatar: this.hasAvatar,
       hasGarment: this.hasGarment,
-      canCombine: this.canCombine,
       currentTab: this.currentTab,
       currentModelType: this.currentModelType,
       currentEnvironment: this.currentEnvironment,
+      currentCombinationMethod: this.currentCombinationMethod,
       isPhysicsEnabled: this.isPhysicsEnabled,
       isPhysicsDebugEnabled: this.isPhysicsDebugEnabled,
-      isAutoRotating: this.isAutoRotating,
     }
   }
 
@@ -147,19 +150,34 @@ export class AppState {
   reset() {
     this.currentAvatarUrl = null
     this.currentGarmentUrl = null
-    this.mainViewer = null
-    this.avatarViewer = null
-    this.garmentViewer = null
+    this.hasAvatar = false
+    this.hasGarment = false
     this.currentTab = "avatar"
     this.currentModelType = "both"
+    this.currentEnvironment = "studio"
+    this.currentCombinationMethod = "overlay"
     this.isPhysicsEnabled = false
     this.isPhysicsDebugEnabled = false
     this.clothSimulation = null
-    this.physicsVisualDebug = null
-    this.physicsMeshUpdater = null
     this.physicsTest = null
     this.physicsDropTest = null
+    this.mainViewer = null
+    this.combinedViewerContainer = null
 
     console.log("📊 AppState reset")
+  }
+
+  // Validation methods
+  canCreateCombinedView() {
+    return this.hasAvatar && this.hasGarment
+  }
+
+  canEnablePhysics() {
+    return this.hasGarment
+  }
+
+  // Debug methods
+  logState() {
+    console.log("📊 Current AppState:", this.getState())
   }
 }
