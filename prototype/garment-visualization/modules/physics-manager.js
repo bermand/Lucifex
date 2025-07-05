@@ -113,9 +113,12 @@ export class PhysicsManager {
         await this.state.clothSimulation.initialize()
       }
 
-      if (window.PhysicsMeshUpdater && !this.state.physicsMeshUpdater && this.state.garmentViewer) {
-        this.state.setPhysicsMeshUpdater(new window.PhysicsMeshUpdater())
-        this.state.physicsMeshUpdater.initialize(this.state.garmentViewer)
+      if (window.PhysicsMeshUpdater && !this.state.physicsMeshUpdater) {
+        const garmentViewer = this.state.garmentViewer || document.getElementById("combined-garment-viewer")
+        if (garmentViewer) {
+          this.state.setPhysicsMeshUpdater(new window.PhysicsMeshUpdater())
+          this.state.physicsMeshUpdater.initialize(garmentViewer)
+        }
       }
 
       if (window.PhysicsVisualDebug && !this.state.physicsVisualDebug) {
@@ -164,7 +167,7 @@ export class PhysicsManager {
     }
 
     if (this.state.physicsMeshUpdater) {
-      this.state.physicsMeshUpdater.resetMesh()
+      this.state.physicsMeshUpdater.reset()
     }
 
     if (utils) {
@@ -193,9 +196,9 @@ export class PhysicsManager {
 
     if (this.state.physicsVisualDebug) {
       if (this.state.isPhysicsDebugEnabled) {
-        this.state.physicsVisualDebug.show()
+        this.state.physicsVisualDebug.enable()
       } else {
-        this.state.physicsVisualDebug.hide()
+        this.state.physicsVisualDebug.disable()
       }
     }
 
