@@ -1148,4 +1148,620 @@ window.loadPhysicsModules = async function() {
         
         // Create new combined container with fixed background
         const combinedContainer = document.createElement('div');
-        combinedContainer.i
+        combinedContainer.id = 'combined-container';
+        combinedContainer.innerHTML = `
+      <div id="combined-background"></div>
+      <model-viewer 
+        id="avatar-viewer"
+        class="model-avatar"
+        src="${currentAvatarUrl}"
+        camera-controls 
+        touch-action="pan-y"
+        auto-rotate
+        auto-rotate-delay="3000"
+        rotation-per-second="30deg"
+        shadow-intensity="1"
+        shadow-softness="0.5"
+        exposure="1"
+        tone-mapping="aces"
+        environment-image="https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/studio_small_03_1k.hdr"
+        skybox-image="https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/studio_small_03_1k.hdr">
+      </model-viewer>
+      <model-viewer 
+        id="garment-viewer"
+        class="model-garment"
+        src="${currentGarmentUrl}"
+        camera-controls 
+        touch-action="pan-y"
+        auto-rotate
+        auto-rotate-delay="3000"
+        rotation-per-second="30deg"
+        shadow-intensity="1"
+        shadow-softness="0.5"
+        exposure="1"
+        tone-mapping="aces"
+        environment-image="https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/studio_small_03_1k.hdr"
+        skybox-image="https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/studio_small_03_1k.hdr">
+      </model-viewer>
+    `;
+    
+    document.body.appendChild(combinedContainer);
+    
+    // Store references
+    avatarViewer = document.getElementById('avatar-viewer');
+    garmentViewer = document.getElementById('garment-viewer');
+    
+    // Apply initial settings
+    updateModelOpacity('avatar', 0.7);
+    updateModelOpacity('garment', 1.0);
+    
+    updateStatus('✅ Combined view created successfully');
+    updateCombinationStatus();
+    
+  } catch (error) {
+    console.error('Error creating combined view:', error);
+    updateStatus('❌ Error creating combined view');
+  }
+}
+
+// Tab switching
+function switchTab(tabName) {
+  // Remove active class from all tabs and content
+  document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+  
+  // Add active class to selected tab and content
+  document.querySelector(`[onclick="switchTab('${tabName}')"]`).classList.add('active');
+  document.getElementById(`${tabName}-tab`).classList.add('active');
+}
+
+// Model type switching
+function setModelType(type) {
+  // Update button states
+  document.querySelectorAll('.model-btn').forEach(btn => btn.classList.remove('active'));
+  document.getElementById(`${type}-mode`).classList.add('active');
+  
+  if (type === 'avatar' && currentAvatarUrl) {
+    loadSingleModel(currentAvatarUrl, 'avatar');
+  } else if (type === 'garment' && currentGarmentUrl) {
+    loadSingleModel(currentGarmentUrl, 'garment');
+  } else if (type === 'both') {
+    generateCombinedView();
+  }
+}
+
+// Avatar preset loading
+function loadAvatarPreset(avatarId) {
+  // Update button states
+  document.querySelectorAll('.avatar-option').forEach(option => option.classList.remove('active'));
+  document.querySelector(`[data-avatar="${avatarId}"]`).classList.add('active');
+  
+  const avatarUrl = `../assets/avatars/${avatarId}.glb`;
+  currentAvatarUrl = avatarUrl;
+  
+  updateStatus(`Loading avatar preset: ${avatarId}`);
+  
+  // If in combined mode, regenerate
+  if (document.getElementById('both-mode').classList.contains('active')) {
+    generateCombinedView();
+  } else if (document.getElementById('avatar-mode').classList.contains('active')) {
+    loadSingleModel(avatarUrl, 'avatar');
+  }
+}
+
+// Custom avatar loading
+function loadCustomAvatar(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  
+  const url = URL.createObjectURL(file);
+  currentAvatarUrl = url;
+  
+  updateStatus(`Loading custom avatar: ${file.name}`);
+  
+  // Update file info
+  const fileInfo = document.getElementById('avatar-file-info');
+  fileInfo.innerHTML = `
+    <div class="file-status success">
+      ✅ Loaded: ${file.name}<br>
+      📊 Size: ${(file.size / 1024 / 1024).toFixed(2)} MB
+    </div>
+  `;
+  
+  // If in combined mode, regenerate
+  if (document.getElementById('both-mode').classList.contains('active')) {
+    generateCombinedView();
+  } else if (document.getElementById('avatar-mode').classList.contains('active')) {
+    loadSingleModel(url, 'avatar');
+  }
+}
+
+// Garment loading
+function loadGarmentFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  
+  const url = URL.createObjectURL(file);
+  currentGarmentUrl = url;
+  
+  updateStatus(`Loading garment: ${file.name}`);
+  
+  // Update file info
+  const fileInfo = document.getElementById('garment-file-info');
+  fileInfo.innerHTML = `
+    <div class="file-status success">
+      ✅ Loaded: ${file.name}<br>
+      📊 Size: ${(file.size / 1024 / 1024).toFixed(2)} MB
+    </div>
+  `;
+  
+  // If in combined mode, regenerate
+  if (document.getElementById('both-mode').classList.contains('active')) {
+    generateCombinedView();
+  } else if (document.getElementById('garment-mode').classList.contains('active')) {
+    loadSingleModel(url, 'garment');
+  }
+}
+
+// Sample garment loading
+function loadSampleGarment(garmentId) {
+  // Update button states
+  document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
+  document.getElementById(`sample-${garmentId}`).classList.add('active');
+  
+  const garmentUrl = `../assets/garments/${garmentId}.glb`;
+  currentGarmentUrl = garmentUrl;
+  
+  updateStatus(`Loading sample garment: ${garmentId}`);
+  
+  // If in combined mode, regenerate
+  if (document.getElementById('both-mode').classList.contains('active')) {
+    generateCombinedView();
+  } else if (document.getElementById('garment-mode').classList.contains('active')) {
+    loadSingleModel(garmentUrl, 'garment');
+  }
+}
+
+// Model scaling
+function updateModelScale(type, scale) {
+  if (type === 'avatar' && avatarViewer) {
+    avatarViewer.style.transform = `scale(${scale})`;
+  } else if (type === 'garment' && garmentViewer) {
+    garmentViewer.style.transform = `scale(${scale}) translate(${document.getElementById('garment-offset-x').value * 100}px, ${document.getElementById('garment-offset-y').value * -100}px)`;
+  } else if (type === 'avatar') {
+    const mainViewer = document.getElementById('main-viewer');
+    if (mainViewer.style.display !== 'none') {
+      mainViewer.style.transform = `scale(${scale})`;
+    }
+  } else if (type === 'garment') {
+    const mainViewer = document.getElementById('main-viewer');
+    if (mainViewer.style.display !== 'none') {
+      mainViewer.style.transform = `scale(${scale})`;
+    }
+  }
+}
+
+// Model opacity
+function updateModelOpacity(type, opacity) {
+  if (type === 'avatar' && avatarViewer) {
+    avatarViewer.style.opacity = opacity;
+  } else if (type === 'garment' && garmentViewer) {
+    garmentViewer.style.opacity = opacity;
+  }
+}
+
+// Garment positioning
+function updateGarmentPosition() {
+  if (!garmentViewer) return;
+  
+  const offsetX = parseFloat(document.getElementById('garment-offset-x').value);
+  const offsetY = parseFloat(document.getElementById('garment-offset-y').value);
+  const scale = parseFloat(document.getElementById('garment-scale-combined').value);
+  
+  garmentViewer.style.transform = `scale(${scale}) translate(${offsetX * 100}px, ${offsetY * -100}px)`;
+}
+
+// Combination methods
+function setCombinationMethod(method) {
+  currentCombinationMethod = method;
+  
+  // Update button states
+  document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
+  document.getElementById(`${method}-method`).classList.add('active');
+  
+  updateStatus(`Combination method: ${method}`);
+}
+
+// Environment settings
+function setEnvironment(env) {
+  currentEnvironment = env;
+  
+  // Update button states
+  document.querySelectorAll('.env-btn').forEach(btn => btn.classList.remove('active'));
+  document.getElementById(`env-${env}`).classList.add('active');
+  
+  const envUrls = {
+    studio: 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/studio_small_03_1k.hdr',
+    apartment: 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/apartment_1k.hdr',
+    city: 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/city_1k.hdr',
+    dawn: 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/dawn_1k.hdr',
+    forest: 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/forest_1k.hdr',
+    lobby: 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/lobby_1k.hdr',
+    night: 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/night_1k.hdr',
+    park: 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/park_1k.hdr',
+    sunset: 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/sunset_1k.hdr',
+    warehouse: 'https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/warehouse_1k.hdr'
+  };
+  
+  const envUrl = envUrls[env] || envUrls.studio;
+  
+  // Update all viewers
+  const viewers = [document.getElementById('main-viewer'), avatarViewer, garmentViewer].filter(v => v);
+  viewers.forEach(viewer => {
+    viewer.setAttribute('environment-image', envUrl);
+    viewer.setAttribute('skybox-image', envUrl);
+  });
+  
+  updateStatus(`Environment: ${env}`);
+}
+
+// Lighting updates
+function updateLighting() {
+  const exposure = document.getElementById('exposure').value;
+  const shadowIntensity = document.getElementById('shadow-intensity').value;
+  const shadowSoftness = document.getElementById('shadow-softness').value;
+  
+  const viewers = [document.getElementById('main-viewer'), avatarViewer, garmentViewer].filter(v => v);
+  viewers.forEach(viewer => {
+    viewer.setAttribute('exposure', exposure);
+    viewer.setAttribute('shadow-intensity', shadowIntensity);
+    viewer.setAttribute('shadow-softness', shadowSoftness);
+  });
+}
+
+// Tone mapping
+function setToneMapping(mapping) {
+  // Update button states
+  document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
+  document.getElementById(`tone-${mapping}`).classList.add('active');
+  
+  const viewers = [document.getElementById('main-viewer'), avatarViewer, garmentViewer].filter(v => v);
+  viewers.forEach(viewer => {
+    viewer.setAttribute('tone-mapping', mapping);
+  });
+  
+  updateStatus(`Tone mapping: ${mapping}`);
+}
+
+// Camera controls
+function toggleAutoRotate() {
+  isAutoRotating = !isAutoRotating;
+  
+  const viewers = [document.getElementById('main-viewer'), avatarViewer, garmentViewer].filter(v => v);
+  viewers.forEach(viewer => {
+    if (isAutoRotating) {
+      viewer.setAttribute('auto-rotate', '');
+    } else {
+      viewer.removeAttribute('auto-rotate');
+    }
+  });
+  
+  const button = document.getElementById('auto-rotate-toggle');
+  button.textContent = isAutoRotating ? 'Stop Rotate' : 'Auto Rotate';
+  button.classList.toggle('active', isAutoRotating);
+}
+
+function resetCamera() {
+  const viewers = [document.getElementById('main-viewer'), avatarViewer, garmentViewer].filter(v => v);
+  viewers.forEach(viewer => {
+    if (viewer.resetTurntableRotation) {
+      viewer.resetTurntableRotation();
+    }
+    if (viewer.jumpCameraToGoal) {
+      viewer.jumpCameraToGoal();
+    }
+  });
+  
+  updateStatus('Camera reset');
+}
+
+function focusOnModel() {
+  const viewers = [document.getElementById('main-viewer'), avatarViewer, garmentViewer].filter(v => v);
+  viewers.forEach(viewer => {
+    if (viewer.jumpCameraToGoal) {
+      viewer.jumpCameraToGoal();
+    }
+  });
+  
+  updateStatus('Focused on model');
+}
+
+// Physics functions
+async function initializePhysicsModules() {
+  try {
+    const success = await window.loadPhysicsModules();
+    if (success) {
+      updatePhysicsStatus('✅ Physics modules loaded - ready to simulate');
+    } else {
+      updatePhysicsStatus('❌ Failed to load physics modules');
+    }
+  } catch (error) {
+    console.error('Physics initialization error:', error);
+    updatePhysicsStatus('❌ Physics initialization failed');
+  }
+}
+
+function togglePhysics() {
+  if (!isPhysicsEnabled) {
+    enablePhysics();
+  } else {
+    disablePhysics();
+  }
+}
+
+async function enablePhysics() {
+  if (!currentGarmentUrl) {
+    updatePhysicsStatus('❌ Need garment loaded to enable physics');
+    return;
+  }
+  
+  try {
+    updatePhysicsStatus('🔄 Initializing physics simulation...');
+    
+    // Initialize cloth simulation
+    if (window.SimpleClothPhysics) {
+      clothSimulation = new window.SimpleClothPhysics();
+      await clothSimulation.initialize();
+      
+      // Initialize mesh updater
+      if (window.PhysicsMeshUpdater && garmentViewer) {
+        physicsMeshUpdater = new window.PhysicsMeshUpdater(garmentViewer);
+        await physicsMeshUpdater.initialize();
+        
+        // Connect simulation to mesh updater
+        clothSimulation.setMeshUpdater(physicsMeshUpdater);
+      }
+      
+      isPhysicsEnabled = true;
+      document.getElementById('physics-toggle').textContent = 'Disable Physics';
+      document.getElementById('physics-toggle').classList.add('active');
+      document.getElementById('physics-controls').style.display = 'block';
+      
+      updatePhysicsStatus('✅ Physics simulation active - cloth is falling!');
+      showPhysicsEffect('🎬 Physics Enabled!\nCloth is falling and draping on avatar');
+      
+      // Start the simulation
+      clothSimulation.start();
+      
+    } else {
+      throw new Error('SimpleClothPhysics not available');
+    }
+    
+  } catch (error) {
+    console.error('Physics enable error:', error);
+    updatePhysicsStatus('❌ Failed to enable physics');
+  }
+}
+
+function disablePhysics() {
+  if (clothSimulation) {
+    clothSimulation.stop();
+    clothSimulation = null;
+  }
+  
+  if (physicsMeshUpdater) {
+    physicsMeshUpdater.cleanup();
+    physicsMeshUpdater = null;
+  }
+  
+  isPhysicsEnabled = false;
+  document.getElementById('physics-toggle').textContent = 'Enable Physics';
+  document.getElementById('physics-toggle').classList.remove('active');
+  document.getElementById('physics-controls').style.display = 'none';
+  
+  updatePhysicsStatus('Physics simulation disabled');
+}
+
+function resetPhysics() {
+  if (clothSimulation) {
+    clothSimulation.reset();
+    updatePhysicsStatus('✅ Physics reset - cloth repositioned');
+    showPhysicsEffect('🔄 Physics Reset!\nCloth returned to starting position');
+  }
+}
+
+function updatePhysicsSettings() {
+  if (!clothSimulation) return;
+  
+  const stiffness = parseFloat(document.getElementById('cloth-stiffness').value);
+  const gravity = parseFloat(document.getElementById('gravity-strength').value);
+  
+  clothSimulation.updateSettings({
+    stiffness: stiffness,
+    gravity: gravity
+  });
+}
+
+function togglePhysicsDebug() {
+  if (!isPhysicsDebugEnabled) {
+    startPhysicsDebug();
+  } else {
+    stopPhysicsDebug();
+  }
+}
+
+function startPhysicsDebug() {
+  if (window.PhysicsVisualDebug && clothSimulation) {
+    physicsVisualDebug = new window.PhysicsVisualDebug();
+    physicsVisualDebug.initialize(clothSimulation);
+    
+    isPhysicsDebugEnabled = true;
+    document.getElementById('debug-toggle').textContent = 'Hide Physics';
+    document.getElementById('debug-toggle').classList.add('active');
+    
+    updateStatus('🔍 Physics debug visualization enabled');
+  }
+}
+
+function stopPhysicsDebug() {
+  if (physicsVisualDebug) {
+    physicsVisualDebug.cleanup();
+    physicsVisualDebug = null;
+  }
+  
+  isPhysicsDebugEnabled = false;
+  document.getElementById('debug-toggle').textContent = 'Show Physics';
+  document.getElementById('debug-toggle').classList.remove('active');
+  
+  updateStatus('Physics debug visualization disabled');
+}
+
+function logPhysicsStatus() {
+  console.log('=== PHYSICS STATUS ===');
+  console.log('Physics Enabled:', isPhysicsEnabled);
+  console.log('Cloth Simulation:', clothSimulation);
+  console.log('Physics Mesh Updater:', physicsMeshUpdater);
+  console.log('Physics Visual Debug:', physicsVisualDebug);
+  console.log('Current Avatar URL:', currentAvatarUrl);
+  console.log('Current Garment URL:', currentGarmentUrl);
+  console.log('======================');
+  
+  updateStatus('📊 Physics status logged to console');
+}
+
+function startDropTest() {
+  if (window.PhysicsDropTest && clothSimulation) {
+    physicsDropTest = new window.PhysicsDropTest(clothSimulation);
+    physicsDropTest.startDropTest();
+    
+    updateStatus('🎬 Drop test started - dramatic cloth falling!');
+    showPhysicsEffect('🎬 Drop Test Active!\nWatch the dramatic cloth fall!');
+  } else {
+    updateStatus('❌ Drop test requires physics to be enabled');
+  }
+}
+
+function startBasicTest() {
+  if (window.PhysicsTest && clothSimulation) {
+    physicsTest = new window.PhysicsTest(clothSimulation);
+    physicsTest.runBasicTest();
+    
+    updateStatus('🧪 Basic physics test running');
+  } else {
+    updateStatus('❌ Basic test requires physics to be enabled');
+  }
+}
+
+function resetClothPosition() {
+  if (clothSimulation) {
+    clothSimulation.resetClothPosition();
+    updateStatus('🔄 Cloth position reset - watch it fall again!');
+    showPhysicsEffect('🔄 Cloth Reset!\nWatch it fall and drape again!');
+  } else {
+    updateStatus('❌ Reset requires physics to be enabled');
+  }
+}
+
+// Utility functions
+function updateStatus(message) {
+  const statusContent = document.getElementById('status-content');
+  if (statusContent) {
+    statusContent.textContent = message;
+  }
+  console.log('Status:', message);
+}
+
+function updatePhysicsStatus(message) {
+  const physicsStatus = document.getElementById('physics-status');
+  if (physicsStatus) {
+    physicsStatus.innerHTML = `<strong>Physics Engine:</strong> ${message}`;
+    
+    // Update status class
+    physicsStatus.className = 'physics-status';
+    if (message.includes('✅')) {
+      physicsStatus.classList.add('active');
+    } else if (message.includes('🔄')) {
+      physicsStatus.classList.add('loading');
+    } else if (message.includes('❌')) {
+      physicsStatus.classList.add('error');
+    }
+  }
+}
+
+function updateCombinationStatus() {
+  const status = document.getElementById('combination-status');
+  if (!status) return;
+  
+  if (currentAvatarUrl && currentGarmentUrl) {
+    status.innerHTML = '<strong>Status:</strong> ✅ Ready for physics simulation';
+    status.className = 'combination-status ready';
+  } else if (currentAvatarUrl || currentGarmentUrl) {
+    status.innerHTML = '<strong>Status:</strong> ⚠️ Need both avatar and garment';
+    status.className = 'combination-status partial';
+  } else {
+    status.innerHTML = '<strong>Status:</strong> ❌ Load avatar and garment to combine';
+    status.className = 'combination-status empty';
+  }
+}
+
+function updateModelInfo(url, type) {
+  const modelInfo = document.getElementById('model-info');
+  if (modelInfo) {
+    const filename = url.split('/').pop();
+    modelInfo.innerHTML = `📊 ${type}: ${filename}`;
+  }
+}
+
+function showPhysicsEffect(message) {
+  const indicator = document.getElementById('physics-effect-indicator');
+  const text = document.getElementById('physics-effect-text');
+  
+  if (indicator && text) {
+    text.textContent = message;
+    indicator.classList.add('visible');
+    
+    setTimeout(() => {
+      indicator.classList.remove('visible');
+    }, 3000);
+  }
+}
+
+// Action functions
+function generateCombinedModel() {
+  generateCombinedView();
+}
+
+function resetCombination() {
+  // Reset to default state
+  currentAvatarUrl = null;
+  currentGarmentUrl = null;
+  
+  // Hide combined container
+  const combinedContainer = document.getElementById('combined-container');
+  if (combinedContainer) {
+    combinedContainer.style.display = 'none';
+  }
+  
+  // Show main viewer
+  const mainViewer = document.getElementById('main-viewer');
+  mainViewer.style.display = 'block';
+  mainViewer.src = '';
+  
+  // Reset UI
+  document.querySelectorAll('.avatar-option').forEach(option => option.classList.remove('active'));
+  document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
+  
+  updateStatus('🔄 Combination reset');
+  updateCombinationStatus();
+}
+
+function takeScreenshot() {
+  updateStatus('📸 Screenshot feature coming soon');
+}
+
+function exportScene() {
+  updateStatus('💾 Export feature coming soon');
+}
+</script>
+</body>
+</html>
