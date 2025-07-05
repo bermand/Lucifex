@@ -3,327 +3,290 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Garment Visualizer - Lucifex</title>
+  <title>Lucifex - Garment Visualization</title>
   <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <model-viewer 
-    id="main-viewer"
-    camera-controls 
-    touch-action="pan-y"
-    auto-rotate
-    auto-rotate-delay="3000"
-    rotation-per-second="30deg"
-    shadow-intensity="1"
-    shadow-softness="0.5"
-    exposure="1"
-    tone-mapping="aces"
-    environment-image="https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/studio_small_03_1k.hdr"
-    skybox-image="https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/studio_small_03_1k.hdr">
-    
-    <div slot="progress-bar" style="display: none;"></div>
-    
-    <!-- Fallback content -->
-    <div id="fallback" style="display: flex; align-items: center; justify-content: center; height: 100%; color: #666;">
-      <div style="text-align: center;">
-        <h2>🎨 Lucifex Avatar & Garment Visualizer</h2>
-        <p>Upload GLB/GLTF files to begin visualization</p>
-        <p style="font-size: 14px; color: #999;">Professional Model Viewer rendering</p>
+  <div class="container">
+    <header>
+      <h1>🎭 Lucifex Garment Visualizer</h1>
+      <div id="status-bar">
+        <div id="status-content">Ready</div>
       </div>
-    </div>
-  </model-viewer>
-  
-  <div class="status-indicator" id="status">
-    <div id="status-content">Checking for default models...</div>
-  </div>
+    </header>
 
-  <!-- Physics effect indicator -->
-  <div class="physics-effect-indicator" id="physics-effect-indicator">
-    🎬 Physics Effect Active<br>
-    <span id="physics-effect-text">Cloth is falling and draping!</span>
-  </div>
-  
-  <div id="controls">
-    <div class="tabs">
-      <button class="tab active" data-tab="avatar">Avatar</button>
-      <button class="tab" data-tab="garment">Garment</button>
-      <button class="tab" data-tab="combined">Combined</button>
-      <button class="tab" data-tab="lighting">Lighting</button>
-    </div>
+    <div class="main-layout">
+      <!-- Left Panel - Controls -->
+      <div class="left-panel">
+        <!-- Tabs -->
+        <div class="tabs">
+          <button class="tab active" data-tab="avatar">👤 Avatar</button>
+          <button class="tab" data-tab="garment">👕 Garment</button>
+          <button class="tab" data-tab="combined">🎯 Combined</button>
+          <button class="tab" data-tab="physics">🧬 Physics</button>
+          <button class="tab" data-tab="environment">🌍 Environment</button>
+        </div>
 
-    <!-- Avatar Tab -->
-    <div id="avatar-tab" class="tab-content active">
-      <h3>Avatar Selection</h3>
-      
-      <div class="control-group">
-        <label>Model Type:</label>
+        <!-- Tab Contents -->
+        <div class="tab-contents">
+          <!-- Avatar Tab -->
+          <div id="avatar-tab" class="tab-content active">
+            <h3>Avatar Selection</h3>
+            
+            <div class="section">
+              <h4>Presets</h4>
+              <div class="preset-grid">
+                <button class="avatar-option" data-avatar="male">👨 Male</button>
+                <button class="avatar-option" data-avatar="female">👩 Female</button>
+              </div>
+            </div>
+
+            <div class="section">
+              <h4>Custom Avatar</h4>
+              <input type="file" id="avatar-file" accept=".glb,.gltf" />
+              <div id="avatar-file-info" class="file-info"></div>
+            </div>
+
+            <div class="section">
+              <h4>Avatar Scale</h4>
+              <div class="control-group">
+                <input type="range" id="avatar-scale" min="0.5" max="2" step="0.1" value="1" />
+                <span id="avatar-scale-value">1</span>x
+              </div>
+            </div>
+          </div>
+
+          <!-- Garment Tab -->
+          <div id="garment-tab" class="tab-content">
+            <h3>Garment Selection</h3>
+            
+            <div class="section">
+              <h4>Sample Garments</h4>
+              <div class="preset-grid">
+                <button class="preset-btn" data-garment="tshirt">👕 T-Shirt</button>
+                <button class="preset-btn" data-garment="tshirt-1">👔 T-Shirt 2</button>
+              </div>
+            </div>
+
+            <div class="section">
+              <h4>Custom Garment</h4>
+              <input type="file" id="garment-file" accept=".glb,.gltf" />
+              <div id="garment-file-info" class="file-info"></div>
+            </div>
+
+            <div class="section">
+              <h4>Garment Scale</h4>
+              <div class="control-group">
+                <input type="range" id="garment-scale" min="0.5" max="2" step="0.1" value="1" />
+                <span id="garment-scale-value">1</span>x
+              </div>
+            </div>
+          </div>
+
+          <!-- Combined Tab -->
+          <div id="combined-tab" class="tab-content">
+            <h3>Combined Visualization</h3>
+            
+            <div id="combination-status" class="combination-status empty">
+              <strong>Status:</strong> ❌ Load avatar and garment to combine
+            </div>
+
+            <div class="section">
+              <h4>Combination Method</h4>
+              <div class="preset-grid">
+                <button class="preset-btn active" data-combination="overlay">🔄 Overlay</button>
+                <button class="preset-btn" data-combination="merge">🔗 Merge</button>
+              </div>
+            </div>
+
+            <div class="section">
+              <h4>Garment Controls</h4>
+              <div class="control-group">
+                <label>Scale:</label>
+                <input type="range" id="garment-scale-combined" min="0.5" max="2" step="0.1" value="1" />
+                <span id="garment-scale-combined-value">1</span>x
+              </div>
+              <div class="control-group">
+                <label>Position Y:</label>
+                <input type="range" id="garment-offset-y" min="-2" max="2" step="0.1" value="0" />
+                <span id="garment-offset-y-value">0</span>
+              </div>
+              <div class="control-group">
+                <label>Position X:</label>
+                <input type="range" id="garment-offset-x" min="-2" max="2" step="0.1" value="0" />
+                <span id="garment-offset-x-value">0</span>
+              </div>
+            </div>
+
+            <div class="section">
+              <h4>Avatar Opacity</h4>
+              <div class="control-group">
+                <input type="range" id="avatar-opacity" min="0" max="1" step="0.1" value="0.7" />
+                <span id="avatar-opacity-value">0.7</span>
+              </div>
+            </div>
+
+            <div class="section">
+              <h4>Garment Opacity</h4>
+              <div class="control-group">
+                <input type="range" id="garment-opacity" min="0" max="1" step="0.1" value="1" />
+                <span id="garment-opacity-value">1</span>
+              </div>
+            </div>
+
+            <div class="section">
+              <h4>Actions</h4>
+              <button id="generate-combined" class="action-btn">🎯 Generate Combined</button>
+              <button id="reset-combination" class="action-btn">🔄 Reset</button>
+            </div>
+          </div>
+
+          <!-- Physics Tab -->
+          <div id="physics-tab" class="tab-content">
+            <h3>Physics Simulation</h3>
+            
+            <div id="physics-status" class="status-display">
+              <strong>Physics Engine:</strong> Ready
+            </div>
+
+            <div class="section">
+              <h4>Physics Controls</h4>
+              <button id="physics-toggle" class="action-btn">🧬 Enable Physics</button>
+              <button id="physics-reset" class="action-btn">🔄 Reset Physics</button>
+              <button id="reset-cloth" class="action-btn">📍 Reset Cloth Position</button>
+            </div>
+
+            <div class="section">
+              <h4>Physics Settings</h4>
+              <div class="control-group">
+                <label>Cloth Stiffness:</label>
+                <input type="range" id="cloth-stiffness" min="0.1" max="1" step="0.1" value="0.3" />
+                <span id="cloth-stiffness-value">0.3</span>
+              </div>
+              <div class="control-group">
+                <label>Gravity Strength:</label>
+                <input type="range" id="gravity-strength" min="0.1" max="2" step="0.1" value="0.8" />
+                <span id="gravity-strength-value">0.8</span>
+              </div>
+            </div>
+
+            <div class="section">
+              <h4>Debug & Testing</h4>
+              <button id="debug-toggle" class="action-btn">🔍 Toggle Debug View</button>
+              <button id="debug-log" class="action-btn">📊 Log Physics Status</button>
+              <button id="drop-test" class="action-btn">🎯 Drop Test</button>
+              <button id="basic-test" class="action-btn">⚡ Basic Test</button>
+            </div>
+          </div>
+
+          <!-- Environment Tab -->
+          <div id="environment-tab" class="tab-content">
+            <h3>Environment & Lighting</h3>
+            
+            <div class="section">
+              <h4>Environment Presets</h4>
+              <div class="preset-grid">
+                <button class="env-btn active" data-environment="studio">🏢 Studio</button>
+                <button class="env-btn" data-environment="outdoor">🌅 Outdoor</button>
+                <button class="env-btn" data-environment="neutral">⚪ Neutral</button>
+              </div>
+            </div>
+
+            <div class="section">
+              <h4>Lighting Controls</h4>
+              <div class="control-group">
+                <label>Exposure:</label>
+                <input type="range" id="exposure" min="0.5" max="2" step="0.1" value="1" />
+                <span id="exposure-value">1</span>
+              </div>
+              <div class="control-group">
+                <label>Shadow Intensity:</label>
+                <input type="range" id="shadow-intensity" min="0" max="2" step="0.1" value="1" />
+                <span id="shadow-intensity-value">1</span>
+              </div>
+              <div class="control-group">
+                <label>Shadow Softness:</label>
+                <input type="range" id="shadow-softness" min="0" max="1" step="0.1" value="0.5" />
+                <span id="shadow-softness-value">0.5</span>
+              </div>
+            </div>
+
+            <div class="section">
+              <h4>Tone Mapping</h4>
+              <div class="preset-grid">
+                <button class="preset-btn active" data-tone-mapping="aces">🎨 ACES</button>
+                <button class="preset-btn" data-tone-mapping="neutral">⚪ Neutral</button>
+                <button class="preset-btn" data-tone-mapping="commerce">🛍️ Commerce</button>
+              </div>
+            </div>
+
+            <div class="section">
+              <h4>Camera Controls</h4>
+              <button id="auto-rotate-toggle" class="action-btn active">🔄 Auto Rotate</button>
+              <button id="camera-reset" class="action-btn">📷 Reset Camera</button>
+              <button id="focus-model" class="action-btn">🎯 Focus Model</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Center Panel - 3D Viewer -->
+      <div class="center-panel">
+        <!-- Model Type Selector -->
         <div class="model-selector">
-          <button class="model-btn active" data-model-type="avatar" id="avatar-mode">Avatar Only</button>
-          <button class="model-btn" data-model-type="garment" id="garment-mode">Garment Only</button>
-          <button class="model-btn" data-model-type="both" id="both-mode">Combined</button>
+          <button class="model-btn active" data-model-type="avatar">👤 Avatar</button>
+          <button class="model-btn" data-model-type="garment">👕 Garment</button>
+          <button class="model-btn" data-model-type="both">🎯 Combined</button>
+        </div>
+
+        <!-- 3D Viewer -->
+        <div class="viewer-container">
+          <model-viewer 
+            id="main-viewer"
+            camera-controls 
+            touch-action="pan-y"
+            auto-rotate
+            auto-rotate-delay="3000"
+            rotation-per-second="30deg"
+            shadow-intensity="1"
+            shadow-softness="0.5"
+            exposure="1"
+            tone-mapping="aces"
+            environment-image="https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/studio_small_03_1k.hdr"
+            skybox-image="https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/studio_small_03_1k.hdr">
+          </model-viewer>
+        </div>
+
+        <!-- Physics Effect Indicator -->
+        <div id="physics-effect-indicator" class="physics-effect-indicator">
+          <div id="physics-effect-text">Physics Effect Active</div>
         </div>
       </div>
-      
-      <div class="control-group">
-        <label>Body Type Presets:</label>
-        <div class="avatar-gallery">
-          <div class="avatar-option" data-avatar="female-s">
-            👩<br>Female S
+
+      <!-- Right Panel - Info -->
+      <div class="right-panel">
+        <div class="info-section">
+          <h3>Model Information</h3>
+          <div id="model-info" class="model-info">
+            No model loaded
           </div>
-          <div class="avatar-option" data-avatar="female-m">
-            👩<br>Female M
-          </div>
-          <div class="avatar-option" data-avatar="female-l">
-            👩<br>Female L
-          </div>
-          <div class="avatar-option" data-avatar="male-s">
-            👨<br>Male S
-          </div>
-          <div class="avatar-option active" data-avatar="male-m">
-            👨<br>Male M
-          </div>
-          <div class="avatar-option" data-avatar="male-l">
-            👨<br>Male L
-          </div>
         </div>
-      </div>
 
-      <div class="control-group">
-        <label>Custom Avatar:</label>
-        <input type="file" id="avatar-file" accept=".glb,.gltf" />
-        <div class="file-info" id="avatar-file-info">
-          📁 Load your own avatar GLB/GLTF file<br>
-          🎨 Same professional rendering as garments
+        <div class="info-section">
+          <h3>Actions</h3>
+          <button id="take-screenshot" class="action-btn">📸 Screenshot</button>
+          <button id="export-scene" class="action-btn">💾 Export Scene</button>
         </div>
-      </div>
 
-      <div class="control-group">
-        <label for="avatar-scale">Avatar Scale</label>
-        <input type="range" id="avatar-scale" min="0.8" max="1.2" step="0.05" value="1.0" />
-        <div class="value-display"><span id="avatar-scale-value">1.0</span>x</div>
-      </div>
-    </div>
-
-    <!-- Garment Tab -->
-    <div id="garment-tab" class="tab-content">
-      <h3>CLO3D Garment</h3>
-      
-      <div class="control-group">
-        <label>Load Garment File:</label>
-        <input type="file" id="garment-file" accept=".glb,.gltf" />
-        <div class="file-info" id="garment-file-info">
-          📁 Supports GLB/GLTF files from CLO3D<br>
-          ✨ Full geometry, materials, and textures supported<br>
-          🎯 Professional PBR rendering with Model Viewer
-        </div>
-      </div>
-
-      <div class="control-group">
-        <label>Available Sample Garments:</label>
-        <div class="preset-buttons">
-          <button class="preset-btn active" data-garment="tshirt-1" id="sample-tshirt-1">T-Shirt 1</button>
-          <button class="preset-btn" data-garment="tshirt" id="sample-tshirt">T-Shirt</button>
-          <button class="preset-btn" data-garment="dress" id="sample-dress">Dress</button>
-          <button class="preset-btn" data-garment="jacket" id="sample-jacket">Jacket</button>
-        </div>
-      </div>
-
-      <div class="control-group">
-        <label for="garment-scale">Garment Scale</label>
-        <input type="range" id="garment-scale" min="0.8" max="1.2" step="0.05" value="1.0" />
-        <div class="value-display"><span id="garment-scale-value">1.0</span>x</div>
-      </div>
-
-      <div class="control-group">
-        <label>📋 CLO3D Export Tips:</label>
-        <div style="font-size: 11px; color: #666; background: #f9f9f9; padding: 10px; border-radius: 6px;">
-          <strong>For best results with Model Viewer:</strong><br>
-          • Export as <strong>GLB format</strong> (single file)<br>
-          • Include all materials and textures<br>
-          • Use PBR materials for realistic rendering<br>
-          • Optimize for web (reduce file size)<br>
-          • Test in Model Viewer before production
-        </div>
-      </div>
-    </div>
-
-    <!-- Combined Tab -->
-    <div id="combined-tab" class="tab-content">
-      <h3>Combined View</h3>
-      
-      <div class="combination-status" id="combination-status">
-        <strong>Status:</strong> Load avatar and garment to combine
-      </div>
-      
-      <div class="control-group">
-        <label>Combination Method:</label>
-        <div class="preset-buttons">
-          <button class="preset-btn active" data-combination="overlay" id="overlay-method">Overlay</button>
-          <button class="preset-btn" data-combination="side-by-side" id="side-by-side-method">Side by Side</button>
-          <button class="preset-btn" data-combination="alternating" id="alternating-method">Alternating</button>
-        </div>
-      </div>
-
-      <div class="control-group">
-        <label for="avatar-opacity">Avatar Opacity</label>
-        <input type="range" id="avatar-opacity" min="0" max="1" step="0.1" value="0.7" />
-        <div class="value-display"><span id="avatar-opacity-value">0.7</span></div>
-      </div>
-
-      <div class="control-group">
-        <label for="garment-opacity">Garment Opacity</label>
-        <input type="range" id="garment-opacity" min="0" max="1" step="0.1" value="1.0" />
-        <div class="value-display"><span id="garment-opacity-value">1.0</span></div>
-      </div>
-
-      <div class="control-group">
-        <label for="garment-scale-combined">Garment Scale</label>
-        <input type="range" id="garment-scale-combined" min="0.5" max="2.0" step="0.05" value="1.0" />
-        <div class="value-display"><span id="garment-scale-combined-value">1.0</span>x</div>
-      </div>
-
-      <div class="control-group">
-        <label for="garment-offset-y">Garment Position Y</label>
-        <input type="range" id="garment-offset-y" min="-0.5" max="0.5" step="0.05" value="0" />
-        <div class="value-display"><span id="garment-offset-y-value">0.0</span></div>
-      </div>
-
-      <div class="control-group">
-        <label for="garment-offset-x">Garment Position X</label>
-        <input type="range" id="garment-offset-x" min="-0.5" max="0.5" step="0.05" value="0" />
-        <div class="value-display"><span id="garment-offset-x-value">0.0</span></div>
-      </div>
-
-      <div class="control-group">
-        <label>🧬 Physics Simulation:</label>
-        <div class="physics-status" id="physics-status">
-          <strong>Physics Engine:</strong> Ready to load<br>
-          <small>Click "Enable Physics" to start cloth simulation</small>
-        </div>
-        <div class="preset-buttons">
-          <button class="preset-btn" id="physics-toggle">Enable Physics</button>
-          <button class="preset-btn" id="physics-reset">Reset</button>
-        </div>
-      </div>
-
-      <div class="control-group" id="physics-controls" style="display: none;">
-        <label for="cloth-stiffness">Cloth Stiffness</label>
-        <input type="range" id="cloth-stiffness" min="0.1" max="1.0" step="0.1" value="0.4" />
-        <div class="value-display"><span id="cloth-stiffness-value">0.4</span></div>
-        
-        <label for="gravity-strength">Gravity Strength</label>
-        <input type="range" id="gravity-strength" min="0" max="20" step="1" value="9.81" />
-        <div class="value-display"><span id="gravity-strength-value">9.81</span></div>
-
-        <div class="physics-debug-controls">
-          <h4>🔍 Debug & Testing</h4>
-          <div class="preset-buttons">
-            <button class="preset-btn" id="debug-toggle">Show Physics</button>
-            <button class="preset-btn" id="debug-log">Log Status</button>
-            <button class="preset-btn" id="drop-test">Drop Test</button>
-            <button class="preset-btn" id="basic-test">Basic Test</button>
-            <button class="preset-btn" id="reset-cloth">Reset Cloth</button>
-          </div>
-          <div style="font-size: 10px; color: #666; margin-top: 8px;">
-            <strong>🎬 Drop Test:</strong> Dramatic cloth falling demo<br>
-            <strong>🔍 Show Physics:</strong> Visualize particles & constraints<br>
-            <strong>📊 Log Status:</strong> Check physics engine status<br>
-            <strong>🔄 Reset Cloth:</strong> Watch garment fall again!
+        <div class="info-section">
+          <h3>Performance</h3>
+          <div id="performance-info" class="performance-info">
+            FPS: --<br>
+            Triangles: --
           </div>
         </div>
       </div>
-
-      <div class="action-buttons">
-        <button class="action-btn" id="generate-combined">Generate Combined</button>
-        <button class="action-btn" id="reset-combination">Reset</button>
-      </div>
-
-      <div class="control-group">
-        <label>💡 Physics Tips:</label>
-        <div style="font-size: 11px; color: #666; background: #f9f9f9; padding: 10px; border-radius: 6px;">
-          <strong>🎬 Realistic cloth draping physics:</strong><br>
-          • Physics creates subtle falling and draping motion<br>
-          • Use "Garment Scale" to resize during physics<br>
-          • Use "Reset Cloth" to see it fall and drape again<br>
-          • Adjust gravity for different draping effects<br>
-          • Fixed spinning issue - now proper cloth behavior
-        </div>
-      </div>
-    </div>
-
-    <!-- Lighting Tab -->
-    <div id="lighting-tab" class="tab-content">
-      <h3>Lighting & Environment</h3>
-      
-      <div class="control-group">
-        <label>Environment Presets:</label>
-        <div class="environment-options">
-          <button class="env-btn active" data-environment="studio" id="env-studio">Studio</button>
-          <button class="env-btn" data-environment="apartment" id="env-apartment">Apartment</button>
-          <button class="env-btn" data-environment="city" id="env-city">City</button>
-          <button class="env-btn" data-environment="dawn" id="env-dawn">Dawn</button>
-          <button class="env-btn" data-environment="forest" id="env-forest">Forest</button>
-          <button class="env-btn" data-environment="lobby" id="env-lobby">Lobby</button>
-          <button class="env-btn" data-environment="night" id="env-night">Night</button>
-          <button class="env-btn" data-environment="park" id="env-park">Park</button>
-          <button class="env-btn" data-environment="sunset" id="env-sunset">Sunset</button>
-          <button class="env-btn" data-environment="warehouse" id="env-warehouse">Warehouse</button>
-        </div>
-      </div>
-
-      <div class="control-group">
-        <label for="exposure">Exposure</label>
-        <input type="range" id="exposure" min="0.5" max="2.0" step="0.1" value="1.0" />
-        <div class="value-display"><span id="exposure-value">1.0</span></div>
-      </div>
-
-      <div class="control-group">
-        <label for="shadow-intensity">Shadow Intensity</label>
-        <input type="range" id="shadow-intensity" min="0" max="2" step="0.1" value="1" />
-        <div class="value-display"><span id="shadow-intensity-value">1.0</span></div>
-      </div>
-
-      <div class="control-group">
-        <label for="shadow-softness">Shadow Softness</label>
-        <input type="range" id="shadow-softness" min="0" max="1" step="0.1" value="0.5" />
-        <div class="value-display"><span id="shadow-softness-value">0.5</span></div>
-      </div>
-
-      <div class="control-group">
-        <label>Tone Mapping:</label>
-        <div class="preset-buttons">
-          <button class="preset-btn active" data-tone-mapping="aces" id="tone-aces">ACES</button>
-          <button class="preset-btn" data-tone-mapping="neutral" id="tone-neutral">Neutral</button>
-          <button class="preset-btn" data-tone-mapping="commerce" id="tone-commerce">Commerce</button>
-        </div>
-      </div>
-
-      <div class="control-group">
-        <label>Camera Controls:</label>
-        <div class="preset-buttons">
-          <button class="preset-btn" id="auto-rotate-toggle">Auto Rotate</button>
-          <button class="preset-btn" id="camera-reset">Reset View</button>
-          <button class="preset-btn" id="focus-model">Focus Model</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="action-buttons">
-      <button class="action-btn" id="reset-camera">Reset View</button>
-      <button class="action-btn" id="take-screenshot">Screenshot</button>
-      <button class="action-btn" id="export-scene">Export</button>
-    </div>
-  </div>
-
-  <div class="viewer-controls">
-    <div style="margin-bottom: 10px;">
-      <strong>🎮 Controls:</strong><br>
-      🖱️ Drag to rotate • 🔍 Scroll to zoom<br>
-      📱 Touch & pinch on mobile
-    </div>
-    <div id="model-info">
-      📊 No model loaded
     </div>
   </div>
 

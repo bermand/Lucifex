@@ -15,324 +15,283 @@ export class PhysicsManager {
   }
 
   async loadPhysicsModules() {
+    const utils = window.lucifexApp?.utils
+
     try {
-      // Load simple physics fallback first
-      if (!window.SimpleClothPhysics) {
-        await this.loadScript("./physics/simple-cloth-physics.js", "SimpleClothPhysics")
-      }
+      // Load all physics modules
+      const modules = [
+        { name: "SimpleClothPhysics", path: "./physics/simple-cloth-physics.js" },
+        { name: "ClothSimulation", path: "./physics/cloth-simulation.js" },
+        { name: "PhysicsVisualDebug", path: "./physics/visual-debug.js" },
+        { name: "PhysicsTest", path: "./physics/physics-test.js" },
+        { name: "PhysicsDropTest", path: "./physics/drop-test.js" },
+        { name: "PhysicsMeshUpdater", path: "./physics/mesh-updater.js" },
+      ]
 
-      // Load cloth simulation
-      if (!window.ClothSimulation) {
-        await this.loadScript("./physics/cloth-simulation.js", "ClothSimulation")
-      }
-
-      // Load visual debug
-      if (!window.PhysicsVisualDebug) {
-        await this.loadScript("./physics/visual-debug.js", "PhysicsVisualDebug")
-      }
-
-      // Load physics test
-      if (!window.PhysicsTest) {
-        await this.loadScript("./physics/physics-test.js", "PhysicsTest")
-      }
-
-      // Load drop test
-      if (!window.PhysicsDropTest) {
-        await this.loadScript("./physics/drop-test.js", "PhysicsDropTest")
-      }
-
-      // Load mesh updater
-      if (!window.PhysicsMeshUpdater) {
-        await this.loadScript("./physics/mesh-updater.js", "PhysicsMeshUpdater")
-      }
-
-      console.log("✅ All physics modules loaded successfully")
-
-      const utils = window.lucifexApp?.utils
-      if (utils) {
-        utils.updatePhysicsStatus("✅ Physics modules loaded - ready to simulate")
-      }
-
-      return true
-    } catch (error) {
-      console.error("❌ Failed to load physics modules:", error)
-
-      const utils = window.lucifexApp?.utils
-      if (utils) {
-        utils.updatePhysicsStatus("❌ Failed to load physics modules")
-      }
-
-      return false
-    }
-  }
-
-  async loadScript(src, expectedGlobal) {
-    return new Promise((resolve, reject) => {
-      const script = document.createElement("script")
-      script.src = src
-      document.head.appendChild(script)
-
-      script.onload = () => {
-        if (window[expectedGlobal]) {
-          console.log(`✅ ${expectedGlobal} loaded`)
-          resolve()
-        } else {
-          reject(new Error(`${expectedGlobal} not found after loading script`))
+      for (const module of modules) {
+        try {
+          const moduleImport = await import(module.path)
+          window[module.name] = moduleImport[module.name]
+          console.log(`✅ ${module.name} loaded`)
+        } catch (error) {
+          console.warn(`⚠️ Failed to load ${module.name}:`, error)
         }
       }
 
-      script.onerror = () => reject(new Error(`Failed to load ${src}`))
-    })
+      if (utils) {
+        utils.updatePhysicsStatus("All modules loaded successfully")
+      }
+
+      console.log("✅ All physics modules loaded successfully")
+    } catch (error) {
+      console.error("❌ Error loading physics modules:", error)
+      if (utils) {
+        utils.updatePhysicsStatus("Error loading physics modules")
+      }
+    }
   }
 
-  togglePhysics() {
+  async togglePhysics() {
+    const utils = window.lucifexApp?.utils
+
     if (!this.state.isPhysicsEnabled) {
-      this.enablePhysics()
+      await this.enablePhysics()
     } else {
       this.disablePhysics()
+    }
+
+    // Update button state
+    const button = document.getElementById("physics-toggle")
+    if (button) {
+      if (this.state.isPhysicsEnabled) {
+        button.classList.add("active")
+        button.textContent = "🔴 Disable Physics"
+      } else {
+        button.classList.remove("active")
+        button.textContent = "🧬 Enable Physics"
+      }
+    }
+
+    if (utils) {
+      utils.updateStatus(`Physics ${this.state.isPhysicsEnabled ? "enabled" : "disabled"}`)
     }
   }
 
   async enablePhysics() {
-    if (!this.state.currentGarmentUrl) {
-      const utils = window.lucifexApp?.utils
-      if (utils) {
-        utils.updatePhysicsStatus("❌ Need garment loaded to enable physics")
-      }
-      return
-    }
+    const utils = window.lucifexApp?.utils
 
     try {
-      const utils = window.lucifexApp?.utils
-      if (utils) {
-        utils.updatePhysicsStatus("🔄 Initializing physics simulation...")
+      if (!this.state.isInCombinedMode) {
+        if (utils) {
+          utils.updateStatus("❌ Physics requires combined view mode")
+        }
+        return
       }
 
-      // Initialize cloth simulation using ClothSimulation class
-      if (window.ClothSimulation) {
-        const clothSimulation = new window.ClothSimulation()
-        const success = await clothSimulation.initialize()
+      this.state.setPhysicsEnabled(true)
 
-        if (success) {
-          // Setup avatar physics if we have an avatar
-          if (this.state.avatarViewer) {
-            await clothSimulation.setupAvatarPhysics(this.state.avatarViewer)
-          }
+      // Initialize physics components
+      if (window.ClothSimulation && !this.state.clothSimulation) {
+        this.state.setClothSimulation(new window.ClothSimulation())
+        await this.state.clothSimulation.initialize()
+      }
 
-          // Setup garment physics
-          if (this.state.garmentViewer) {
-            await clothSimulation.setupGarmentPhysics(this.state.garmentViewer)
-          }
+      if (window.PhysicsMeshUpdater && !this.state.physicsMeshUpdater) {
+        this.state.setPhysicsMeshUpdater(new window.PhysicsMeshUpdater())
+        this.state.physicsMeshUpdater.initialize(this.state.garmentViewer)
+      }
 
-          // Start the simulation
-          clothSimulation.startSimulation()
+      if (window.PhysicsVisualDebug && !this.state.physicsVisualDebug) {
+        this.state.setPhysicsVisualDebug(new window.PhysicsVisualDebug())
+        this.state.physicsVisualDebug.initialize()
+      }
 
-          this.state.setClothSimulation(clothSimulation)
-          this.state.setPhysicsEnabled(true)
+      // Start physics simulation
+      if (this.state.clothSimulation) {
+        this.state.clothSimulation.startSimulation()
+      }
 
-          const physicsToggle = document.getElementById("physics-toggle")
-          if (physicsToggle) {
-            physicsToggle.textContent = "Disable Physics"
-            physicsToggle.classList.add("active")
-          }
-
-          const physicsControls = document.getElementById("physics-controls")
-          if (physicsControls) {
-            physicsControls.style.display = "block"
-          }
-
-          if (utils) {
-            utils.updatePhysicsStatus("✅ Physics simulation active - cloth draping!")
-            utils.showPhysicsEffect("🎬 Physics Enabled!\nCloth is falling and draping naturally")
-          }
-        } else {
-          throw new Error("Failed to initialize cloth simulation")
-        }
-      } else {
-        throw new Error("ClothSimulation not available")
+      if (utils) {
+        utils.updatePhysicsStatus("Physics simulation active")
+        utils.showPhysicsEffect("Physics Enabled - Cloth simulation active")
       }
     } catch (error) {
-      console.error("Physics enable error:", error)
-      const utils = window.lucifexApp?.utils
+      console.error("Error enabling physics:", error)
       if (utils) {
-        utils.updatePhysicsStatus("❌ Failed to enable physics")
+        utils.updatePhysicsStatus("Error enabling physics")
       }
     }
   }
 
   disablePhysics() {
-    if (this.state.clothSimulation) {
-      this.state.clothSimulation.stopSimulation()
-      this.state.clothSimulation.cleanup()
-      this.state.setClothSimulation(null)
-    }
-
-    if (this.state.physicsMeshUpdater) {
-      this.state.physicsMeshUpdater.cleanup()
-      this.state.setPhysicsMeshUpdater(null)
-    }
+    const utils = window.lucifexApp?.utils
 
     this.state.setPhysicsEnabled(false)
 
-    const physicsToggle = document.getElementById("physics-toggle")
-    if (physicsToggle) {
-      physicsToggle.textContent = "Enable Physics"
-      physicsToggle.classList.remove("active")
+    // Stop physics simulation
+    if (this.state.clothSimulation) {
+      this.state.clothSimulation.stopSimulation()
     }
 
-    const physicsControls = document.getElementById("physics-controls")
-    if (physicsControls) {
-      physicsControls.style.display = "none"
-    }
-
-    const utils = window.lucifexApp?.utils
     if (utils) {
-      utils.updatePhysicsStatus("Physics simulation disabled")
+      utils.updatePhysicsStatus("Physics simulation stopped")
+      utils.showPhysicsEffect("Physics Disabled")
     }
   }
 
   resetPhysics() {
-    if (this.state.clothSimulation) {
-      this.state.clothSimulation.resetSimulation()
+    const utils = window.lucifexApp?.utils
 
-      const utils = window.lucifexApp?.utils
+    if (this.state.clothSimulation) {
+      this.state.clothSimulation.reset()
+    }
+
+    if (this.state.physicsMeshUpdater) {
+      this.state.physicsMeshUpdater.reset()
+    }
+
+    if (utils) {
+      utils.updateStatus("Physics simulation reset")
+      utils.showPhysicsEffect("Physics Reset")
+    }
+  }
+
+  resetClothPosition() {
+    const utils = window.lucifexApp?.utils
+
+    if (this.state.clothSimulation) {
+      this.state.clothSimulation.resetClothPosition()
+    }
+
+    if (utils) {
+      utils.updateStatus("Cloth position reset")
+      utils.showPhysicsEffect("Cloth Position Reset")
+    }
+  }
+
+  togglePhysicsDebug() {
+    const utils = window.lucifexApp?.utils
+
+    this.state.setPhysicsDebugEnabled(!this.state.isPhysicsDebugEnabled)
+
+    if (this.state.physicsVisualDebug) {
+      if (this.state.isPhysicsDebugEnabled) {
+        this.state.physicsVisualDebug.show()
+      } else {
+        this.state.physicsVisualDebug.hide()
+      }
+    }
+
+    // Update button state
+    const button = document.getElementById("debug-toggle")
+    if (button) {
+      if (this.state.isPhysicsDebugEnabled) {
+        button.classList.add("active")
+        button.textContent = "🔍 Hide Debug"
+      } else {
+        button.classList.remove("active")
+        button.textContent = "🔍 Show Debug"
+      }
+    }
+
+    if (utils) {
+      utils.updateStatus(`Physics debug ${this.state.isPhysicsDebugEnabled ? "enabled" : "disabled"}`)
+    }
+  }
+
+  logPhysicsStatus() {
+    const utils = window.lucifexApp?.utils
+
+    console.log("=== Physics Status ===")
+    console.log("Physics Enabled:", this.state.isPhysicsEnabled)
+    console.log("Debug Enabled:", this.state.isPhysicsDebugEnabled)
+    console.log("Cloth Simulation:", !!this.state.clothSimulation)
+    console.log("Mesh Updater:", !!this.state.physicsMeshUpdater)
+    console.log("Visual Debug:", !!this.state.physicsVisualDebug)
+
+    if (utils) {
+      utils.updateStatus("Physics status logged to console")
+    }
+  }
+
+  startDropTest() {
+    const utils = window.lucifexApp?.utils
+
+    if (!this.state.isPhysicsEnabled) {
       if (utils) {
-        utils.updatePhysicsStatus("✅ Physics reset - cloth repositioned")
-        utils.showPhysicsEffect("🔄 Physics Reset!\nCloth returned to starting position")
+        utils.updateStatus("❌ Enable physics first")
+      }
+      return
+    }
+
+    if (window.PhysicsDropTest && !this.state.physicsDropTest) {
+      this.state.setPhysicsDropTest(new window.PhysicsDropTest())
+    }
+
+    if (this.state.physicsDropTest) {
+      this.state.physicsDropTest.startDropTest()
+      if (utils) {
+        utils.updateStatus("Drop test started")
+        utils.showPhysicsEffect("Drop Test Active")
+      }
+    }
+  }
+
+  startBasicTest() {
+    const utils = window.lucifexApp?.utils
+
+    if (window.PhysicsTest && !this.state.physicsTest) {
+      this.state.setPhysicsTest(new window.PhysicsTest())
+    }
+
+    if (this.state.physicsTest) {
+      this.state.physicsTest.runBasicTest()
+      if (utils) {
+        utils.updateStatus("Basic physics test started")
+        utils.showPhysicsEffect("Basic Test Active")
       }
     }
   }
 
   updatePhysicsSettings() {
-    if (!this.state.clothSimulation) return
-
-    const stiffness = Number.parseFloat(document.getElementById("cloth-stiffness")?.value || "0.4")
-    const gravity = Number.parseFloat(document.getElementById("gravity-strength")?.value || "9.81")
-
-    this.state.clothSimulation.setGravity(0, -gravity, 0)
-    this.state.clothSimulation.setClothStiffness(null, stiffness)
-  }
-
-  togglePhysicsDebug() {
-    if (!window.PhysicsVisualDebug) {
-      const utils = window.lucifexApp?.utils
-      if (utils) {
-        utils.updatePhysicsStatus("❌ Physics debug not available")
-      }
-      return
-    }
-
-    if (!this.state.physicsVisualDebug) {
-      const physicsVisualDebug = new window.PhysicsVisualDebug()
-      physicsVisualDebug.initialize()
-      this.state.setPhysicsVisualDebug(physicsVisualDebug)
-    }
-
-    this.state.setPhysicsDebugEnabled(!this.state.isPhysicsDebugEnabled)
-
-    const debugToggle = document.getElementById("debug-toggle")
-    const utils = window.lucifexApp?.utils
-
-    if (this.state.isPhysicsDebugEnabled) {
-      this.state.physicsVisualDebug.enable()
-      if (debugToggle) {
-        debugToggle.textContent = "Hide Physics"
-        debugToggle.classList.add("active")
-      }
-      if (utils) {
-        utils.updatePhysicsStatus("🔍 Physics debug visualization enabled")
-      }
-    } else {
-      this.state.physicsVisualDebug.disable()
-      if (debugToggle) {
-        debugToggle.textContent = "Show Physics"
-        debugToggle.classList.remove("active")
-      }
-      if (utils) {
-        utils.updatePhysicsStatus("Physics debug visualization disabled")
-      }
-    }
-  }
-
-  logPhysicsStatus() {
-    console.log("=== PHYSICS STATUS ===")
-    console.log("Physics enabled:", this.state.isPhysicsEnabled)
-    console.log("Cloth simulation:", this.state.clothSimulation)
-    console.log("Physics debug:", this.state.physicsVisualDebug)
-    console.log("Current garment:", this.state.currentGarmentUrl)
-    console.log("Current avatar:", this.state.currentAvatarUrl)
+    const clothStiffness = document.getElementById("cloth-stiffness")?.value || 0.3
+    const gravityStrength = document.getElementById("gravity-strength")?.value || 0.8
 
     if (this.state.clothSimulation) {
-      console.log("Simulation status:", this.state.clothSimulation.getStatus())
+      this.state.clothSimulation.updateSettings({
+        stiffness: Number.parseFloat(clothStiffness),
+        gravity: Number.parseFloat(gravityStrength),
+      })
     }
 
     const utils = window.lucifexApp?.utils
     if (utils) {
-      utils.updatePhysicsStatus("📊 Physics status logged to console")
+      utils.updateStatus("Physics settings updated")
     }
   }
 
-  startDropTest() {
-    if (!window.PhysicsDropTest) {
-      const utils = window.lucifexApp?.utils
-      if (utils) {
-        utils.updatePhysicsStatus("❌ Drop test not available")
-      }
-      return
-    }
+  cleanup() {
+    this.disablePhysics()
 
-    if (!this.state.physicsDropTest) {
-      const physicsDropTest = new window.PhysicsDropTest()
-      physicsDropTest.initialize()
-      this.state.setPhysicsDropTest(physicsDropTest)
-    }
-
-    this.state.physicsDropTest.startDropTest()
-
-    const utils = window.lucifexApp?.utils
-    if (utils) {
-      utils.updatePhysicsStatus("🎬 Drop test started - dramatic cloth falling!")
-      utils.showPhysicsEffect("🎬 Drop Test Active!\nWatch the dramatic cloth fall!")
-    }
-  }
-
-  startBasicTest() {
-    if (!window.PhysicsTest) {
-      const utils = window.lucifexApp?.utils
-      if (utils) {
-        utils.updatePhysicsStatus("❌ Basic test not available")
-      }
-      return
-    }
-
-    if (!this.state.physicsTest) {
-      const physicsTest = new window.PhysicsTest()
-      physicsTest.initialize()
-      this.state.setPhysicsTest(physicsTest)
-    }
-
-    this.state.physicsTest.runBasicTest()
-
-    const utils = window.lucifexApp?.utils
-    if (utils) {
-      utils.updatePhysicsStatus("🧪 Basic physics test running")
-    }
-  }
-
-  resetClothPosition() {
+    // Clean up all physics instances
     if (this.state.clothSimulation) {
-      this.state.clothSimulation.resetClothPosition()
+      this.state.clothSimulation.cleanup()
+    }
 
-      const utils = window.lucifexApp?.utils
-      if (utils) {
-        utils.updatePhysicsStatus("🔄 Cloth position reset - watch it fall again!")
-        utils.showPhysicsEffect("🔄 Cloth Reset!\nWatch it fall and drape again!")
-      }
-    } else {
-      const utils = window.lucifexApp?.utils
-      if (utils) {
-        utils.updatePhysicsStatus("❌ No active physics simulation to reset")
-      }
+    if (this.state.physicsVisualDebug) {
+      this.state.physicsVisualDebug.cleanup()
+    }
+
+    if (this.state.physicsTest) {
+      this.state.physicsTest.cleanup()
+    }
+
+    if (this.state.physicsDropTest) {
+      this.state.physicsDropTest.cleanup()
+    }
+
+    if (this.state.physicsMeshUpdater) {
+      this.state.physicsMeshUpdater.cleanup()
     }
   }
 }

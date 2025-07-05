@@ -25,29 +25,45 @@ export class ModelManager {
       // Check for default avatar
       const avatarExists = await utils.checkFileExists("../assets/avatars/male.glb")
       if (avatarExists) {
-        utils.updateStatus("✅ Found avatar: male.glb")
+        console.log("✅ Found avatar: male.glb")
         this.state.setAvatarUrl("../assets/avatars/male.glb")
+
+        // Auto-select the male avatar button
+        utils.setActiveButtonByData(".avatar-option", "data-avatar", "male")
       }
 
       // Check for default garment
       const garmentExists = await utils.checkFileExists("../assets/garments/tshirt-1.glb")
       if (garmentExists) {
-        utils.updateStatus("✅ Found garment: tshirt-1.glb")
+        console.log("✅ Found garment: tshirt-1.glb")
         this.state.setGarmentUrl("../assets/garments/tshirt-1.glb")
+
+        // Auto-select the tshirt-1 garment button
+        utils.setActiveButtonByData(".preset-btn[data-garment]", "data-garment", "tshirt-1")
       }
 
+      // Load models based on what was found
       if (avatarExists && garmentExists) {
         utils.updateStatus("🎯 Both models found - loading combined view...")
+        this.state.setModelType("both")
+        utils.setActiveButtonByData(".model-btn", "data-model-type", "both")
         await this.generateCombinedView()
       } else if (avatarExists) {
         utils.updateStatus("👤 Avatar found - loading avatar view...")
+        this.state.setModelType("avatar")
+        utils.setActiveButtonByData(".model-btn", "data-model-type", "avatar")
         this.loadSingleModel(this.state.currentAvatarUrl, "avatar")
       } else if (garmentExists) {
         utils.updateStatus("👕 Garment found - loading garment view...")
+        this.state.setModelType("garment")
+        utils.setActiveButtonByData(".model-btn", "data-model-type", "garment")
         this.loadSingleModel(this.state.currentGarmentUrl, "garment")
       } else {
         utils.updateStatus("📁 No default models found - ready for file upload")
       }
+
+      // Update combination status
+      utils.updateCombinationStatus(this.state.hasAvatar, this.state.hasGarment)
     } catch (error) {
       console.error("Error checking for models:", error)
       utils.updateStatus("⚠️ Error checking for default models")
@@ -58,10 +74,10 @@ export class ModelManager {
     const utils = window.lucifexApp?.utils
     const viewer = this.state.mainViewer
 
-    if (!viewer) return
-
-    viewer.src = url
-    viewer.style.display = "block"
+    if (!viewer) {
+      console.error("Main viewer not found")
+      return
+    }
 
     // Hide combined container if it exists
     const combinedContainer = document.getElementById("combined-container")
@@ -69,10 +85,22 @@ export class ModelManager {
       combinedContainer.style.display = "none"
     }
 
+    // Show and configure main viewer
+    viewer.style.display = "block"
+    viewer.src = url
+
+    // Apply environment settings
+    const environmentManager = window.lucifexApp?.environmentManager
+    if (environmentManager) {
+      environmentManager.applyEnvironmentToViewer(viewer)
+    }
+
     if (utils) {
       utils.updateModelInfo(url, type)
       utils.updateStatus(`✅ ${type} loaded successfully`)
     }
+
+    console.log(`Model loaded: ${type} from ${url}`)
   }
 
   async generateCombinedView() {
@@ -137,7 +165,14 @@ export class ModelManager {
         </model-viewer>
       `
 
-      document.body.appendChild(combinedContainer)
+      // Insert into viewer container
+      const viewerContainer = document.querySelector(".viewer-container")
+      if (viewerContainer) {
+        viewerContainer.appendChild(combinedContainer)
+      }
+
+      // Wait for model-viewer elements to be ready
+      await new Promise((resolve) => setTimeout(resolve, 100))
 
       // Store references
       this.state.setAvatarViewer(document.getElementById("avatar-viewer"))
@@ -147,10 +182,20 @@ export class ModelManager {
       this.updateModelOpacity("avatar", 0.7)
       this.updateModelOpacity("garment", 1.0)
 
+      // Apply environment settings to both viewers
+      const environmentManager = window.lucifexApp?.environmentManager
+      if (environmentManager) {
+        environmentManager.applyEnvironmentToViewer(this.state.avatarViewer)
+        environmentManager.applyEnvironmentToViewer(this.state.garmentViewer)
+      }
+
       if (utils) {
         utils.updateStatus("✅ Combined view created with unified background")
         utils.updateCombinationStatus(this.state.hasAvatar, this.state.hasGarment)
+        utils.updateModelInfo(`${this.state.currentAvatarUrl} + ${this.state.currentGarmentUrl}`, "combined")
       }
+
+      console.log("Combined view created successfully")
     } catch (error) {
       console.error("Error creating combined view:", error)
       if (utils) {
@@ -185,8 +230,13 @@ export class ModelManager {
       this.state.mainViewer.src = ""
     }
 
+    // Clear viewer references
+    this.state.setAvatarViewer(null)
+    this.state.setGarmentViewer(null)
+
     if (utils) {
       utils.updateStatus("Combination reset")
+      utils.updateModelInfo("", "none")
     }
   }
 
@@ -198,14 +248,10 @@ export class ModelManager {
       const offsetX = Number.parseFloat(document.getElementById("garment-offset-x")?.value || 0)
       const offsetY = Number.parseFloat(document.getElementById("garment-offset-y")?.value || 0)
       this.state.garmentViewer.style.transform = `scale(${scale}) translate(${offsetX * 100}px, ${offsetY * -100}px)`
-    } else if (type === "avatar" && this.state.mainViewer) {
-      if (this.state.mainViewer.style.display !== "none") {
-        this.state.mainViewer.style.transform = `scale(${scale})`
-      }
-    } else if (type === "garment" && this.state.mainViewer) {
-      if (this.state.mainViewer.style.display !== "none") {
-        this.state.mainViewer.style.transform = `scale(${scale})`
-      }
+    } else if (type === "avatar" && this.state.mainViewer && this.state.currentModelType === "avatar") {
+      this.state.mainViewer.style.transform = `scale(${scale})`
+    } else if (type === "garment" && this.state.mainViewer && this.state.currentModelType === "garment") {
+      this.state.mainViewer.style.transform = `scale(${scale})`
     }
   }
 
@@ -227,5 +273,25 @@ export class ModelManager {
     const scale = Number.parseFloat(document.getElementById("garment-scale-combined")?.value || 1)
 
     this.state.garmentViewer.style.transform = `scale(${scale}) translate(${offsetX * 100}px, ${offsetY * -100}px)`
+  }
+
+  // Cleanup
+  cleanup() {
+    // Clean up object URLs
+    const utils = window.lucifexApp?.utils
+    if (utils) {
+      if (this.state.currentAvatarUrl && this.state.currentAvatarUrl.startsWith("blob:")) {
+        utils.revokeObjectURL(this.state.currentAvatarUrl)
+      }
+      if (this.state.currentGarmentUrl && this.state.currentGarmentUrl.startsWith("blob:")) {
+        utils.revokeObjectURL(this.state.currentGarmentUrl)
+      }
+    }
+
+    // Remove combined container
+    const combinedContainer = document.getElementById("combined-container")
+    if (combinedContainer) {
+      combinedContainer.remove()
+    }
   }
 }
