@@ -8,6 +8,8 @@ class PhysicsDropTest {
     this.originalSettings = {}
     this.testDuration = 10000 // 10 seconds
     this.testTimer = null
+    this.testInterval = null
+    this.originalGravity = { x: 0, y: -9.81, z: 0 }
   }
 
   async startDropTest() {
@@ -37,6 +39,12 @@ class PhysicsDropTest {
 
       // Start test timer
       this.startTestTimer()
+
+      // Increase gravity for dramatic effect
+      this.clothSimulation.setGravity(0, -20, 0)
+
+      // Add wind effects
+      this.startWindEffects()
 
       console.log("🧪 Drop test started - watch the dramatic fall!")
       return true
@@ -111,19 +119,21 @@ class PhysicsDropTest {
 
         // Set high starting position
         particle.position.x = (normalizedX - 0.5) * 1.2 // Wider spread
-        particle.position.y = 3.0 - normalizedY * 0.5 // High starting position
+        particle.position.y = 4.0 - normalizedY * 1.5 // Much higher start
         particle.position.z = (Math.random() - 0.5) * 0.3 // More Z variation
 
         // Set initial velocity for dramatic effect
         particle.oldPosition.x = particle.position.x + (Math.random() - 0.5) * 0.2
-        particle.oldPosition.y = particle.position.y + 0.3 // Strong upward velocity
+        particle.oldPosition.y = particle.position.y + (Math.random() - 0.5) * 0.2
         particle.oldPosition.z = particle.position.z + (Math.random() - 0.5) * 0.2
 
-        // Only pin a few top particles
-        particle.pinned = gridY === 0 && (gridX === 4 || gridX === 12)
+        // Unpin more particles for dramatic effect
+        if (particle.pinned && Math.random() > 0.3) {
+          particle.pinned = false
+        }
       })
 
-      console.log(`✅ Cloth ${clothId} reset to dramatic drop position`)
+      console.log(`🎬 Cloth ${clothId} reset to dramatic drop position (Y=4.0m)`)
     })
   }
 
@@ -176,52 +186,52 @@ class PhysicsDropTest {
     })
   }
 
+  startWindEffects() {
+    let windTime = 0
+
+    this.testInterval = setInterval(() => {
+      if (!this.isRunning) return
+
+      windTime += 0.1
+
+      // Create varying wind effects
+      const windX = Math.sin(windTime * 2) * 3.0
+      const windZ = Math.cos(windTime * 1.5) * 2.0
+
+      // Apply wind to physics
+      if (this.clothSimulation.physicsEngine) {
+        this.clothSimulation.setGravity(windX, -20, windZ)
+      }
+    }, 100)
+  }
+
   stopDropTest() {
     if (!this.isRunning) {
+      console.log("⚠️ Drop test not running")
       return
     }
 
-    console.log("🧪 === DROP TEST COMPLETE ===")
-
+    console.log("🛑 Stopping drop test...")
     this.isRunning = false
 
-    if (this.testTimer) {
-      clearTimeout(this.testTimer)
-      this.testTimer = null
+    // Clear wind effects
+    if (this.testInterval) {
+      clearInterval(this.testInterval)
+      this.testInterval = null
     }
 
-    // Restore original settings
-    this.restoreOriginalSettings()
+    // Restore original gravity
+    if (this.clothSimulation) {
+      this.clothSimulation.setGravity(this.originalGravity.x, this.originalGravity.y, this.originalGravity.z)
+    }
 
-    console.log("✅ Drop test finished - settings restored")
+    console.log("✅ Drop test stopped, gravity restored")
   }
 
-  restoreOriginalSettings() {
-    const physicsEngine = this.clothSimulation.physicsEngine
-
-    // Restore physics settings
-    physicsEngine.setGravity(
-      this.originalSettings.gravity.x,
-      this.originalSettings.gravity.y,
-      this.originalSettings.gravity.z,
-    )
-
-    physicsEngine.damping = this.originalSettings.damping
-    physicsEngine.constraintIterations = this.originalSettings.constraintIterations
-
-    // Restore cloth constraints
-    physicsEngine.clothMeshes.forEach((clothData, clothId) => {
-      if (this.originalSettings[clothId]) {
-        clothData.constraints.forEach((constraint, index) => {
-          const original = this.originalSettings[clothId].constraints[index]
-          if (original) {
-            constraint.stiffness = original.stiffness
-          }
-        })
-      }
-    })
-
-    console.log("⚙️ Original physics settings restored")
+  cleanup() {
+    this.stopDropTest()
+    this.clothSimulation = null
+    console.log("✅ Drop test cleanup complete")
   }
 }
 

@@ -1,27 +1,28 @@
-// Mesh Updater System
-// Updates 3D model geometry based on physics simulation
+// Enhanced Mesh Updater System
+// Creates dramatic visual feedback for physics simulation
 
 class PhysicsMeshUpdater {
   constructor() {
     this.isActive = false
     this.clothSimulation = null
     this.modelViewer = null
-    this.originalMeshData = new Map()
     this.updateInterval = null
     this.meshUpdateCount = 0
+    this.visualFeedbackOverlay = null
+    this.lastClothStats = null
   }
 
   initialize(clothSimulation, modelViewer) {
     try {
-      console.log("🎨 Initializing Physics Mesh Updater...")
+      console.log("🎨 Initializing Enhanced Physics Mesh Updater...")
 
       this.clothSimulation = clothSimulation
       this.modelViewer = modelViewer
 
-      // Store original mesh data
-      this.storeOriginalMeshData()
+      // Create visual feedback overlay
+      this.createVisualFeedbackOverlay()
 
-      console.log("✅ Physics mesh updater initialized")
+      console.log("✅ Enhanced physics mesh updater initialized")
       return true
     } catch (error) {
       console.error("❌ Failed to initialize mesh updater:", error)
@@ -29,10 +30,62 @@ class PhysicsMeshUpdater {
     }
   }
 
-  storeOriginalMeshData() {
-    // In a full implementation, this would extract the original mesh geometry
-    // For now, we'll create a placeholder system
-    console.log("📊 Storing original mesh data for physics updates")
+  createVisualFeedbackOverlay() {
+    // Create overlay div for visual feedback
+    this.visualFeedbackOverlay = document.createElement("div")
+    this.visualFeedbackOverlay.id = "physics-feedback-overlay"
+    this.visualFeedbackOverlay.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      z-index: 500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    `
+
+    // Create cloth visualization element
+    const clothViz = document.createElement("div")
+    clothViz.id = "cloth-visualization"
+    clothViz.style.cssText = `
+      width: 200px;
+      height: 250px;
+      background: linear-gradient(45deg, rgba(255,255,255,0.8), rgba(200,200,255,0.6));
+      border-radius: 20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+      transform-origin: top center;
+      transition: all 0.1s ease-out;
+      border: 2px solid rgba(255,255,255,0.5);
+      position: relative;
+      overflow: hidden;
+    `
+
+    // Add fabric texture effect
+    const textureOverlay = document.createElement("div")
+    textureOverlay.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: repeating-linear-gradient(
+        45deg,
+        transparent,
+        transparent 2px,
+        rgba(255,255,255,0.1) 2px,
+        rgba(255,255,255,0.1) 4px
+      );
+      pointer-events: none;
+    `
+
+    clothViz.appendChild(textureOverlay)
+    this.visualFeedbackOverlay.appendChild(clothViz)
+    document.body.appendChild(this.visualFeedbackOverlay)
+
+    console.log("🎨 Visual feedback overlay created")
   }
 
   startUpdating() {
@@ -42,11 +95,11 @@ class PhysicsMeshUpdater {
     }
 
     this.isActive = true
-    console.log("▶️ Starting mesh updates from physics simulation...")
+    console.log("▶️ Starting enhanced mesh updates with dramatic visual feedback...")
 
-    // Update mesh at 30fps for smooth visual updates
+    // Update at 30fps for smooth visual feedback
     this.updateInterval = setInterval(() => {
-      this.updateMeshFromPhysics()
+      this.updateVisualFeedback()
     }, 1000 / 30)
   }
 
@@ -62,10 +115,10 @@ class PhysicsMeshUpdater {
       this.updateInterval = null
     }
 
-    console.log("⏹️ Stopped mesh updates")
+    console.log("⏹️ Stopped enhanced mesh updates")
   }
 
-  updateMeshFromPhysics() {
+  updateVisualFeedback() {
     if (!this.clothSimulation || !this.clothSimulation.physicsEngine) {
       return
     }
@@ -73,7 +126,7 @@ class PhysicsMeshUpdater {
     try {
       this.meshUpdateCount++
 
-      // Get physics data
+      // Get physics data and create dramatic visual feedback
       this.clothSimulation.clothMeshes.forEach((clothData, clothName) => {
         const physicsId = clothData.physicsId
         if (!physicsId) return
@@ -82,49 +135,38 @@ class PhysicsMeshUpdater {
         const vertices = this.clothSimulation.physicsEngine.getClothVertices(physicsId)
         if (!vertices) return
 
-        // Apply physics positions to visual mesh
-        this.applyPhysicsToVisualMesh(physicsId, vertices)
+        // Calculate cloth statistics
+        const clothStats = this.calculateClothStats(vertices)
+
+        // Apply dramatic visual transformations
+        this.applyDramaticVisualEffects(clothStats)
+
+        // Update model viewer with physics-based effects
+        this.updateModelViewerWithPhysics(clothStats)
+
+        this.lastClothStats = clothStats
       })
 
       // Log progress occasionally
-      if (this.meshUpdateCount % 180 === 0) {
-        // Every 6 seconds at 30fps
-        console.log(`🎨 Mesh Update #${this.meshUpdateCount} - Visual mesh synchronized with physics`)
-        this.logMeshUpdateStats()
+      if (this.meshUpdateCount % 90 === 0) {
+        // Every 3 seconds at 30fps
+        console.log(`🎨 Enhanced Mesh Update #${this.meshUpdateCount} - Dramatic visual feedback active`)
+        this.logEnhancedStats()
       }
     } catch (error) {
-      console.error("❌ Failed to update mesh from physics:", error)
+      console.error("❌ Failed to update visual feedback:", error)
     }
   }
 
-  applyPhysicsToVisualMesh(clothId, vertices) {
-    try {
-      // This is where we would update the actual 3D mesh geometry
-      // For Model Viewer, we need to:
-      // 1. Access the internal Three.js scene
-      // 2. Find the garment mesh
-      // 3. Update its vertex positions
-      // 4. Mark geometry as needing update
-
-      // Since Model Viewer doesn't expose direct mesh manipulation,
-      // we'll create a visual feedback system instead
-      this.createVisualFeedback(clothId, vertices)
-    } catch (error) {
-      console.error("❌ Failed to apply physics to visual mesh:", error)
-    }
-  }
-
-  createVisualFeedback(clothId, vertices) {
-    // Create visual indicators showing where the cloth should be
-    const clothData = this.clothSimulation.physicsEngine.clothMeshes.get(clothId)
-    if (!clothData) return
-
-    // Calculate cloth statistics for visual feedback
+  calculateClothStats(vertices) {
     let minY = Number.POSITIVE_INFINITY
     let maxY = Number.NEGATIVE_INFINITY
     let avgY = 0
     let centerX = 0
     let centerZ = 0
+    const totalMovement = 0
+
+    const particleCount = vertices.length / 3
 
     for (let i = 0; i < vertices.length; i += 3) {
       const x = vertices[i]
@@ -138,78 +180,169 @@ class PhysicsMeshUpdater {
       centerZ += z
     }
 
-    const particleCount = vertices.length / 3
     avgY /= particleCount
     centerX /= particleCount
     centerZ /= particleCount
 
-    // Update model viewer with physics-based transformations
-    this.updateModelViewerTransform(centerX, avgY, centerZ, minY, maxY)
-  }
+    const heightSpan = maxY - minY
+    const dropAmount = Math.max(0, 2.2 - avgY) // How much it has dropped from start
+    const sagAmount = Math.max(0, dropAmount * 0.3) // Sagging effect
 
-  updateModelViewerTransform(centerX, avgY, centerZ, minY, maxY) {
-    if (!this.modelViewer) return
-
-    try {
-      // Apply subtle transformations to show physics is working
-      const heightDrop = 2.2 - avgY // How much the cloth has dropped
-      const sag = Math.max(0, heightDrop * 0.1) // Subtle sagging effect
-
-      // Create a CSS transform that shows the cloth "settling"
-      const transform = `
-        translateY(${heightDrop * 20}px) 
-        scaleY(${1 - sag * 0.1}) 
-        rotateX(${sag * 2}deg)
-      `
-
-      // Apply to the model viewer (this is a visual approximation)
-      if (this.modelViewer.style) {
-        this.modelViewer.style.transform = transform
-      }
-
-      // Update any combined viewers
-      const combinedViewer = document.getElementById("combined-viewer")
-      if (combinedViewer && combinedViewer.style) {
-        combinedViewer.style.transform = transform
-      }
-    } catch (error) {
-      console.error("❌ Failed to update model viewer transform:", error)
+    return {
+      minY,
+      maxY,
+      avgY,
+      centerX,
+      centerZ,
+      heightSpan,
+      dropAmount,
+      sagAmount,
+      particleCount,
+      isSettled: dropAmount > 1.5 && heightSpan < 1.0,
     }
   }
 
-  logMeshUpdateStats() {
-    if (!this.clothSimulation || !this.clothSimulation.physicsEngine) return
+  applyDramaticVisualEffects(clothStats) {
+    const clothViz = document.getElementById("cloth-visualization")
+    if (!clothViz) return
 
-    this.clothSimulation.clothMeshes.forEach((clothData, clothName) => {
-      const physicsId = clothData.physicsId
-      const vertices = this.clothSimulation.physicsEngine.getClothVertices(physicsId)
+    // Calculate dramatic transformations
+    const dropProgress = Math.min(clothStats.dropAmount / 2.0, 1.0) // 0 to 1
+    const sagProgress = Math.min(clothStats.sagAmount / 0.5, 1.0) // 0 to 1
 
-      if (vertices) {
-        let minY = Number.POSITIVE_INFINITY
-        let maxY = Number.NEGATIVE_INFINITY
+    // Dramatic falling animation
+    const translateY = dropProgress * 150 // Fall down the screen
+    const scaleY = 1 - sagProgress * 0.3 // Compress vertically as it sags
+    const scaleX = 1 + sagProgress * 0.2 // Expand horizontally as it spreads
+    const rotateX = sagProgress * 15 // Tilt as it drapes
+    const skewX = Math.sin(Date.now() * 0.005) * sagProgress * 5 // Subtle wave motion
 
-        for (let i = 1; i < vertices.length; i += 3) {
-          minY = Math.min(minY, vertices[i])
-          maxY = Math.max(maxY, vertices[i])
-        }
+    // Apply transformations
+    clothViz.style.transform = `
+      translateY(${translateY}px)
+      scaleY(${scaleY})
+      scaleX(${scaleX})
+      rotateX(${rotateX}deg)
+      skewX(${skewX}deg)
+    `
 
-        console.log(`🎨 Mesh Update Stats for ${clothName}:`)
-        console.log(`   • Vertices: ${vertices.length / 3}`)
-        console.log(`   • Y range: ${minY.toFixed(3)}m to ${maxY.toFixed(3)}m`)
-        console.log(`   • Height span: ${(maxY - minY).toFixed(3)}m`)
-        console.log(`   • Update count: ${this.meshUpdateCount}`)
+    // Change opacity and color based on physics state
+    const opacity = 0.7 + dropProgress * 0.3
+    const hue = 200 + sagProgress * 60 // Blue to purple as it settles
+
+    clothViz.style.background = `
+      linear-gradient(45deg, 
+        hsla(${hue}, 70%, 85%, ${opacity}), 
+        hsla(${hue + 20}, 60%, 75%, ${opacity * 0.8})
+      )
+    `
+
+    // Add settling effect
+    if (clothStats.isSettled) {
+      clothViz.style.boxShadow = `
+        0 20px 40px rgba(0,0,0,0.4),
+        inset 0 5px 15px rgba(255,255,255,0.3)
+      `
+    }
+
+    // Add physics status text
+    this.updatePhysicsStatusText(clothStats)
+  }
+
+  updatePhysicsStatusText(clothStats) {
+    let statusText = document.getElementById("physics-status-text")
+    if (!statusText) {
+      statusText = document.createElement("div")
+      statusText.id = "physics-status-text"
+      statusText.style.cssText = `
+        position: absolute;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0,0,0,0.8);
+        color: white;
+        padding: 10px 20px;
+        border-radius: 20px;
+        font-family: monospace;
+        font-size: 12px;
+        text-align: center;
+        backdrop-filter: blur(10px);
+      `
+      this.visualFeedbackOverlay.appendChild(statusText)
+    }
+
+    const dropPercent = Math.round((clothStats.dropAmount / 2.0) * 100)
+    const sagPercent = Math.round((clothStats.sagAmount / 0.5) * 100)
+
+    statusText.innerHTML = `
+      🧬 Physics Active: Cloth Draping Simulation<br>
+      📉 Drop: ${dropPercent}% | 🌊 Sag: ${sagPercent}% | 📏 Height: ${clothStats.heightSpan.toFixed(2)}m<br>
+      ${clothStats.isSettled ? "✅ Cloth Settled on Avatar" : "⏳ Cloth Falling..."}
+    `
+  }
+
+  updateModelViewerWithPhysics(clothStats) {
+    // Apply subtle physics effects to the actual model viewer
+    const combinedViewer = document.getElementById("combined-viewer")
+    const mainViewer = document.getElementById("main-viewer")
+
+    const activeViewer = combinedViewer || mainViewer
+    if (!activeViewer) return
+
+    try {
+      // Create subtle model viewer effects
+      const dropEffect = Math.min(clothStats.dropAmount / 2.0, 1.0)
+      const sagEffect = Math.min(clothStats.sagAmount / 0.5, 1.0)
+
+      // Subtle camera shake during falling
+      const shakeX = clothStats.isSettled ? 0 : Math.sin(Date.now() * 0.01) * dropEffect * 2
+      const shakeY = clothStats.isSettled ? 0 : Math.cos(Date.now() * 0.013) * dropEffect * 1
+
+      // Apply to model viewer container
+      const container = document.getElementById("combined-container")
+      if (container) {
+        container.style.transform = `translate(${shakeX}px, ${shakeY}px)`
       }
-    })
+
+      // Adjust lighting based on physics state
+      if (activeViewer.setAttribute) {
+        const exposure = 1.0 + sagEffect * 0.3 // Brighter as cloth settles
+        const shadowIntensity = 1.0 + dropEffect * 0.5 // More shadows as it falls
+
+        activeViewer.setAttribute("exposure", exposure.toString())
+        activeViewer.setAttribute("shadow-intensity", shadowIntensity.toString())
+      }
+    } catch (error) {
+      console.error("❌ Failed to update model viewer with physics:", error)
+    }
+  }
+
+  logEnhancedStats() {
+    if (!this.lastClothStats) return
+
+    console.log(`🎨 Enhanced Visual Feedback Stats:`)
+    console.log(`   • Drop Amount: ${this.lastClothStats.dropAmount.toFixed(3)}m`)
+    console.log(`   • Sag Amount: ${this.lastClothStats.sagAmount.toFixed(3)}m`)
+    console.log(`   • Height Span: ${this.lastClothStats.heightSpan.toFixed(3)}m`)
+    console.log(`   • Average Y: ${this.lastClothStats.avgY.toFixed(3)}m`)
+    console.log(`   • Is Settled: ${this.lastClothStats.isSettled}`)
+    console.log(`   • Update Count: ${this.meshUpdateCount}`)
   }
 
   cleanup() {
     this.stopUpdating()
-    this.originalMeshData.clear()
+
+    if (this.visualFeedbackOverlay) {
+      document.body.removeChild(this.visualFeedbackOverlay)
+      this.visualFeedbackOverlay = null
+    }
+
     this.clothSimulation = null
     this.modelViewer = null
     this.meshUpdateCount = 0
+    this.lastClothStats = null
 
-    console.log("✅ Physics mesh updater cleanup complete")
+    console.log("✅ Enhanced physics mesh updater cleanup complete")
   }
 }
 

@@ -1,151 +1,185 @@
-// Basic Physics Test
-// Simple test to verify physics engine is working correctly
+// Physics Test System
+// Verifies that the physics engine is working correctly
 
 class PhysicsTest {
   constructor() {
-    this.testParticles = []
-    this.testRunning = false
-    this.testStartTime = 0
+    this.testResults = []
   }
 
   async startBasicTest() {
-    console.log("🧪 === BASIC PHYSICS TEST STARTING ===")
+    console.log("🧪 Starting basic physics engine test...")
+    this.testResults = []
 
     try {
-      // Load Simple Physics if not already loaded
-      if (!window.SimpleClothPhysics) {
-        console.log("❌ SimpleClothPhysics not available")
-        return false
-      }
+      // Test 1: Engine availability
+      await this.testEngineAvailability()
 
-      // Create a simple physics instance for testing
-      const testPhysics = new window.SimpleClothPhysics()
-      const initialized = await testPhysics.initPhysicsWorld()
+      // Test 2: Particle creation
+      await this.testParticleCreation()
 
-      if (!initialized) {
-        console.log("❌ Failed to initialize test physics")
-        return false
-      }
+      // Test 3: Gravity effects
+      await this.testGravityEffects()
 
-      console.log("✅ Test physics engine initialized")
+      // Test 4: Collision detection
+      await this.testCollisionDetection()
 
-      // Create a simple falling particle test
-      const testCloth = testPhysics.createClothFromGeometry(
-        [], // Will be generated procedurally
-        [], // Will be generated procedurally
-        { x: 0, y: 3.0, z: 0 }, // Start high up
-      )
+      // Report results
+      this.reportTestResults()
 
-      if (!testCloth) {
-        console.log("❌ Failed to create test cloth")
-        return false
-      }
-
-      console.log("✅ Test cloth created with ID:", testCloth.id)
-      console.log("   • Particles:", testCloth.particles.length)
-      console.log("   • Constraints:", testCloth.constraints.length)
-
-      // Run test simulation for 5 seconds
-      this.testRunning = true
-      this.testStartTime = Date.now()
-      let frameCount = 0
-      const maxFrames = 300 // 5 seconds at 60fps
-
-      const testLoop = () => {
-        if (!this.testRunning || frameCount >= maxFrames) {
-          this.completeBasicTest(testPhysics, testCloth.id, frameCount)
-          return
-        }
-
-        // Update physics
-        testPhysics.updatePhysics(1 / 60)
-        frameCount++
-
-        // Log progress every 60 frames (1 second)
-        if (frameCount % 60 === 0) {
-          const vertices = testPhysics.getClothVertices(testCloth.id)
-          if (vertices) {
-            let minY = Number.POSITIVE_INFINITY
-            let maxY = Number.NEGATIVE_INFINITY
-
-            for (let i = 1; i < vertices.length; i += 3) {
-              const y = vertices[i]
-              minY = Math.min(minY, y)
-              maxY = Math.max(maxY, y)
-            }
-
-            console.log(`🧪 Test Progress (${frameCount / 60}s): Y range ${minY.toFixed(3)}m to ${maxY.toFixed(3)}m`)
-          }
-        }
-
-        // Continue test
-        requestAnimationFrame(testLoop)
-      }
-
-      // Start test loop
-      requestAnimationFrame(testLoop)
-
-      console.log("🧪 Basic physics test running for 5 seconds...")
-      return true
+      return this.testResults.every((result) => result.passed)
     } catch (error) {
       console.error("❌ Basic physics test failed:", error)
       return false
     }
   }
 
-  completeBasicTest(testPhysics, clothId, frameCount) {
-    const testDuration = (Date.now() - this.testStartTime) / 1000
+  async testEngineAvailability() {
+    console.log("🔍 Test 1: Engine Availability")
 
-    console.log("🧪 === BASIC PHYSICS TEST COMPLETE ===")
-    console.log(`   • Duration: ${testDuration.toFixed(2)}s`)
-    console.log(`   • Frames: ${frameCount}`)
-    console.log(`   • Average FPS: ${(frameCount / testDuration).toFixed(1)}`)
+    const passed = !!(window.SimpleClothPhysics && window.ClothSimulation)
 
-    // Get final particle positions
-    const vertices = testPhysics.getClothVertices(clothId)
-    if (vertices) {
-      let minY = Number.POSITIVE_INFINITY
-      let maxY = Number.NEGATIVE_INFINITY
-      let avgY = 0
+    this.testResults.push({
+      name: "Engine Availability",
+      passed,
+      details: passed ? "✅ Physics engines loaded" : "❌ Physics engines missing",
+    })
 
-      for (let i = 1; i < vertices.length; i += 3) {
-        const y = vertices[i]
-        minY = Math.min(minY, y)
-        maxY = Math.max(maxY, y)
-        avgY += y
-      }
-      avgY /= vertices.length / 3
-
-      console.log("🧪 Final Results:")
-      console.log(`   • Y range: ${minY.toFixed(3)}m to ${maxY.toFixed(3)}m`)
-      console.log(`   • Average Y: ${avgY.toFixed(3)}m`)
-      console.log(`   • Height drop: ${(3.0 - avgY).toFixed(3)}m`)
-
-      // Determine if test passed
-      const heightDrop = 3.0 - avgY
-      if (heightDrop > 0.5) {
-        console.log("✅ PHYSICS TEST PASSED - Particles fell significantly!")
-        console.log("   • Gravity is working correctly")
-        console.log("   • Verlet integration is functioning")
-        console.log("   • Cloth simulation is operational")
-      } else {
-        console.log("⚠️ PHYSICS TEST INCONCLUSIVE - Limited movement detected")
-        console.log("   • Particles may be too constrained")
-        console.log("   • Gravity may be too weak")
-        console.log("   • Check physics parameters")
-      }
-    }
-
-    // Cleanup test physics
-    testPhysics.cleanup()
-    this.testRunning = false
-
-    console.log("🧪 Test cleanup complete")
+    console.log(passed ? "✅ PASS: Physics engines available" : "❌ FAIL: Physics engines missing")
   }
 
-  stopBasicTest() {
-    this.testRunning = false
-    console.log("🧪 Basic physics test stopped")
+  async testParticleCreation() {
+    console.log("🔍 Test 2: Particle Creation")
+
+    try {
+      const engine = new window.SimpleClothPhysics()
+      await engine.initPhysicsWorld()
+
+      const cloth = engine.createClothFromGeometry([], [], { x: 0, y: 2, z: 0 })
+      const passed = !!(cloth && cloth.particles && cloth.particles.length > 0)
+
+      this.testResults.push({
+        name: "Particle Creation",
+        passed,
+        details: passed ? `✅ Created ${cloth.particles.length} particles` : "❌ Failed to create particles",
+      })
+
+      console.log(passed ? `✅ PASS: Created ${cloth.particles.length} particles` : "❌ FAIL: Particle creation failed")
+
+      engine.cleanup()
+    } catch (error) {
+      this.testResults.push({
+        name: "Particle Creation",
+        passed: false,
+        details: `❌ Error: ${error.message}`,
+      })
+      console.log("❌ FAIL: Particle creation error:", error.message)
+    }
+  }
+
+  async testGravityEffects() {
+    console.log("🔍 Test 3: Gravity Effects")
+
+    try {
+      const engine = new window.SimpleClothPhysics()
+      await engine.initPhysicsWorld()
+
+      const cloth = engine.createClothFromGeometry([], [], { x: 0, y: 2, z: 0 })
+
+      if (!cloth || !cloth.particles) {
+        throw new Error("No cloth particles for gravity test")
+      }
+
+      // Record initial positions
+      const initialY = cloth.particles[0].position.y
+
+      // Run physics for a short time
+      for (let i = 0; i < 60; i++) {
+        // 1 second at 60fps
+        engine.updatePhysics(1 / 60)
+      }
+
+      // Check if particles moved down due to gravity
+      const finalY = cloth.particles[0].position.y
+      const moved = finalY < initialY - 0.1 // Should have fallen at least 0.1 units
+
+      this.testResults.push({
+        name: "Gravity Effects",
+        passed: moved,
+        details: moved
+          ? `✅ Particles fell ${(initialY - finalY).toFixed(3)}m`
+          : `❌ No significant movement: ${(initialY - finalY).toFixed(3)}m`,
+      })
+
+      console.log(
+        moved
+          ? `✅ PASS: Gravity working, particles fell ${(initialY - finalY).toFixed(3)}m`
+          : `❌ FAIL: Insufficient gravity effect`,
+      )
+
+      engine.cleanup()
+    } catch (error) {
+      this.testResults.push({
+        name: "Gravity Effects",
+        passed: false,
+        details: `❌ Error: ${error.message}`,
+      })
+      console.log("❌ FAIL: Gravity test error:", error.message)
+    }
+  }
+
+  async testCollisionDetection() {
+    console.log("🔍 Test 4: Collision Detection")
+
+    try {
+      const engine = new window.SimpleClothPhysics()
+      await engine.initPhysicsWorld()
+
+      // Create avatar collider
+      const colliderId = engine.createAvatarCollider({ x: 0, y: 0, z: 0 })
+      const passed = !!(colliderId && engine.avatarColliders.has(colliderId))
+
+      this.testResults.push({
+        name: "Collision Detection",
+        passed,
+        details: passed ? "✅ Avatar collider created" : "❌ Failed to create avatar collider",
+      })
+
+      console.log(passed ? "✅ PASS: Collision detection setup" : "❌ FAIL: Collision detection failed")
+
+      engine.cleanup()
+    } catch (error) {
+      this.testResults.push({
+        name: "Collision Detection",
+        passed: false,
+        details: `❌ Error: ${error.message}`,
+      })
+      console.log("❌ FAIL: Collision test error:", error.message)
+    }
+  }
+
+  reportTestResults() {
+    console.log("📊 === PHYSICS ENGINE TEST RESULTS ===")
+
+    const passedTests = this.testResults.filter((result) => result.passed).length
+    const totalTests = this.testResults.length
+
+    console.log(`Overall: ${passedTests}/${totalTests} tests passed`)
+
+    this.testResults.forEach((result, index) => {
+      console.log(`${index + 1}. ${result.name}: ${result.details}`)
+    })
+
+    if (passedTests === totalTests) {
+      console.log("🎉 ALL TESTS PASSED - Physics engine is working correctly!")
+    } else {
+      console.log("⚠️ Some tests failed - check physics engine setup")
+    }
+
+    console.log("=====================================")
+  }
+
+  getTestResults() {
+    return this.testResults
   }
 }
 

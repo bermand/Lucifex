@@ -1,23 +1,22 @@
 // Physics Visual Debug System
-// Provides visual feedback for physics simulation
+// Overlays physics visualization on top of the 3D model
 
 class PhysicsVisualDebug {
   constructor() {
-    this.enabled = false
-    this.debugContainer = null
-    this.particleElements = []
-    this.constraintElements = []
-    this.colliderElements = []
-    this.updateInterval = null
+    this.isEnabled = false
+    this.canvas = null
+    this.ctx = null
     this.clothSimulation = null
+    this.animationFrame = null
+    this.debugOverlay = null
   }
 
   initialize() {
     try {
       console.log("🎨 Initializing Physics Visual Debug...")
 
-      // Create debug overlay container
-      this.createDebugContainer()
+      // Create debug overlay canvas
+      this.createDebugOverlay()
 
       console.log("✅ Physics visual debug initialized")
       return true
@@ -27,17 +26,11 @@ class PhysicsVisualDebug {
     }
   }
 
-  createDebugContainer() {
-    // Remove existing container
-    const existing = document.getElementById("physics-debug-overlay")
-    if (existing) {
-      existing.remove()
-    }
-
-    // Create new debug overlay
-    this.debugContainer = document.createElement("div")
-    this.debugContainer.id = "physics-debug-overlay"
-    this.debugContainer.style.cssText = `
+  createDebugOverlay() {
+    // Create canvas overlay
+    this.canvas = document.createElement("canvas")
+    this.canvas.id = "physics-debug-canvas"
+    this.canvas.style.cssText = `
       position: absolute;
       top: 0;
       left: 0;
@@ -48,14 +41,28 @@ class PhysicsVisualDebug {
       display: none;
     `
 
-    document.body.appendChild(this.debugContainer)
+    document.body.appendChild(this.canvas)
+    this.ctx = this.canvas.getContext("2d")
+
+    // Set canvas size
+    this.resizeCanvas()
+
+    // Handle window resize
+    window.addEventListener("resize", () => this.resizeCanvas())
+  }
+
+  resizeCanvas() {
+    if (!this.canvas) return
+
+    this.canvas.width = window.innerWidth
+    this.canvas.height = window.innerHeight
   }
 
   setEnabled(enabled) {
-    this.enabled = enabled
+    this.isEnabled = enabled
 
-    if (this.debugContainer) {
-      this.debugContainer.style.display = enabled ? "block" : "none"
+    if (this.canvas) {
+      this.canvas.style.display = enabled ? "block" : "none"
     }
 
     if (enabled) {
@@ -65,143 +72,108 @@ class PhysicsVisualDebug {
     }
   }
 
+  setClothSimulation(clothSimulation) {
+    this.clothSimulation = clothSimulation
+  }
+
   startDebugLoop() {
-    if (this.updateInterval) {
-      clearInterval(this.updateInterval)
+    if (!this.isEnabled || !this.ctx) return
+
+    const draw = () => {
+      if (!this.isEnabled) return
+
+      this.drawDebugInfo()
+      this.animationFrame = requestAnimationFrame(draw)
     }
 
-    this.updateInterval = setInterval(() => {
-      this.updateDebugVisuals()
-    }, 100) // Update 10 times per second
+    draw()
   }
 
   stopDebugLoop() {
-    if (this.updateInterval) {
-      clearInterval(this.updateInterval)
-      this.updateInterval = null
+    if (this.animationFrame) {
+      cancelAnimationFrame(this.animationFrame)
+      this.animationFrame = null
     }
   }
 
-  updateDebugVisuals() {
-    if (!this.enabled || !this.debugContainer) return
+  drawDebugInfo() {
+    if (!this.ctx || !this.clothSimulation) return
 
-    // Clear existing debug elements
-    this.debugContainer.innerHTML = ""
+    // Clear canvas
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
 
-    // Get cloth simulation reference
-    if (!this.clothSimulation && window.clothSimulation) {
-      this.clothSimulation = window.clothSimulation
-    }
+    // Draw physics particles
+    this.drawClothParticles()
 
-    if (!this.clothSimulation || !this.clothSimulation.physicsEngine) return
+    // Draw avatar colliders
+    this.drawAvatarColliders()
 
-    // Draw particles
-    this.drawParticles()
-
-    // Draw constraints
-    this.drawConstraints()
-
-    // Draw colliders
-    this.drawColliders()
+    // Draw debug text
+    this.drawDebugText()
   }
 
-  drawParticles() {
-    const physicsEngine = this.clothSimulation.physicsEngine
+  drawClothParticles() {
+    if (!this.clothSimulation.physicsEngine) return
 
-    physicsEngine.clothMeshes.forEach((clothData, clothId) => {
-      clothData.particles.forEach((particle, index) => {
+    this.clothSimulation.physicsEngine.clothMeshes.forEach((clothData, clothId) => {
+      const { particles } = clothData
+
+      particles.forEach((particle, index) => {
+        // Convert 3D position to 2D screen coordinates
         const screenPos = this.worldToScreen(particle.position)
-        if (!screenPos) return
 
-        const particleEl = document.createElement("div")
-        particleEl.style.cssText = `
-          position: absolute;
-          left: ${screenPos.x - 2}px;
-          top: ${screenPos.y - 2}px;
-          width: 4px;
-          height: 4px;
-          background: ${particle.pinned ? "#ff0000" : "#00ff00"};
-          border-radius: 50%;
-          pointer-events: none;
-        `
+        if (screenPos.x < 0 || screenPos.x > this.canvas.width || screenPos.y < 0 || screenPos.y > this.canvas.height) {
+          return // Skip off-screen particles
+        }
 
-        this.debugContainer.appendChild(particleEl)
+        // Draw particle
+        this.ctx.beginPath()
+        this.ctx.arc(screenPos.x, screenPos.y, particle.pinned ? 6 : 3, 0, 2 * Math.PI)
+        this.ctx.fillStyle = particle.pinned ? "#ff4444" : "#44ff44"
+        this.ctx.fill()
+
+        // Draw particle index for debugging
+        if (index % 20 === 0) {
+          // Only show every 20th particle to avoid clutter
+          this.ctx.fillStyle = "#ffffff"
+          this.ctx.font = "10px monospace"
+          this.ctx.fillText(index.toString(), screenPos.x + 5, screenPos.y - 5)
+        }
       })
     })
   }
 
-  drawConstraints() {
-    const physicsEngine = this.clothSimulation.physicsEngine
+  drawAvatarColliders() {
+    if (!this.clothSimulation.physicsEngine) return
 
-    physicsEngine.clothMeshes.forEach((clothData, clothId) => {
-      clothData.constraints.forEach((constraint, index) => {
-        if (index % 5 !== 0) return // Only draw every 5th constraint to avoid clutter
-
-        const p1 = clothData.particles[constraint.p1]
-        const p2 = clothData.particles[constraint.p2]
-
-        if (!p1 || !p2) return
-
-        const pos1 = this.worldToScreen(p1.position)
-        const pos2 = this.worldToScreen(p2.position)
-
-        if (!pos1 || !pos2) return
-
-        const constraintEl = document.createElement("div")
-        const length = Math.sqrt(Math.pow(pos2.x - pos1.x, 2) + Math.pow(pos2.y - pos1.y, 2))
-        const angle = (Math.atan2(pos2.y - pos1.y, pos2.x - pos1.x) * 180) / Math.PI
-
-        constraintEl.style.cssText = `
-          position: absolute;
-          left: ${pos1.x}px;
-          top: ${pos1.y}px;
-          width: ${length}px;
-          height: 1px;
-          background: rgba(255, 255, 0, 0.3);
-          transform-origin: 0 0;
-          transform: rotate(${angle}deg);
-          pointer-events: none;
-        `
-
-        this.debugContainer.appendChild(constraintEl)
-      })
-    })
-  }
-
-  drawColliders() {
-    const physicsEngine = this.clothSimulation.physicsEngine
-
-    physicsEngine.avatarColliders.forEach((colliders, colliderId) => {
-      colliders.forEach((collider, index) => {
+    this.clothSimulation.physicsEngine.avatarColliders.forEach((colliders, colliderId) => {
+      colliders.forEach((collider) => {
         const screenPos = this.worldToScreen(collider.position)
-        if (!screenPos) return
 
-        const colliderEl = document.createElement("div")
-        const size = collider.radius ? collider.radius * 100 : 20 // Scale for visibility
+        if (screenPos.x < 0 || screenPos.x > this.canvas.width || screenPos.y < 0 || screenPos.y > this.canvas.height) {
+          return
+        }
 
-        colliderEl.style.cssText = `
-          position: absolute;
-          left: ${screenPos.x - size / 2}px;
-          top: ${screenPos.y - size / 2}px;
-          width: ${size}px;
-          height: ${size}px;
-          border: 2px solid #ff00ff;
-          border-radius: 50%;
-          background: rgba(255, 0, 255, 0.1);
-          pointer-events: none;
-        `
-
-        this.debugContainer.appendChild(colliderEl)
+        // Draw collider
+        this.ctx.beginPath()
+        if (collider.type === "sphere") {
+          this.ctx.arc(screenPos.x, screenPos.y, collider.radius * 100, 0, 2 * Math.PI)
+        } else if (collider.type === "capsule") {
+          this.ctx.arc(screenPos.x, screenPos.y, collider.radius * 100, 0, 2 * Math.PI)
+        }
+        this.ctx.strokeStyle = "#4444ff"
+        this.ctx.lineWidth = 2
+        this.ctx.stroke()
       })
     })
   }
 
   worldToScreen(worldPos) {
-    // Simple projection - in a real implementation you'd use the camera matrix
-    // For now, just map world coordinates to screen coordinates
-    const centerX = window.innerWidth / 2
-    const centerY = window.innerHeight / 2
-    const scale = 200 // Adjust this based on your world scale
+    // Simple projection from 3D world coordinates to 2D screen coordinates
+    // This is a basic orthographic projection - in a real implementation you'd use the camera matrix
+    const centerX = this.canvas.width / 2
+    const centerY = this.canvas.height / 2
+    const scale = 200 // Adjust this to scale the visualization
 
     return {
       x: centerX + worldPos.x * scale,
@@ -209,17 +181,44 @@ class PhysicsVisualDebug {
     }
   }
 
+  drawDebugText() {
+    if (!this.clothSimulation) return
+
+    const status = this.clothSimulation.getDetailedStatus()
+
+    this.ctx.fillStyle = "rgba(0, 0, 0, 0.8)"
+    this.ctx.fillRect(10, 10, 300, 120)
+
+    this.ctx.fillStyle = "#ffffff"
+    this.ctx.font = "12px monospace"
+
+    let y = 30
+    this.ctx.fillText(`Physics Engine: ${status.engine}`, 20, y)
+    y += 15
+    this.ctx.fillText(`Running: ${status.running}`, 20, y)
+    y += 15
+    this.ctx.fillText(`Update Count: ${status.updateCount}`, 20, y)
+    y += 15
+    this.ctx.fillText(`Particles: ${status.physicsDetails?.totalParticles || 0}`, 20, y)
+    y += 15
+    this.ctx.fillText(`Constraints: ${status.physicsDetails?.totalConstraints || 0}`, 20, y)
+    y += 15
+    this.ctx.fillText(`Gravity: ${status.physicsDetails?.gravity?.y || 0}`, 20, y)
+    y += 15
+    this.ctx.fillText(`🔴 Pinned  🟢 Free  🔵 Colliders`, 20, y)
+  }
+
   cleanup() {
     this.stopDebugLoop()
 
-    if (this.debugContainer) {
-      this.debugContainer.remove()
-      this.debugContainer = null
+    if (this.canvas) {
+      document.body.removeChild(this.canvas)
+      this.canvas = null
+      this.ctx = null
     }
 
-    this.particleElements = []
-    this.constraintElements = []
-    this.colliderElements = []
+    this.clothSimulation = null
+    this.isEnabled = false
 
     console.log("✅ Physics visual debug cleanup complete")
   }
