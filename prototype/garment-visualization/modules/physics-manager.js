@@ -18,7 +18,7 @@ export class PhysicsManager {
     const utils = window.lucifexApp?.utils
 
     try {
-      // Load all physics modules
+      // Load all physics modules using script tags instead of imports
       const modules = [
         { name: "SimpleClothPhysics", path: "./physics/simple-cloth-physics.js" },
         { name: "ClothSimulation", path: "./physics/cloth-simulation.js" },
@@ -30,9 +30,7 @@ export class PhysicsManager {
 
       for (const module of modules) {
         try {
-          const moduleImport = await import(module.path)
-          window[module.name] = moduleImport[module.name]
-          console.log(`✅ ${module.name} loaded`)
+          await this.loadScript(module.path, module.name)
         } catch (error) {
           console.warn(`⚠️ Failed to load ${module.name}:`, error)
         }
@@ -49,6 +47,25 @@ export class PhysicsManager {
         utils.updatePhysicsStatus("Error loading physics modules")
       }
     }
+  }
+
+  async loadScript(src, expectedGlobal) {
+    return new Promise((resolve, reject) => {
+      const script = document.createElement("script")
+      script.src = src
+      document.head.appendChild(script)
+
+      script.onload = () => {
+        if (window[expectedGlobal]) {
+          console.log(`✅ ${expectedGlobal} loaded`)
+          resolve()
+        } else {
+          reject(new Error(`${expectedGlobal} not found after loading script`))
+        }
+      }
+
+      script.onerror = () => reject(new Error(`Failed to load ${src}`))
+    })
   }
 
   async togglePhysics() {

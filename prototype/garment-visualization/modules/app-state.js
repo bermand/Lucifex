@@ -1,43 +1,43 @@
-// Application state management
+// Centralized application state management
 export class AppState {
   constructor() {
     // Model URLs
     this.currentAvatarUrl = null
     this.currentGarmentUrl = null
 
-    // UI state
+    // Model viewers
+    this.mainViewer = null
+    this.avatarViewer = null
+    this.garmentViewer = null
+
+    // Current state
+    this.currentModelType = "avatar" // 'avatar', 'garment', 'both'
     this.currentTab = "avatar"
-    this.currentModelType = "avatar"
-    this.currentCombinationMethod = "overlay"
     this.currentEnvironment = "studio"
-    this.isAutoRotating = true
+    this.currentCombinationMethod = "overlay"
 
     // Physics state
     this.isPhysicsEnabled = false
     this.isPhysicsDebugEnabled = false
-
-    // Model viewers
-    this.avatarViewer = null
-    this.garmentViewer = null
-    this.mainViewer = null
-
-    // Physics instances
     this.clothSimulation = null
     this.physicsVisualDebug = null
     this.physicsTest = null
     this.physicsDropTest = null
     this.physicsMeshUpdater = null
 
+    // UI state
+    this.isAutoRotating = true
+
     console.log("📊 AppState initialized")
   }
 
-  // Getters for computed state
+  // Getters for computed properties
   get hasAvatar() {
-    return this.currentAvatarUrl !== null
+    return !!this.currentAvatarUrl
   }
 
   get hasGarment() {
-    return this.currentGarmentUrl !== null
+    return !!this.currentGarmentUrl
   }
 
   get canCombine() {
@@ -45,10 +45,10 @@ export class AppState {
   }
 
   get isInCombinedMode() {
-    return this.currentModelType === "both"
+    return this.currentModelType === "both" && this.canCombine
   }
 
-  // State update methods
+  // Setters with logging
   setAvatarUrl(url) {
     this.currentAvatarUrl = url
     console.log("📊 Avatar URL updated:", url)
@@ -74,17 +74,12 @@ export class AppState {
     console.log("📊 Environment updated:", environment)
   }
 
-  setPhysicsEnabled(enabled) {
-    this.isPhysicsEnabled = enabled
-    console.log("📊 Physics enabled:", enabled)
+  setCombinationMethod(method) {
+    this.currentCombinationMethod = method
+    console.log("📊 Combination method updated:", method)
   }
 
-  setPhysicsDebugEnabled(enabled) {
-    this.isPhysicsDebugEnabled = enabled
-    console.log("📊 Physics debug enabled:", enabled)
-  }
-
-  // Viewer management
+  // Viewer setters
   setMainViewer(viewer) {
     this.mainViewer = viewer
   }
@@ -97,7 +92,15 @@ export class AppState {
     this.garmentViewer = viewer
   }
 
-  // Physics instance management
+  // Physics setters
+  setPhysicsEnabled(enabled) {
+    this.isPhysicsEnabled = enabled
+  }
+
+  setPhysicsDebugEnabled(enabled) {
+    this.isPhysicsDebugEnabled = enabled
+  }
+
   setClothSimulation(simulation) {
     this.clothSimulation = simulation
   }
@@ -118,34 +121,39 @@ export class AppState {
     this.physicsMeshUpdater = updater
   }
 
-  // Cleanup
-  cleanup() {
-    // Clean up physics instances
-    if (this.clothSimulation) {
-      this.clothSimulation.cleanup()
-      this.clothSimulation = null
-    }
+  // UI setters
+  setAutoRotating(rotating) {
+    this.isAutoRotating = rotating
+  }
 
-    if (this.physicsVisualDebug) {
-      this.physicsVisualDebug.cleanup()
-      this.physicsVisualDebug = null
-    }
+  // Reset methods
+  reset() {
+    this.currentAvatarUrl = null
+    this.currentGarmentUrl = null
+    this.avatarViewer = null
+    this.garmentViewer = null
+    this.currentModelType = "avatar"
+    this.isPhysicsEnabled = false
+    this.isPhysicsDebugEnabled = false
+    this.clothSimulation = null
+    this.physicsVisualDebug = null
+    this.physicsTest = null
+    this.physicsDropTest = null
+    this.physicsMeshUpdater = null
+  }
 
-    if (this.physicsTest) {
-      this.physicsTest.cleanup()
-      this.physicsTest = null
+  // Debug method
+  getState() {
+    return {
+      hasAvatar: this.hasAvatar,
+      hasGarment: this.hasGarment,
+      canCombine: this.canCombine,
+      isInCombinedMode: this.isInCombinedMode,
+      currentModelType: this.currentModelType,
+      currentTab: this.currentTab,
+      currentEnvironment: this.currentEnvironment,
+      isPhysicsEnabled: this.isPhysicsEnabled,
+      isPhysicsDebugEnabled: this.isPhysicsDebugEnabled,
     }
-
-    if (this.physicsDropTest) {
-      this.physicsDropTest.cleanup()
-      this.physicsDropTest = null
-    }
-
-    if (this.physicsMeshUpdater) {
-      this.physicsMeshUpdater.cleanup()
-      this.physicsMeshUpdater = null
-    }
-
-    console.log("📊 AppState cleaned up")
   }
 }
