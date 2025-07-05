@@ -52,7 +52,18 @@
       transition: all 0.3s ease-out;
     }
     
-    /* Model positioning for combined view */
+    /* Fixed background for combined view */
+    #combined-background {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #f0f0f0;
+      z-index: 0;
+    }
+    
+    /* Model positioning for combined view - no individual backgrounds */
     .model-avatar {
       position: absolute;
       top: 0;
@@ -60,6 +71,7 @@
       width: 100%;
       height: 100%;
       z-index: 1;
+      background: transparent !important;
     }
     
     .model-garment {
@@ -70,6 +82,13 @@
       height: 100%;
       z-index: 2;
       transform-origin: center center;
+      background: transparent !important;
+    }
+    
+    /* Prevent background/environment from moving with transforms */
+    .model-avatar::part(default-viewer),
+    .model-garment::part(default-viewer) {
+      background: transparent !important;
     }
     
     .control-group {
@@ -827,12 +846,12 @@ window.loadPhysicsModules = async function() {
       <div class="control-group">
         <label>💡 Physics Tips:</label>
         <div style="font-size: 11px; color: #666; background: #f9f9f9; padding: 10px; border-radius: 6px;">
-          <strong>🎬 Watch the actual garment transform:</strong><br>
-          • The real 3D garment will fall and drape on the avatar<br>
-          • Use "Reset Cloth" to see it fall again<br>
-          • Adjust gravity for different effects<br>
-          • Enable "Show Physics" to see particles<br>
-          • Physics affects the actual loaded models
+          <strong>🎬 Watch the garment drape on the avatar:</strong><br>
+          • The garment should now collide with and drape on the avatar<br>
+          • Use "Reset Cloth" to see it fall and drape again<br>
+          • Adjust gravity for different draping effects<br>
+          • Enable "Show Physics" to see collision detection<br>
+          • Fixed background movement issue
         </div>
       </div>
     </div>
@@ -1095,7 +1114,7 @@ window.loadPhysicsModules = async function() {
         return;
       }
 
-      updateStatus('🔄 Creating combined view with both models...');
+      updateStatus('🔄 Creating combined view with fixed background...');
       
       try {
         // Hide main viewer
@@ -1108,10 +1127,13 @@ window.loadPhysicsModules = async function() {
           existingContainer.remove();
         }
         
-        // Create new combined container with both models
+        // Create new combined container with fixed background
         const combinedContainer = document.createElement('div');
         combinedContainer.id = 'combined-container';
         combinedContainer.innerHTML = `
+          <!-- Fixed background that doesn't move -->
+          <div id="combined-background"></div>
+          
           <div class="model-loading">
             🔄 Loading Avatar and Garment Models...<br>
             <small>Please wait while both models are loaded</small>
@@ -1129,10 +1151,8 @@ window.loadPhysicsModules = async function() {
             shadow-softness="0.5"
             exposure="1"
             tone-mapping="aces"
-            environment-image="https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/studio_small_03_1k.hdr"
-            skybox-image="https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/studio_small_03_1k.hdr"
             src="${currentAvatarUrl}"
-            style="opacity: 0.7;">
+            style="opacity: 0.7; --poster-color: transparent;">
           </model-viewer>
           
           <model-viewer 
@@ -1147,10 +1167,8 @@ window.loadPhysicsModules = async function() {
             shadow-softness="0.5"
             exposure="1"
             tone-mapping="aces"
-            environment-image="https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/studio_small_03_1k.hdr"
-            skybox-image="https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/studio_small_03_1k.hdr"
             src="${currentGarmentUrl}"
-            style="opacity: 1.0;">
+            style="opacity: 1.0; --poster-color: transparent;">
           </model-viewer>
         `;
         
@@ -1159,6 +1177,12 @@ window.loadPhysicsModules = async function() {
         // Get references to the viewers
         avatarViewer = document.getElementById('avatar-viewer');
         garmentViewer = document.getElementById('garment-viewer');
+        
+        // Remove individual environments to prevent background movement
+        avatarViewer.removeAttribute('environment-image');
+        avatarViewer.removeAttribute('skybox-image');
+        garmentViewer.removeAttribute('environment-image');
+        garmentViewer.removeAttribute('skybox-image');
         
         // Wait for both models to load
         await Promise.all([
@@ -1182,14 +1206,13 @@ window.loadPhysicsModules = async function() {
         // Switch to combined tab
         switchTab('combined');
         
-        updateStatus('✅ Combined view active - both models loaded and ready for physics!');
+        updateStatus('✅ Combined view active - fixed background, ready for physics!');
         updateModelInfo('Combined: Avatar + Garment', 'combined');
         
-        console.log('✅ Combined view created successfully');
+        console.log('✅ Combined view created with fixed background');
         console.log('   • Avatar viewer:', avatarViewer);
         console.log('   • Garment viewer:', garmentViewer);
-        console.log('   • Avatar URL:', currentAvatarUrl);
-        console.log('   • Garment URL:', currentGarmentUrl);
+        console.log('   • Background movement fixed');
         
       } catch (error) {
         console.error('Error generating combined view:', error);
@@ -1209,7 +1232,7 @@ window.loadPhysicsModules = async function() {
           Avatar: ${currentAvatarUrl.split('/').pop()}<br>
           Garment: ${currentGarmentUrl.split('/').pop()}<br>
           Method: ${currentCombinationMethod}<br>
-          <small>🎬 Both models loaded - physics will affect the real garment!</small>
+          <small>🎬 Fixed background - physics will make garment drape on avatar!</small>
         `;
       } else if (hasAvatar || hasGarment) {
         statusElement.className = 'combination-status partial';
@@ -1266,8 +1289,8 @@ window.loadPhysicsModules = async function() {
           // Initialize mesh updater
           physicsMeshUpdater = new window.PhysicsMeshUpdater();
           
-          updateStatus('✅ Physics engine ready for real model simulation!');
-          updatePhysicsStatus('active', 'Physics engine ready - will affect actual loaded models');
+          updateStatus('✅ Physics engine ready with improved collision detection!');
+          updatePhysicsStatus('active', 'Physics engine ready - garment will drape on avatar');
           
         } else {
           throw new Error('Failed to initialize cloth simulation');
@@ -1312,7 +1335,7 @@ window.loadPhysicsModules = async function() {
         console.log('✅ Physics simulation started for real models');
         
         // Show physics effect indicator
-        showPhysicsEffectIndicator('🎬 Physics Active: Real garment is now falling and draping on avatar!');
+        showPhysicsEffectIndicator('🎬 Physics Active: Garment will now drape on avatar with improved collision!');
         
         // Log status after a short delay
         setTimeout(() => {
@@ -1351,7 +1374,7 @@ window.loadPhysicsModules = async function() {
       
       statusElement.innerHTML = `
         <strong>${icon} Physics Engine:</strong> ${message}<br>
-        <small>${type === 'active' ? 'Ready to simulate real garment physics!' : type === 'error' ? 'Check console for details' : 'Please wait...'}</small>
+        <small>${type === 'active' ? 'Ready to simulate garment draping on avatar!' : type === 'error' ? 'Check console for details' : 'Please wait...'}</small>
       `;
     }
 
@@ -1518,17 +1541,31 @@ window.loadPhysicsModules = async function() {
       document.querySelectorAll('.env-btn').forEach(btn => btn.classList.remove('active'));
       document.getElementById(`env-${env}`).classList.add('active');
       
-      // Update all model viewers
-      const viewers = [
-        document.getElementById('main-viewer'), 
-        document.getElementById('avatar-viewer'),
-        document.getElementById('garment-viewer')
-      ].filter(v => v);
+      // Only update main viewer environment, not combined view to prevent background movement
+      const mainViewer = document.getElementById('main-viewer');
+      if (mainViewer) {
+        mainViewer.setAttribute('environment-image', `https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/${env}_1k.hdr`);
+        mainViewer.setAttribute('skybox-image', `https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/${env}_1k.hdr`);
+      }
       
-      viewers.forEach(viewer => {
-        viewer.setAttribute('environment-image', `https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/${env}_1k.hdr`);
-        viewer.setAttribute('skybox-image', `https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/${env}_1k.hdr`);
-      });
+      // Update combined background color instead
+      const combinedBackground = document.getElementById('combined-background');
+      if (combinedBackground) {
+        // Set background based on environment
+        const envColors = {
+          studio: '#f0f0f0',
+          apartment: '#f5f5f0',
+          city: '#e8e8e8',
+          dawn: '#fff0e6',
+          forest: '#e8f5e8',
+          lobby: '#f0f0f5',
+          night: '#2a2a2a',
+          park: '#e8f5e8',
+          sunset: '#ffe6cc',
+          warehouse: '#e0e0e0'
+        };
+        combinedBackground.style.background = envColors[env] || '#f0f0f0';
+      }
     }
 
     function updateLighting() {
@@ -1645,7 +1682,7 @@ window.loadPhysicsModules = async function() {
         // Start physics simulation on real models
         await setupPhysicsForCurrentModels();
         updatePhysicsStatus('active', 'Physics simulation running on real models!');
-        showPhysicsEffectIndicator('🎬 Physics Enabled: Real garment will now fall and drape on avatar!');
+        showPhysicsEffectIndicator('🎬 Physics Enabled: Garment will now drape on avatar!');
       } else {
         button.textContent = 'Enable Physics';
         button.classList.remove('active');
@@ -1665,7 +1702,7 @@ window.loadPhysicsModules = async function() {
     function resetPhysics() {
       if (clothSimulation && clothSimulation.resetSimulation) {
         clothSimulation.resetSimulation();
-        showPhysicsEffectIndicator('🔄 Cloth Reset: Watch the real garment fall again!');
+        showPhysicsEffectIndicator('🔄 Cloth Reset: Watch the garment drape on avatar again!');
         console.log('🔄 Physics simulation reset');
       } else {
         console.log('⚠️ Reset function not available');
@@ -1723,7 +1760,7 @@ window.loadPhysicsModules = async function() {
         button.classList.add('active');
         button.textContent = 'Stop Drop Test';
         
-        showPhysicsEffectIndicator('🧪 Drop Test Active: Dramatic cloth falling on real garment!');
+        showPhysicsEffectIndicator('🧪 Drop Test Active: Dramatic cloth draping on avatar!');
         
         // Auto-stop after 10 seconds
         setTimeout(() => {
@@ -1757,7 +1794,7 @@ window.loadPhysicsModules = async function() {
     function resetClothPosition() {
       if (clothSimulation && clothSimulation.resetSimulation) {
         clothSimulation.resetSimulation();
-        showPhysicsEffectIndicator('🔄 Cloth Reset: Watch the real garment fall and drape dramatically!');
+        showPhysicsEffectIndicator('🔄 Cloth Reset: Watch the garment drape on avatar dramatically!');
         console.log('🔄 Cloth position reset to starting position');
       } else {
         console.log('⚠️ Reset function not available');
@@ -1767,9 +1804,13 @@ window.loadPhysicsModules = async function() {
     // Model manipulation functions
     function updateModelScale(type, scale) {
       if (type === 'avatar' && avatarViewer) {
-        avatarViewer.style.transform = `scale(${scale})`;
+        const currentTransform = avatarViewer.style.transform || '';
+        const nonScaleTransforms = currentTransform.replace(/scale$$[^)]*$$/g, '').trim();
+        avatarViewer.style.transform = `${nonScaleTransforms} scale(${scale})`.trim();
       } else if (type === 'garment' && garmentViewer) {
-        garmentViewer.style.transform = `scale(${scale})`;
+        const currentTransform = garmentViewer.style.transform || '';
+        const nonScaleTransforms = currentTransform.replace(/scale$$[^)]*$$/g, '').trim();
+        garmentViewer.style.transform = `${nonScaleTransforms} scale(${scale})`.trim();
       }
       console.log(`Updating ${type} scale to ${scale}`);
     }
@@ -1790,10 +1831,9 @@ window.loadPhysicsModules = async function() {
       const offsetY = parseFloat(document.getElementById('garment-offset-y').value);
       
       const currentTransform = garmentViewer.style.transform || '';
-      const scaleMatch = currentTransform.match(/scale$$[^)]+$$/);
-      const scaleTransform = scaleMatch ? scaleMatch[0] : '';
+      const nonTranslateTransforms = currentTransform.replace(/translate[XY]?$$[^)]*$$/g, '').trim();
       
-      garmentViewer.style.transform = `${scaleTransform} translate(${offsetX * 100}px, ${offsetY * 100}px)`;
+      garmentViewer.style.transform = `${nonTranslateTransforms} translate(${offsetX * 100}px, ${offsetY * 100}px)`.trim();
       
       console.log(`Updating garment position to X:${offsetX}, Y:${offsetY}`);
     }
