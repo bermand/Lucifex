@@ -1,29 +1,30 @@
-// Application state management
+// Application State Management
 export class AppState {
   constructor() {
+    // Model URLs
     this.currentAvatarUrl = null
     this.currentGarmentUrl = null
-    this.currentModelType = "both" // 'avatar', 'garment', 'both'
-    this.currentTab = "avatar"
-    this.currentEnvironment = "studio"
-    this.currentCombinationMethod = "overlay"
 
-    // Viewer references
+    // Model viewers
     this.mainViewer = null
     this.avatarViewer = null
     this.garmentViewer = null
 
+    // UI state
+    this.currentTab = "avatar"
+    this.currentModelType = "both"
+    this.currentEnvironment = "studio"
+    this.currentCombinationMethod = "overlay"
+    this.isAutoRotating = false
+
     // Physics state
+    this.isPhysicsEnabled = false
+    this.isPhysicsDebugEnabled = false
     this.clothSimulation = null
     this.physicsVisualDebug = null
     this.physicsMeshUpdater = null
     this.physicsTest = null
     this.physicsDropTest = null
-    this.isPhysicsEnabled = false
-    this.isPhysicsDebugEnabled = false
-
-    // UI state
-    this.isAutoRotating = true
 
     console.log("📊 AppState initialized")
   }
@@ -34,31 +35,53 @@ export class AppState {
     console.log("📊 Avatar URL updated:", url)
   }
 
+  get hasAvatar() {
+    return !!this.currentAvatarUrl
+  }
+
   // Garment methods
   setGarmentUrl(url) {
     this.currentGarmentUrl = url
     console.log("📊 Garment URL updated:", url)
   }
 
-  // Tab methods
+  get hasGarment() {
+    return !!this.currentGarmentUrl
+  }
+
+  // Current tab
   setCurrentTab(tab) {
     this.currentTab = tab
     console.log("📊 Current tab updated:", tab)
   }
 
-  // Model type methods
+  // Model type
   setModelType(type) {
     this.currentModelType = type
     console.log("📊 Model type updated:", type)
   }
 
-  // Environment methods
+  get isInCombinedMode() {
+    return this.currentModelType === "both"
+  }
+
+  // Environment
   setEnvironment(environment) {
     this.currentEnvironment = environment
     console.log("📊 Environment updated:", environment)
   }
 
-  // Viewer methods
+  // Combination
+  setCombinationMethod(method) {
+    this.currentCombinationMethod = method
+    console.log("📊 Combination method updated:", method)
+  }
+
+  get canCombine() {
+    return this.hasAvatar && this.hasGarment
+  }
+
+  // Viewers
   setMainViewer(viewer) {
     this.mainViewer = viewer
   }
@@ -71,7 +94,15 @@ export class AppState {
     this.garmentViewer = viewer
   }
 
-  // Physics methods
+  // Physics
+  setPhysicsEnabled(enabled) {
+    this.isPhysicsEnabled = enabled
+  }
+
+  setPhysicsDebugEnabled(enabled) {
+    this.isPhysicsDebugEnabled = enabled
+  }
+
   setClothSimulation(simulation) {
     this.clothSimulation = simulation
   }
@@ -92,44 +123,43 @@ export class AppState {
     this.physicsDropTest = dropTest
   }
 
-  setPhysicsEnabled(enabled) {
-    this.isPhysicsEnabled = enabled
+  // Auto rotate
+  setAutoRotating(rotating) {
+    this.isAutoRotating = rotating
   }
 
-  setPhysicsDebugEnabled(enabled) {
-    this.isPhysicsDebugEnabled = enabled
+  // Get current state summary
+  getState() {
+    return {
+      hasAvatar: this.hasAvatar,
+      hasGarment: this.hasGarment,
+      canCombine: this.canCombine,
+      currentTab: this.currentTab,
+      currentModelType: this.currentModelType,
+      currentEnvironment: this.currentEnvironment,
+      isPhysicsEnabled: this.isPhysicsEnabled,
+      isPhysicsDebugEnabled: this.isPhysicsDebugEnabled,
+      isAutoRotating: this.isAutoRotating,
+    }
   }
 
-  // Computed properties
-  get hasAvatar() {
-    return this.currentAvatarUrl !== null
-  }
-
-  get hasGarment() {
-    return this.currentGarmentUrl !== null
-  }
-
-  get canCombine() {
-    return this.hasAvatar && this.hasGarment
-  }
-
-  // Reset method
+  // Reset state
   reset() {
     this.currentAvatarUrl = null
     this.currentGarmentUrl = null
-    this.currentModelType = "both"
-    this.currentTab = "avatar"
-    this.currentEnvironment = "studio"
     this.mainViewer = null
     this.avatarViewer = null
     this.garmentViewer = null
+    this.currentTab = "avatar"
+    this.currentModelType = "both"
+    this.isPhysicsEnabled = false
+    this.isPhysicsDebugEnabled = false
     this.clothSimulation = null
     this.physicsVisualDebug = null
     this.physicsMeshUpdater = null
     this.physicsTest = null
     this.physicsDropTest = null
-    this.isPhysicsEnabled = false
-    this.isPhysicsDebugEnabled = false
-    this.isAutoRotating = true
+
+    console.log("📊 AppState reset")
   }
 }

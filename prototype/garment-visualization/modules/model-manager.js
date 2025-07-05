@@ -74,34 +74,36 @@ export class ModelManager {
     const utils = window.lucifexApp?.utils
 
     try {
-      if (type === "avatar") {
-        const viewer = document.getElementById("avatar-viewer")
-        if (viewer) {
-          viewer.src = url
-          this.state.setAvatarViewer(viewer)
-          this.state.setMainViewer(viewer)
+      const mainViewer = document.getElementById("main-viewer")
+      const combinedContainer = document.getElementById("combined-viewer-container")
 
-          viewer.addEventListener("load", () => {
-            if (utils) {
-              utils.updateStatus("✅ avatar loaded successfully")
-            }
-            console.log("Model loaded: avatar from", url)
-          })
-        }
-      } else if (type === "garment") {
-        const viewer = document.getElementById("garment-viewer")
-        if (viewer) {
-          viewer.src = url
-          this.state.setGarmentViewer(viewer)
-          this.state.setMainViewer(viewer)
+      if (mainViewer && combinedContainer) {
+        // Show main viewer, hide combined container
+        mainViewer.style.display = "block"
+        combinedContainer.style.display = "none"
 
-          viewer.addEventListener("load", () => {
-            if (utils) {
-              utils.updateStatus("✅ garment loaded successfully")
-            }
-            console.log("Model loaded: garment from", url)
-          })
+        // Load model
+        mainViewer.src = url
+        this.state.setMainViewer(mainViewer)
+
+        // Update UI based on type
+        if (type === "avatar") {
+          this.state.setAvatarViewer(mainViewer)
+        } else if (type === "garment") {
+          this.state.setGarmentViewer(mainViewer)
         }
+
+        // Wait for load
+        await new Promise((resolve) => {
+          mainViewer.addEventListener("load", resolve, { once: true })
+        })
+
+        if (utils) {
+          utils.updateStatus(`✅ ${type} loaded successfully`)
+          utils.updateModelInfo(url.split("/").pop(), type)
+        }
+
+        console.log(`Model loaded: ${type} from`, url)
       }
     } catch (error) {
       console.error(`Error loading ${type}:`, error)
@@ -128,10 +130,18 @@ export class ModelManager {
 
       // Get the combined viewer container
       const combinedContainer = document.getElementById("combined-viewer-container")
+      const mainViewer = document.getElementById("main-viewer")
+
       if (!combinedContainer) {
         console.error("Combined viewer container not found")
         return
       }
+
+      // Hide main viewer, show combined container
+      if (mainViewer) {
+        mainViewer.style.display = "none"
+      }
+      combinedContainer.style.display = "block"
 
       // Clear existing content
       combinedContainer.innerHTML = ""
@@ -207,6 +217,7 @@ export class ModelManager {
 
       if (utils) {
         utils.updateStatus("✅ Combined view created with unified background")
+        utils.updateModelInfo("Combined View", "Avatar + Garment")
       }
 
       console.log("Combined view created successfully")
@@ -246,8 +257,19 @@ export class ModelManager {
       viewer = this.state.garmentViewer || document.getElementById("combined-garment-viewer")
     }
 
-    if (viewer && viewer.model) {
+    if (viewer && viewer.model && viewer.model.scale) {
       viewer.model.scale.setScalar(scale)
+    } else if (viewer) {
+      // Fallback: use CSS transform for scaling
+      const currentTransform = viewer.style.transform || ""
+      const scaleRegex = /scale$$[^)]*$$/
+      const newTransform = currentTransform.replace(scaleRegex, `scale(${scale})`)
+
+      if (!scaleRegex.test(currentTransform)) {
+        viewer.style.transform = `${currentTransform} scale(${scale})`.trim()
+      } else {
+        viewer.style.transform = newTransform
+      }
     }
   }
 
@@ -267,12 +289,21 @@ export class ModelManager {
 
   updateGarmentPosition() {
     const garmentViewer = this.state.garmentViewer || document.getElementById("combined-garment-viewer")
-    if (!garmentViewer || !garmentViewer.model) return
+    if (!garmentViewer) return
 
     const offsetX = Number.parseFloat(document.getElementById("garment-offset-x")?.value || 0)
     const offsetY = Number.parseFloat(document.getElementById("garment-offset-y")?.value || 0)
 
-    garmentViewer.model.position.set(offsetX, offsetY, 0)
+    // Use CSS transform for positioning
+    const currentTransform = garmentViewer.style.transform || ""
+    const translateRegex = /translate$$[^)]*$$/
+    const newTranslate = `translate(${offsetX * 100}px, ${offsetY * 100}px)`
+
+    if (translateRegex.test(currentTransform)) {
+      garmentViewer.style.transform = currentTransform.replace(translateRegex, newTranslate)
+    } else {
+      garmentViewer.style.transform = `${currentTransform} ${newTranslate}`.trim()
+    }
   }
 
   cleanup() {

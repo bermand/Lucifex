@@ -1,52 +1,106 @@
 // Utility functions and helpers
 export class Utils {
-  constructor(state) {
-    this.state = state
+  constructor() {
     console.log("🔧 Utils initialized")
   }
 
-  async initialize() {
+  initialize() {
     console.log("✅ Utils initialized")
   }
 
   // Status updates
   updateStatus(message) {
-    const statusElement = document.getElementById("status")
-    if (statusElement) {
-      statusElement.textContent = message
+    const statusIndicator = document.getElementById("status-indicator")
+    const statusText = statusIndicator?.querySelector(".status-text")
+
+    if (statusText) {
+      statusText.textContent = message
     }
+
+    // Auto-clear status after 5 seconds for non-error messages
+    if (!message.includes("❌")) {
+      setTimeout(() => {
+        if (statusText && statusText.textContent === message) {
+          statusText.textContent = "Ready"
+        }
+      }, 5000)
+    }
+
     console.log("Status:", message)
   }
 
+  // Physics status updates
   updatePhysicsStatus(message) {
-    const physicsStatusElement = document.getElementById("physics-status")
-    if (physicsStatusElement) {
-      physicsStatusElement.textContent = `Physics: ${message}`
+    const physicsIndicator = document.getElementById("physics-indicator")
+    const statusText = physicsIndicator?.querySelector(".status-text")
+
+    if (statusText) {
+      statusText.textContent = `Physics: ${message}`
     }
+
     console.log("Physics Status:", message)
   }
 
-  // File handling
+  // Model info updates
+  updateModelInfo(name, type) {
+    const modelNameEl = document.getElementById("model-name")
+    const modelTypeEl = document.getElementById("model-type")
+
+    if (modelNameEl) {
+      modelNameEl.textContent = name || "None loaded"
+    }
+
+    if (modelTypeEl) {
+      modelTypeEl.textContent = type || "-"
+    }
+  }
+
+  // Combination status
+  updateCombinationStatus(hasAvatar, hasGarment) {
+    const avatarStatus = document.getElementById("avatar-status")
+    const garmentStatus = document.getElementById("garment-status")
+
+    if (avatarStatus) {
+      avatarStatus.textContent = hasAvatar ? "✅ Loaded" : "❌ Not loaded"
+      avatarStatus.className = hasAvatar ? "status-value success" : "status-value error"
+    }
+
+    if (garmentStatus) {
+      garmentStatus.textContent = hasGarment ? "✅ Loaded" : "❌ Not loaded"
+      garmentStatus.className = hasGarment ? "status-value success" : "status-value error"
+    }
+  }
+
+  // File validation
   isValidModelFile(file) {
+    if (!file) return false
+
     const validExtensions = [".glb", ".gltf"]
     const fileName = file.name.toLowerCase()
+
     return validExtensions.some((ext) => fileName.endsWith(ext))
   }
 
+  // File size formatting
+  formatFileSize(bytes) {
+    if (bytes === 0) return "0 Bytes"
+
+    const k = 1024
+    const sizes = ["Bytes", "KB", "MB", "GB"]
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+
+    return Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i]
+  }
+
+  // Create object URL
   createObjectURL(file) {
     return URL.createObjectURL(file)
   }
 
-  formatFileSize(bytes) {
-    if (bytes === 0) return "0 Bytes"
-    const k = 1024
-    const sizes = ["Bytes", "KB", "MB", "GB"]
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i]
-  }
-
+  // File info display
   updateFileInfo(elementId, file, type) {
     const fileInfo = document.getElementById(elementId)
+
     if (fileInfo) {
       fileInfo.innerHTML = `
         <strong>✅ Loaded:</strong> ${file.name}<br>
@@ -57,7 +111,29 @@ export class Utils {
     }
   }
 
-  // File operations
+  // Value display updates
+  updateValueDisplay(inputId, displayId) {
+    const input = document.getElementById(inputId)
+    const display = document.getElementById(displayId)
+
+    if (input && display) {
+      display.textContent = input.value
+    }
+  }
+
+  // Set active button by data attribute
+  setActiveButtonByData(selector, dataAttribute, value) {
+    const buttons = document.querySelectorAll(selector)
+
+    buttons.forEach((button) => {
+      button.classList.remove("active")
+      if (button.dataset[dataAttribute.replace("data-", "")] === value) {
+        button.classList.add("active")
+      }
+    })
+  }
+
+  // Check if file exists
   async checkFileExists(url) {
     try {
       const response = await fetch(url, { method: "HEAD" })
@@ -67,160 +143,145 @@ export class Utils {
     }
   }
 
-  revokeObjectURL(url) {
-    if (url && url.startsWith("blob:")) {
-      URL.revokeObjectURL(url)
-    }
-  }
+  // Physics effect display
+  showPhysicsEffect(message) {
+    const effectEl = document.getElementById("physics-effect")
+    const textEl = effectEl?.querySelector(".effect-text")
 
-  // Button state management
-  setActiveButtonByData(selector, dataAttribute, value) {
-    // Remove active class from all buttons
-    document.querySelectorAll(selector).forEach((btn) => {
-      btn.classList.remove("active")
-    })
+    if (effectEl && textEl) {
+      textEl.textContent = message
+      effectEl.classList.add("show")
 
-    // Add active class to matching button
-    const targetButton = document.querySelector(`${selector}[${dataAttribute}="${value}"]`)
-    if (targetButton) {
-      targetButton.classList.add("active")
-    }
-  }
-
-  setButtonsActive(selector, activeButton) {
-    document.querySelectorAll(selector).forEach((btn) => btn.classList.remove("active"))
-    if (activeButton) {
-      activeButton.classList.add("active")
-    }
-  }
-
-  // UI helpers
-  updateCombinationStatus(hasAvatar, hasGarment) {
-    const statusElement = document.getElementById("combination-status")
-    const statusDot = statusElement?.querySelector(".status-dot")
-    const statusText = statusElement?.querySelector(".status-text")
-
-    if (!statusElement || !statusDot || !statusText) return
-
-    if (hasAvatar && hasGarment) {
-      statusElement.className = "status-indicator success"
-      statusText.textContent = "✅ Ready for combined visualization"
-    } else if (hasAvatar || hasGarment) {
-      statusElement.className = "status-indicator warning"
-      statusText.textContent = "⚠️ Load both avatar and garment"
-    } else {
-      statusElement.className = "status-indicator error"
-      statusText.textContent = "❌ Load avatar and garment to combine"
-    }
-  }
-
-  updateModelInfo(url, type) {
-    const modelNameElement = document.getElementById("model-name")
-    const modelTypeElement = document.getElementById("model-type")
-    const modelStatusElement = document.getElementById("model-status")
-
-    if (modelNameElement) {
-      const fileName = url ? url.split("/").pop() : "None loaded"
-      modelNameElement.textContent = fileName
-    }
-
-    if (modelTypeElement) {
-      modelTypeElement.textContent = type || "-"
-    }
-
-    if (modelStatusElement) {
-      modelStatusElement.textContent = url ? "Loaded" : "Ready"
+      setTimeout(() => {
+        effectEl.classList.remove("show")
+      }, 2000)
     }
   }
 
   // Screenshot functionality
   takeScreenshot() {
-    const viewer = this.state.mainViewer || this.state.avatarViewer || this.state.garmentViewer
+    const viewer = document.querySelector("model-viewer")
+
     if (viewer) {
       try {
-        const canvas = viewer.querySelector("canvas")
-        if (canvas) {
-          const link = document.createElement("a")
-          link.download = `lucifex-screenshot-${Date.now()}.png`
-          link.href = canvas.toDataURL()
-          link.click()
-          this.updateStatus("📸 Screenshot saved")
-        } else {
-          this.updateStatus("❌ No canvas found for screenshot")
-        }
+        const canvas = viewer.toDataURL("image/png")
+        const link = document.createElement("a")
+        link.download = `lucifex-screenshot-${Date.now()}.png`
+        link.href = canvas
+        link.click()
+
+        this.updateStatus("📸 Screenshot saved")
       } catch (error) {
         console.error("Screenshot error:", error)
         this.updateStatus("❌ Screenshot failed")
       }
     } else {
-      this.updateStatus("❌ No viewer available for screenshot")
+      this.updateStatus("❌ No model loaded for screenshot")
     }
   }
 
-  // Export functionality
+  // Scene export functionality
   exportScene() {
-    const sceneData = {
-      timestamp: new Date().toISOString(),
-      avatarUrl: this.state.currentAvatarUrl,
-      garmentUrl: this.state.currentGarmentUrl,
-      modelType: this.state.currentModelType,
-      environment: this.state.currentEnvironment,
-      combinationMethod: this.state.currentCombinationMethod,
-      physicsEnabled: this.state.isPhysicsEnabled,
-      settings: this.getControlValues(),
-    }
+    const state = window.lucifexApp?.state?.getState()
 
-    const blob = new Blob([JSON.stringify(sceneData, null, 2)], { type: "application/json" })
-    const link = document.createElement("a")
-    link.download = `lucifex-scene-${Date.now()}.json`
-    link.href = URL.createObjectURL(blob)
-    link.click()
-
-    this.updateStatus("💾 Scene exported")
-  }
-
-  getControlValues() {
-    const controls = {}
-    const inputs = document.querySelectorAll("input[type='range']")
-    inputs.forEach((input) => {
-      if (input.id) {
-        controls[input.id] = input.value
+    if (state) {
+      const sceneData = {
+        timestamp: new Date().toISOString(),
+        avatarUrl: window.lucifexApp.state.currentAvatarUrl,
+        garmentUrl: window.lucifexApp.state.currentGarmentUrl,
+        settings: state,
       }
-    })
-    return controls
+
+      const blob = new Blob([JSON.stringify(sceneData, null, 2)], {
+        type: "application/json",
+      })
+
+      const link = document.createElement("a")
+      link.download = `lucifex-scene-${Date.now()}.json`
+      link.href = URL.createObjectURL(blob)
+      link.click()
+
+      this.updateStatus("💾 Scene exported")
+    } else {
+      this.updateStatus("❌ No scene data to export")
+    }
   }
 
-  // Value display updates
-  updateValueDisplay(inputId, valueId) {
-    const input = document.getElementById(inputId)
-    const valueDisplay = document.getElementById(valueId)
-
-    if (input && valueDisplay) {
-      valueDisplay.textContent = input.value
+  // Debounce utility
+  debounce(func, wait) {
+    let timeout
+    return function executedFunction(...args) {
+      const later = () => {
+        clearTimeout(timeout)
+        func(...args)
+      }
+      clearTimeout(timeout)
+      timeout = setTimeout(later, wait)
     }
+  }
+
+  // Throttle utility
+  throttle(func, limit) {
+    let inThrottle
+    return function () {
+      const args = arguments
+      
+      if (!inThrottle) {
+        func.apply(this, args)
+        inThrottle = true
+        setTimeout(() => (inThrottle = false), limit)
+      }
+    }
+  }
+
+  // Animation frame utility
+  requestAnimationFrame(callback) {
+    return window.requestAnimationFrame(callback)
+  }
+
+  cancelAnimationFrame(id) {
+    return window.cancelAnimationFrame(id)
+  }
+
+  // Local storage utilities
+  saveToLocalStorage(key, data) {
+    try {
+      localStorage.setItem(key, JSON.stringify(data))
+      return true
+    } catch (error) {
+      console.error("Failed to save to localStorage:", error)
+      return false
+    }
+  }
+
+  loadFromLocalStorage(key) {
+    try {
+      const data = localStorage.getItem(key)
+      return data ? JSON.parse(data) : null
+    } catch (error) {
+      console.error("Failed to load from localStorage:", error)
+      return null
+    }
+  }
+
+  // Error handling
+  handleError(error, context = "Unknown") {
+    console.error(`Error in ${context}:`, error)
+    this.updateStatus(`❌ Error in ${context}: ${error.message}`)
+  }
+
+  // Performance monitoring
+  startPerformanceTimer(label) {
+    console.time(label)
+  }
+
+  endPerformanceTimer(label) {
+    console.timeEnd(label)
   }
 
   // Cleanup
   cleanup() {
-    // Clean up any object URLs
-    if (this.state.currentAvatarUrl && this.state.currentAvatarUrl.startsWith("blob:")) {
-      this.revokeObjectURL(this.state.currentAvatarUrl)
-    }
-    if (this.state.currentGarmentUrl && this.state.currentGarmentUrl.startsWith("blob:")) {
-      this.revokeObjectURL(this.state.currentGarmentUrl)
-    }
-  }
-
-  // Physics effect display
-  showPhysicsEffect(message, duration = 3000) {
-    const effectElement = document.getElementById("physics-effect")
-    if (effectElement) {
-      effectElement.textContent = message
-      effectElement.classList.add("visible")
-
-      setTimeout(() => {
-        effectElement.classList.remove("visible")
-      }, duration)
-    }
+    // Clean up any resources if needed
+    console.log("🔧 Utils cleaned up")
   }
 }
