@@ -1,4 +1,4 @@
-// UI Controls management
+// UI Controls and event handling
 export class UIControls {
   constructor(state, managers) {
     this.state = state
@@ -13,10 +13,10 @@ export class UIControls {
   async initialize() {
     try {
       this.setupEventListeners()
-      this.setupRangeInputs()
-      console.log("✅ UI Controls initialized")
+      this.setupControlListeners()
+      console.log("✅ UIControls initialized")
     } catch (error) {
-      console.error("❌ Failed to initialize UI Controls:", error)
+      console.error("❌ Failed to initialize UIControls:", error)
     }
   }
 
@@ -37,32 +37,32 @@ export class UIControls {
       })
     })
 
-    // Avatar selection
+    // Avatar presets
     document.querySelectorAll(".avatar-option").forEach((option) => {
       option.addEventListener("click", (e) => {
-        const avatarId = e.target.dataset.avatar
+        const avatarId = e.target.dataset.avatar || e.target.closest(".avatar-option").dataset.avatar
         this.loadAvatarPreset(avatarId)
       })
     })
 
-    // Garment selection
-    document.querySelectorAll("[data-garment]").forEach((btn) => {
+    // Sample garments
+    document.querySelectorAll(".preset-btn[data-garment]").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         const garmentId = e.target.dataset.garment
         this.loadSampleGarment(garmentId)
       })
     })
 
-    // Environment selection
-    document.querySelectorAll("[data-environment]").forEach((btn) => {
+    // Environment presets
+    document.querySelectorAll(".env-btn").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         const environment = e.target.dataset.environment
         this.environmentManager.setEnvironment(environment)
       })
     })
 
-    // Combination method
-    document.querySelectorAll("[data-combination]").forEach((btn) => {
+    // Combination methods
+    document.querySelectorAll(".preset-btn[data-combination]").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         const method = e.target.dataset.combination
         this.setCombinationMethod(method)
@@ -70,7 +70,7 @@ export class UIControls {
     })
 
     // Tone mapping
-    document.querySelectorAll("[data-tone-mapping]").forEach((btn) => {
+    document.querySelectorAll(".preset-btn[data-tone-mapping]").forEach((btn) => {
       btn.addEventListener("click", (e) => {
         const mapping = e.target.dataset.toneMapping
         this.environmentManager.setToneMapping(mapping)
@@ -86,6 +86,17 @@ export class UIControls {
     const garmentFile = document.getElementById("garment-file")
     if (garmentFile) {
       garmentFile.addEventListener("change", (e) => this.loadGarmentFile(e))
+    }
+
+    // Action buttons
+    const generateCombined = document.getElementById("generate-combined")
+    if (generateCombined) {
+      generateCombined.addEventListener("click", () => this.modelManager.generateCombinedModel())
+    }
+
+    const resetCombination = document.getElementById("reset-combination")
+    if (resetCombination) {
+      resetCombination.addEventListener("click", () => this.modelManager.resetCombination())
     }
 
     // Physics controls
@@ -135,22 +146,17 @@ export class UIControls {
       cameraReset.addEventListener("click", () => this.environmentManager.resetCamera())
     }
 
+    const resetCamera = document.getElementById("reset-camera")
+    if (resetCamera) {
+      resetCamera.addEventListener("click", () => this.environmentManager.resetCamera())
+    }
+
     const focusModel = document.getElementById("focus-model")
     if (focusModel) {
       focusModel.addEventListener("click", () => this.environmentManager.focusOnModel())
     }
 
-    // Action buttons
-    const generateCombined = document.getElementById("generate-combined")
-    if (generateCombined) {
-      generateCombined.addEventListener("click", () => this.modelManager.generateCombinedModel())
-    }
-
-    const resetCombination = document.getElementById("reset-combination")
-    if (resetCombination) {
-      resetCombination.addEventListener("click", () => this.modelManager.resetCombination())
-    }
-
+    // Screenshot and export
     const takeScreenshot = document.getElementById("take-screenshot")
     if (takeScreenshot) {
       takeScreenshot.addEventListener("click", () => this.takeScreenshot())
@@ -162,80 +168,130 @@ export class UIControls {
     }
   }
 
-  setupRangeInputs() {
+  setupControlListeners() {
     // Avatar scale
-    this.setupRangeInput("avatar-scale", "avatar-scale-value", "x", (value) => {
-      this.modelManager.updateModelScale("avatar", Number.parseFloat(value))
-    })
+    const avatarScale = document.getElementById("avatar-scale")
+    const avatarScaleValue = document.getElementById("avatar-scale-value")
+    if (avatarScale && avatarScaleValue) {
+      avatarScale.addEventListener("input", (e) => {
+        avatarScaleValue.textContent = e.target.value
+        this.modelManager.updateModelScale("avatar", Number.parseFloat(e.target.value))
+      })
+    }
 
-    // Garment scale
-    this.setupRangeInput("garment-scale", "garment-scale-value", "x", (value) => {
-      this.modelManager.updateModelScale("garment", Number.parseFloat(value))
-    })
+    // Garment scale (individual tab)
+    const garmentScale = document.getElementById("garment-scale")
+    const garmentScaleValue = document.getElementById("garment-scale-value")
+    if (garmentScale && garmentScaleValue) {
+      garmentScale.addEventListener("input", (e) => {
+        garmentScaleValue.textContent = e.target.value
+        this.modelManager.updateModelScale("garment", Number.parseFloat(e.target.value))
+      })
+    }
 
-    // Garment scale combined
-    this.setupRangeInput("garment-scale-combined", "garment-scale-combined-value", "x", (value) => {
-      this.modelManager.updateModelScale("garment", Number.parseFloat(value))
-      if (this.state.physicsMeshUpdater) {
-        this.state.physicsMeshUpdater.setGarmentScale(Number.parseFloat(value))
-      }
-    })
+    // Garment scale (combined tab)
+    const garmentScaleCombined = document.getElementById("garment-scale-combined")
+    const garmentScaleCombinedValue = document.getElementById("garment-scale-combined-value")
+    if (garmentScaleCombined && garmentScaleCombinedValue) {
+      garmentScaleCombined.addEventListener("input", (e) => {
+        garmentScaleCombinedValue.textContent = e.target.value
+        this.modelManager.updateModelScale("garment", Number.parseFloat(e.target.value))
+
+        // Also update physics mesh updater if available
+        if (this.state.physicsMeshUpdater) {
+          this.state.physicsMeshUpdater.setGarmentScale(Number.parseFloat(e.target.value))
+        }
+      })
+    }
 
     // Avatar opacity
-    this.setupRangeInput("avatar-opacity", "avatar-opacity-value", "", (value) => {
-      this.modelManager.updateModelOpacity("avatar", Number.parseFloat(value))
-    })
+    const avatarOpacity = document.getElementById("avatar-opacity")
+    const avatarOpacityValue = document.getElementById("avatar-opacity-value")
+    if (avatarOpacity && avatarOpacityValue) {
+      avatarOpacity.addEventListener("input", (e) => {
+        avatarOpacityValue.textContent = e.target.value
+        this.modelManager.updateModelOpacity("avatar", Number.parseFloat(e.target.value))
+      })
+    }
 
     // Garment opacity
-    this.setupRangeInput("garment-opacity", "garment-opacity-value", "", (value) => {
-      this.modelManager.updateModelOpacity("garment", Number.parseFloat(value))
-    })
+    const garmentOpacity = document.getElementById("garment-opacity")
+    const garmentOpacityValue = document.getElementById("garment-opacity-value")
+    if (garmentOpacity && garmentOpacityValue) {
+      garmentOpacity.addEventListener("input", (e) => {
+        garmentOpacityValue.textContent = e.target.value
+        this.modelManager.updateModelOpacity("garment", Number.parseFloat(e.target.value))
+      })
+    }
 
     // Garment position
-    this.setupRangeInput("garment-offset-y", "garment-offset-y-value", "", (value) => {
-      this.modelManager.updateGarmentPosition()
-    })
+    const garmentOffsetY = document.getElementById("garment-offset-y")
+    const garmentOffsetYValue = document.getElementById("garment-offset-y-value")
+    if (garmentOffsetY && garmentOffsetYValue) {
+      garmentOffsetY.addEventListener("input", (e) => {
+        garmentOffsetYValue.textContent = e.target.value
+        this.modelManager.updateGarmentPosition()
+      })
+    }
 
-    this.setupRangeInput("garment-offset-x", "garment-offset-x-value", "", (value) => {
-      this.modelManager.updateGarmentPosition()
-    })
+    const garmentOffsetX = document.getElementById("garment-offset-x")
+    const garmentOffsetXValue = document.getElementById("garment-offset-x-value")
+    if (garmentOffsetX && garmentOffsetXValue) {
+      garmentOffsetX.addEventListener("input", (e) => {
+        garmentOffsetXValue.textContent = e.target.value
+        this.modelManager.updateGarmentPosition()
+      })
+    }
 
     // Lighting controls
-    this.setupRangeInput("exposure", "exposure-value", "", (value) => {
-      this.environmentManager.updateLighting()
-    })
+    const exposure = document.getElementById("exposure")
+    const exposureValue = document.getElementById("exposure-value")
+    if (exposure && exposureValue) {
+      exposure.addEventListener("input", (e) => {
+        exposureValue.textContent = e.target.value
+        this.environmentManager.updateLighting()
+      })
+    }
 
-    this.setupRangeInput("shadow-intensity", "shadow-intensity-value", "", (value) => {
-      this.environmentManager.updateLighting()
-    })
+    const shadowIntensity = document.getElementById("shadow-intensity")
+    const shadowIntensityValue = document.getElementById("shadow-intensity-value")
+    if (shadowIntensity && shadowIntensityValue) {
+      shadowIntensity.addEventListener("input", (e) => {
+        shadowIntensityValue.textContent = e.target.value
+        this.environmentManager.updateLighting()
+      })
+    }
 
-    this.setupRangeInput("shadow-softness", "shadow-softness-value", "", (value) => {
-      this.environmentManager.updateLighting()
-    })
+    const shadowSoftness = document.getElementById("shadow-softness")
+    const shadowSoftnessValue = document.getElementById("shadow-softness-value")
+    if (shadowSoftness && shadowSoftnessValue) {
+      shadowSoftness.addEventListener("input", (e) => {
+        shadowSoftnessValue.textContent = e.target.value
+        this.environmentManager.updateLighting()
+      })
+    }
 
     // Physics controls
-    this.setupRangeInput("cloth-stiffness", "cloth-stiffness-value", "", (value) => {
-      this.physicsManager.updatePhysicsSettings()
-    })
+    const clothStiffness = document.getElementById("cloth-stiffness")
+    const clothStiffnessValue = document.getElementById("cloth-stiffness-value")
+    if (clothStiffness && clothStiffnessValue) {
+      clothStiffness.addEventListener("input", (e) => {
+        clothStiffnessValue.textContent = e.target.value
+        this.physicsManager.updatePhysicsSettings()
+      })
+    }
 
-    this.setupRangeInput("gravity-strength", "gravity-strength-value", "", (value) => {
-      this.physicsManager.updatePhysicsSettings()
-    })
-  }
-
-  setupRangeInput(inputId, valueId, suffix, callback) {
-    const input = document.getElementById(inputId)
-    const valueDisplay = document.getElementById(valueId)
-
-    if (input && valueDisplay) {
-      input.addEventListener("input", () => {
-        valueDisplay.textContent = input.value + suffix
-        if (callback) callback(input.value)
+    const gravityStrength = document.getElementById("gravity-strength")
+    const gravityStrengthValue = document.getElementById("gravity-strength-value")
+    if (gravityStrength && gravityStrengthValue) {
+      gravityStrength.addEventListener("input", (e) => {
+        gravityStrengthValue.textContent = e.target.value
+        this.physicsManager.updatePhysicsSettings()
       })
     }
   }
 
-  // Tab management
+  // Tab switching
   switchTab(tabName) {
     // Remove active class from all tabs and content
     document.querySelectorAll(".tab").forEach((tab) => tab.classList.remove("active"))
@@ -251,113 +307,114 @@ export class UIControls {
     this.state.setCurrentTab(tabName)
   }
 
-  // Model type management
+  // Model type switching
   setModelType(type) {
-    this.utils.setButtonsActive(".model-btn", document.querySelector(`[data-model-type="${type}"]`))
+    // Update button states
+    this.utils.setActiveButtonByData(".model-btn", "data-model-type", type)
+
     this.state.setModelType(type)
 
-    if (type === "avatar" && this.state.hasAvatar) {
+    if (type === "avatar" && this.state.currentAvatarUrl) {
       this.modelManager.loadSingleModel(this.state.currentAvatarUrl, "avatar")
-    } else if (type === "garment" && this.state.hasGarment) {
+    } else if (type === "garment" && this.state.currentGarmentUrl) {
       this.modelManager.loadSingleModel(this.state.currentGarmentUrl, "garment")
     } else if (type === "both") {
       this.modelManager.generateCombinedView()
     }
   }
 
-  // Avatar management
+  // Avatar preset loading
   loadAvatarPreset(avatarId) {
-    this.utils.setButtonsActive(".avatar-option", document.querySelector(`[data-avatar="${avatarId}"]`))
+    // Update button states
+    this.utils.setActiveButtonByData(".avatar-option", "data-avatar", avatarId)
 
     const avatarUrl = `../assets/avatars/${avatarId}.glb`
     this.state.setAvatarUrl(avatarUrl)
 
     this.utils.updateStatus(`Loading avatar preset: ${avatarId}`)
 
-    // Update view based on current mode
-    if (this.state.isInCombinedMode) {
+    // If in combined mode, regenerate
+    if (this.state.currentModelType === "both") {
       this.modelManager.generateCombinedView()
     } else if (this.state.currentModelType === "avatar") {
       this.modelManager.loadSingleModel(avatarUrl, "avatar")
     }
   }
 
+  // Custom avatar loading
   loadCustomAvatar(event) {
     const file = event.target.files[0]
     if (!file) return
-
-    if (!this.utils.isValidModelFile(file)) {
-      this.utils.updateStatus("❌ Invalid file type. Please select a GLB or GLTF file.")
-      return
-    }
 
     const url = this.utils.createObjectURL(file)
     this.state.setAvatarUrl(url)
 
     this.utils.updateStatus(`Loading custom avatar: ${file.name}`)
-    this.utils.updateFileInfo("avatar-file-info", file)
+    this.utils.updateFileInfo("avatar-file-info", file, "avatar")
 
-    // Update view based on current mode
-    if (this.state.isInCombinedMode) {
+    // If in combined mode, regenerate
+    if (this.state.currentModelType === "both") {
       this.modelManager.generateCombinedView()
     } else if (this.state.currentModelType === "avatar") {
       this.modelManager.loadSingleModel(url, "avatar")
     }
   }
 
-  // Garment management
-  loadSampleGarment(garmentId) {
-    this.utils.setButtonsActive("[data-garment]", document.querySelector(`[data-garment="${garmentId}"]`))
-
-    const garmentUrl = `../assets/garments/${garmentId}.glb`
-    this.state.setGarmentUrl(garmentUrl)
-
-    this.utils.updateStatus(`Loading sample garment: ${garmentId}`)
-
-    // Update view based on current mode
-    if (this.state.isInCombinedMode) {
-      this.modelManager.generateCombinedView()
-    } else if (this.state.currentModelType === "garment") {
-      this.modelManager.loadSingleModel(garmentUrl, "garment")
-    }
-  }
-
+  // Garment loading
   loadGarmentFile(event) {
     const file = event.target.files[0]
     if (!file) return
-
-    if (!this.utils.isValidModelFile(file)) {
-      this.utils.updateStatus("❌ Invalid file type. Please select a GLB or GLTF file.")
-      return
-    }
 
     const url = this.utils.createObjectURL(file)
     this.state.setGarmentUrl(url)
 
     this.utils.updateStatus(`Loading garment: ${file.name}`)
-    this.utils.updateFileInfo("garment-file-info", file)
+    this.utils.updateFileInfo("garment-file-info", file, "garment")
 
-    // Update view based on current mode
-    if (this.state.isInCombinedMode) {
+    // If in combined mode, regenerate
+    if (this.state.currentModelType === "both") {
       this.modelManager.generateCombinedView()
     } else if (this.state.currentModelType === "garment") {
       this.modelManager.loadSingleModel(url, "garment")
     }
   }
 
-  // Combination management
+  // Sample garment loading
+  loadSampleGarment(garmentId) {
+    // Update button states
+    this.utils.setActiveButtonByData(".preset-btn[data-garment]", "data-garment", garmentId)
+
+    const garmentUrl = `../assets/garments/${garmentId}.glb`
+    this.state.setGarmentUrl(garmentUrl)
+
+    this.utils.updateStatus(`Loading sample garment: ${garmentId}`)
+
+    // If in combined mode, regenerate
+    if (this.state.currentModelType === "both") {
+      this.modelManager.generateCombinedView()
+    } else if (this.state.currentModelType === "garment") {
+      this.modelManager.loadSingleModel(garmentUrl, "garment")
+    }
+  }
+
+  // Combination methods
   setCombinationMethod(method) {
-    this.utils.setButtonsActive("[data-combination]", document.querySelector(`[data-combination="${method}"]`))
     this.state.currentCombinationMethod = method
+
+    // Update button states
+    this.utils.setActiveButtonByData(".preset-btn[data-combination]", "data-combination", method)
+
     this.utils.updateStatus(`Combination method: ${method}`)
   }
 
-  // Action handlers
+  // Action functions
   takeScreenshot() {
+    // This would need to be implemented with canvas capture
     this.utils.updateStatus("Screenshot feature coming soon")
   }
 
   exportScene() {
+    // This would export the current scene configuration
     this.utils.updateStatus("Export feature coming soon")
   }
 }

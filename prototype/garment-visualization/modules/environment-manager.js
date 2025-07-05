@@ -27,10 +27,13 @@ export class EnvironmentManager {
   }
 
   setEnvironment(env) {
-    const utils = window.lucifexApp?.utils
-
     this.state.setEnvironment(env)
-    utils?.setButtonsActive(".env-btn", document.querySelector(`[data-environment="${env}"]`))
+
+    // Update button states
+    const utils = window.lucifexApp?.utils
+    if (utils) {
+      utils.setActiveButtonByData(".env-btn", "data-environment", env)
+    }
 
     const envUrl = this.environmentUrls[env] || this.environmentUrls.studio
 
@@ -47,9 +50,9 @@ export class EnvironmentManager {
   }
 
   updateLighting() {
-    const exposure = document.getElementById("exposure")?.value || 1
-    const shadowIntensity = document.getElementById("shadow-intensity")?.value || 1
-    const shadowSoftness = document.getElementById("shadow-softness")?.value || 0.5
+    const exposure = document.getElementById("exposure")?.value || "1"
+    const shadowIntensity = document.getElementById("shadow-intensity")?.value || "1"
+    const shadowSoftness = document.getElementById("shadow-softness")?.value || "0.5"
 
     const viewers = [this.state.mainViewer, this.state.avatarViewer, this.state.garmentViewer].filter((v) => v)
     viewers.forEach((viewer) => {
@@ -60,9 +63,11 @@ export class EnvironmentManager {
   }
 
   setToneMapping(mapping) {
+    // Update button states
     const utils = window.lucifexApp?.utils
-
-    utils?.setButtonsActive("[data-tone-mapping]", document.querySelector(`[data-tone-mapping="${mapping}"]`))
+    if (utils) {
+      utils.setActiveButtonByData(".preset-btn[data-tone-mapping]", "data-tone-mapping", mapping)
+    }
 
     const viewers = [this.state.mainViewer, this.state.avatarViewer, this.state.garmentViewer].filter((v) => v)
     viewers.forEach((viewer) => {
@@ -75,8 +80,6 @@ export class EnvironmentManager {
   }
 
   toggleAutoRotate() {
-    const utils = window.lucifexApp?.utils
-
     this.state.isAutoRotating = !this.state.isAutoRotating
 
     const viewers = [this.state.mainViewer, this.state.avatarViewer, this.state.garmentViewer].filter((v) => v)
@@ -96,8 +99,6 @@ export class EnvironmentManager {
   }
 
   resetCamera() {
-    const utils = window.lucifexApp?.utils
-
     const viewers = [this.state.mainViewer, this.state.avatarViewer, this.state.garmentViewer].filter((v) => v)
     viewers.forEach((viewer) => {
       if (viewer.resetTurntableRotation) {
@@ -108,14 +109,13 @@ export class EnvironmentManager {
       }
     })
 
+    const utils = window.lucifexApp?.utils
     if (utils) {
       utils.updateStatus("Camera reset")
     }
   }
 
   focusOnModel() {
-    const utils = window.lucifexApp?.utils
-
     const viewers = [this.state.mainViewer, this.state.avatarViewer, this.state.garmentViewer].filter((v) => v)
     viewers.forEach((viewer) => {
       if (viewer.jumpCameraToGoal) {
@@ -123,6 +123,7 @@ export class EnvironmentManager {
       }
     })
 
+    const utils = window.lucifexApp?.utils
     if (utils) {
       utils.updateStatus("Focused on model")
     }
