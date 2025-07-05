@@ -1581,4 +1581,181 @@ window.loadPhysicsModules = async function() {
       const gravity = parseFloat(document.getElementById('gravity-strength').value);
       
       clothSimulation.setGravity(0, -gravity, 0);
-      clothSimulation.setClothStiffness(null,
+      clothSimulation.setClothStiffness(null,stiffness);
+    }
+
+    function togglePhysicsDebug() {
+      if (!window.PhysicsVisualDebug) {
+        updatePhysicsStatus('❌ Physics debug not available');
+        return;
+      }
+      
+      if (!physicsVisualDebug) {
+        physicsVisualDebug = new window.PhysicsVisualDebug();
+        physicsVisualDebug.initialize();
+      }
+      
+      isPhysicsDebugEnabled = !isPhysicsDebugEnabled;
+      
+      if (isPhysicsDebugEnabled) {
+        physicsVisualDebug.enable();
+        document.getElementById('debug-toggle').textContent = 'Hide Physics';
+        document.getElementById('debug-toggle').classList.add('active');
+        updatePhysicsStatus('🔍 Physics debug visualization enabled');
+      } else {
+        physicsVisualDebug.disable();
+        document.getElementById('debug-toggle').textContent = 'Show Physics';
+        document.getElementById('debug-toggle').classList.remove('active');
+        updatePhysicsStatus('Physics debug visualization disabled');
+      }
+    }
+
+    function logPhysicsStatus() {
+      console.log('=== PHYSICS STATUS ===');
+      console.log('Physics enabled:', isPhysicsEnabled);
+      console.log('Cloth simulation:', clothSimulation);
+      console.log('Physics debug:', physicsVisualDebug);
+      console.log('Current garment:', currentGarmentUrl);
+      console.log('Current avatar:', currentAvatarUrl);
+      
+      if (clothSimulation) {
+        console.log('Simulation status:', clothSimulation.getStatus());
+      }
+      
+      updatePhysicsStatus('📊 Physics status logged to console');
+    }
+
+    function startDropTest() {
+      if (!window.PhysicsDropTest) {
+        updatePhysicsStatus('❌ Drop test not available');
+        return;
+      }
+      
+      if (!physicsDropTest) {
+        physicsDropTest = new window.PhysicsDropTest();
+        physicsDropTest.initialize();
+      }
+      
+      physicsDropTest.startDropTest();
+      updatePhysicsStatus('🎬 Drop test started - dramatic cloth falling!');
+      showPhysicsEffect('🎬 Drop Test Active!\nWatch the dramatic cloth fall!');
+    }
+
+    function startBasicTest() {
+      if (!window.PhysicsTest) {
+        updatePhysicsStatus('❌ Basic test not available');
+        return;
+      }
+      
+      if (!physicsTest) {
+        physicsTest = new window.PhysicsTest();
+        physicsTest.initialize();
+      }
+      
+      physicsTest.runBasicTest();
+      updatePhysicsStatus('🧪 Basic physics test running');
+    }
+
+    function resetClothPosition() {
+      if (clothSimulation) {
+        clothSimulation.resetClothPosition();
+        updatePhysicsStatus('🔄 Cloth position reset - watch it fall again!');
+        showPhysicsEffect('🔄 Cloth Reset!\nWatch it fall and drape again!');
+      } else {
+        updatePhysicsStatus('❌ No active physics simulation to reset');
+      }
+    }
+
+    // Utility functions
+    function updateStatus(message) {
+      const statusContent = document.getElementById('status-content');
+      statusContent.textContent = message;
+      console.log('Status:', message);
+    }
+
+    function updatePhysicsStatus(message) {
+      const physicsStatus = document.getElementById('physics-status');
+      physicsStatus.innerHTML = `<strong>Physics Engine:</strong> ${message}`;
+      console.log('Physics Status:', message);
+    }
+
+    function updateCombinationStatus() {
+      const status = document.getElementById('combination-status');
+      
+      if (currentAvatarUrl && currentGarmentUrl) {
+        status.className = 'combination-status ready';
+        status.innerHTML = '<strong>Status:</strong> ✅ Ready for combined visualization';
+      } else if (currentAvatarUrl || currentGarmentUrl) {
+        status.className = 'combination-status partial';
+        status.innerHTML = '<strong>Status:</strong> ⚠️ Load both avatar and garment';
+      } else {
+        status.className = 'combination-status empty';
+        status.innerHTML = '<strong>Status:</strong> ❌ Load avatar and garment to combine';
+      }
+    }
+
+    function updateModelInfo(url, type) {
+      const modelInfo = document.getElementById('model-info');
+      const fileName = url.split('/').pop();
+      modelInfo.innerHTML = `📊 ${type}: ${fileName}`;
+    }
+
+    function showPhysicsEffect(message) {
+      const indicator = document.getElementById('physics-effect-indicator');
+      const textElement = document.getElementById('physics-effect-text');
+      
+      textElement.textContent = message;
+      indicator.classList.add('visible');
+      
+      setTimeout(() => {
+        indicator.classList.remove('visible');
+      }, 3000);
+    }
+
+    // Action functions
+    function generateCombinedModel() {
+      if (!currentAvatarUrl || !currentGarmentUrl) {
+        updateStatus('❌ Need both avatar and garment to generate combined model');
+        return;
+      }
+      
+      generateCombinedView();
+    }
+
+    function resetCombination() {
+      // Reset to single model view
+      const combinedContainer = document.getElementById('combined-container');
+      if (combinedContainer) {
+        combinedContainer.style.display = 'none';
+      }
+      
+      const mainViewer = document.getElementById('main-viewer');
+      mainViewer.style.display = 'block';
+      mainViewer.src = '';
+      
+      updateStatus('Combination reset');
+    }
+
+    function takeScreenshot() {
+      // This would need to be implemented with canvas capture
+      updateStatus('Screenshot feature coming soon');
+    }
+
+    function exportScene() {
+      // This would export the current scene configuration
+      updateStatus('Export feature coming soon');
+    }
+
+    // Live reload for development
+    if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+      console.log('Live reload enabled.');
+      
+      // Simple live reload check every 2 seconds
+      setInterval(() => {
+        fetch(location.href, { method: 'HEAD' })
+          .catch(() => location.reload());
+      }, 2000);
+    }
+  </script>
+</body>
+</html>
