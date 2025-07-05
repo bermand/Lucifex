@@ -8,15 +8,15 @@ export class ModelManager {
 
   async initialize() {
     console.log("✅ ModelManager initialized")
-    await this.checkForAvailableModels()
+    await this.checkAvailableModels()
   }
 
-  async checkForAvailableModels() {
+  async checkAvailableModels() {
     this.utils.updateStatus("🔍 Checking for available models...")
 
     // Check for default avatar
     try {
-      const avatarResponse = await fetch("../assets/avatars/male.glb", { method: "HEAD" })
+      const avatarResponse = await fetch("../assets/avatars/male.glb")
       if (avatarResponse.ok) {
         console.log("✅ Found avatar: male.glb")
         this.state.setAvatarUrl("../assets/avatars/male.glb")
@@ -25,204 +25,210 @@ export class ModelManager {
       console.log("⚠️ Default avatar not found")
     }
 
-    // Check for default garment
-    try {
-      const garmentResponse = await fetch("../assets/garments/tshirt-1.glb", { method: "HEAD" })
-      if (garmentResponse.ok) {
-        console.log("✅ Found garment: tshirt-1.glb")
-        this.state.setGarmentUrl("../assets/garments/tshirt-1.glb")
+    // Check for default garments
+    const garments = ["tshirt.glb", "tshirt-1.glb", "thsirt.gltf"]
+    for (const garment of garments) {
+      try {
+        const garmentResponse = await fetch(`../assets/garments/${garment}`)
+        if (garmentResponse.ok) {
+          console.log(`✅ Found garment: ${garment}`)
+          this.state.setGarmentUrl(`../assets/garments/${garment}`)
+          break
+        }
+      } catch (error) {
+        console.log(`⚠️ Garment ${garment} not found`)
       }
-    } catch (error) {
-      console.log("⚠️ Default garment not found")
     }
 
-    // Load combined view if both models are available
-    if (this.state.hasBothModels) {
+    if (this.state.hasAvatar && this.state.hasGarment) {
       this.utils.updateStatus("🎯 Both models found - loading combined view...")
-      this.state.setModelType("both")
+      this.state.setCurrentModelType("both")
       await this.createCombinedView()
     } else if (this.state.hasAvatar) {
       this.utils.updateStatus("👤 Avatar found - loading avatar view...")
-      this.state.setModelType("avatar")
+      this.state.setCurrentModelType("avatar")
       await this.loadSingleModel("avatar")
     } else if (this.state.hasGarment) {
       this.utils.updateStatus("👕 Garment found - loading garment view...")
-      this.state.setModelType("garment")
+      this.state.setCurrentModelType("garment")
       await this.loadSingleModel("garment")
     } else {
       this.utils.updateStatus("⚠️ No models found - please upload models")
+      this.utils.updateModelStatus("Not Found")
     }
   }
 
-  async loadPresetAvatar(avatarType) {
-    const avatarUrls = {
-      male: "../assets/avatars/male.glb",
-      female: "../assets/avatars/female.glb",
-    }
-
-    const url = avatarUrls[avatarType]
-    if (url) {
+  async loadAvatar(url) {
+    try {
       this.state.setAvatarUrl(url)
-      this.utils.updateStatus(`Loading preset avatar: ${avatarType}`)
+      this.utils.updateStatus("👤 Loading avatar...")
 
-      if (this.state.getModelType() === "both" && this.state.hasGarment) {
+      if (this.state.hasGarment) {
         await this.createCombinedView()
       } else {
         await this.loadSingleModel("avatar")
       }
+
+      this.utils.updateStatus("✅ Avatar loaded successfully")
+    } catch (error) {
+      console.error("Error loading avatar:", error)
+      this.utils.updateStatus("❌ Failed to load avatar")
     }
   }
 
-  async loadPresetGarment(garmentType) {
-    const garmentUrls = {
-      tshirt: "../assets/garments/tshirt.glb",
-      "tshirt-1": "../assets/garments/tshirt-1.glb",
-      thsirt: "../assets/garments/thsirt.glb",
-    }
-
-    const url = garmentUrls[garmentType]
-    if (url) {
+  async loadGarment(url) {
+    try {
       this.state.setGarmentUrl(url)
-      this.utils.updateStatus(`Loading preset garment: ${garmentType}`)
+      this.utils.updateStatus("👕 Loading garment...")
 
-      if (this.state.getModelType() === "both" && this.state.hasAvatar) {
+      if (this.state.hasAvatar) {
         await this.createCombinedView()
       } else {
         await this.loadSingleModel("garment")
       }
+
+      this.utils.updateStatus("✅ Garment loaded successfully")
+    } catch (error) {
+      console.error("Error loading garment:", error)
+      this.utils.updateStatus("❌ Failed to load garment")
     }
-  }
-
-  async loadCustomModel(file, type) {
-    if (!this.utils.isValidModelFile(file)) {
-      this.utils.updateStatus("❌ Invalid file type. Please upload .glb or .gltf files")
-      return
-    }
-
-    this.utils.handleFileUpload(file, async (url, fileInfo) => {
-      if (type === "avatar") {
-        this.state.setAvatarUrl(url)
-        this.utils.updateStatus(`Loading custom avatar: ${fileInfo.name}`)
-      } else {
-        this.state.setGarmentUrl(url)
-        this.utils.updateStatus(`Loading custom garment: ${fileInfo.name}`)
-      }
-
-      if (this.state.getModelType() === "both" && this.state.hasBothModels) {
-        await this.createCombinedView()
-      } else {
-        await this.loadSingleModel(type)
-      }
-    })
   }
 
   async loadSingleModel(type) {
     const mainViewer = document.getElementById("main-viewer")
     const combinedContainer = document.getElementById("combined-viewer-container")
 
-    if (!mainViewer) return
+    if (mainViewer && combinedContainer) {
+      // Hide combined view
+      combinedContainer.style.display = "none"
 
-    // Show single viewer, hide combined
-    mainViewer.style.display = "block"
-    combinedContainer.style.display = "none"
+      // Show single viewer
+      mainViewer.style.display = "block"
 
-    const url = type === "avatar" ? this.state.getAvatarUrl() : this.state.getGarmentUrl()
-    if (url) {
-      mainViewer.src = url
-      this.state.setMainViewer(mainViewer)
-      this.utils.updateModelInfo(
-        type === "avatar" ? "Avatar" : "Garment",
-        type.charAt(0).toUpperCase() + type.slice(1),
-        "Loaded",
-      )
+      // Set the model source
+      const url = type === "avatar" ? this.state.avatarUrl : this.state.garmentUrl
+      mainViewer.setAttribute("src", url)
+
+      // Update model info
+      this.updateModelInfo(type, url)
+
+      this.utils.updateModelStatus("Ready")
     }
   }
 
   async createCombinedView() {
-    if (!this.state.hasBothModels) {
-      this.utils.updateStatus("⚠️ Both avatar and garment required for combined view")
-      return
-    }
-
     this.utils.updateStatus("🔄 Creating combined view with unified background...")
 
     const mainViewer = document.getElementById("main-viewer")
     const combinedContainer = document.getElementById("combined-viewer-container")
 
-    if (!combinedContainer) return
+    if (mainViewer && combinedContainer) {
+      // Hide single viewer
+      mainViewer.style.display = "none"
 
-    // Hide single viewer, show combined
-    mainViewer.style.display = "none"
-    combinedContainer.style.display = "block"
+      // Show combined container
+      combinedContainer.style.display = "block"
 
-    // Clear existing content
-    combinedContainer.innerHTML = ""
+      // Clear existing viewers
+      combinedContainer.innerHTML = ""
 
-    // Create unified background viewer with avatar
-    const backgroundViewer = document.createElement("model-viewer")
-    backgroundViewer.id = "avatar-viewer"
-    backgroundViewer.setAttribute("alt", "Avatar")
-    backgroundViewer.setAttribute("camera-controls", "")
-    backgroundViewer.setAttribute("auto-rotate", "")
-    backgroundViewer.setAttribute("shadow-intensity", "1")
-    backgroundViewer.setAttribute("exposure", "1")
-    backgroundViewer.setAttribute("environment-image", "neutral")
-    backgroundViewer.src = this.state.getAvatarUrl()
-    backgroundViewer.style.width = "100%"
-    backgroundViewer.style.height = "100%"
-    backgroundViewer.style.position = "absolute"
-    backgroundViewer.style.top = "0"
-    backgroundViewer.style.left = "0"
+      // Create unified background container
+      const backgroundContainer = document.createElement("div")
+      backgroundContainer.className = "unified-background"
+      backgroundContainer.style.cssText = `
+        position: relative;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        border-radius: 8px;
+        overflow: hidden;
+      `
 
-    // Create overlay viewer with garment
-    const overlayViewer = document.createElement("model-viewer")
-    overlayViewer.id = "garment-viewer"
-    overlayViewer.setAttribute("alt", "Garment")
-    overlayViewer.setAttribute("camera-controls", "")
-    overlayViewer.setAttribute("disable-zoom", "")
-    overlayViewer.src = this.state.getGarmentUrl()
-    overlayViewer.style.width = "100%"
-    overlayViewer.style.height = "100%"
-    overlayViewer.style.position = "absolute"
-    overlayViewer.style.top = "0"
-    overlayViewer.style.left = "0"
-    overlayViewer.style.background = "transparent"
-    overlayViewer.style.pointerEvents = "none"
+      // Create avatar viewer
+      if (this.state.hasAvatar) {
+        const avatarViewer = this.utils.createModelViewer("avatar-viewer", {
+          src: this.state.avatarUrl,
+          alt: "Avatar Model",
+          environment: "neutral",
+        })
 
-    // Add viewers to container
-    combinedContainer.appendChild(backgroundViewer)
-    combinedContainer.appendChild(overlayViewer)
+        avatarViewer.style.cssText = `
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: transparent;
+          z-index: 1;
+        `
 
-    // Store references
-    this.state.setCombinedViewerContainer(combinedContainer)
+        backgroundContainer.appendChild(avatarViewer)
+        this.state.setAvatarViewer(avatarViewer)
+      }
 
-    // Update model info
-    this.utils.updateModelInfo("Avatar + Garment", "Combined", "Ready")
-    this.utils.updateCombinationStatus("Active")
-    this.utils.updateStatus("✅ Combined view created with unified background")
+      // Create garment viewer
+      if (this.state.hasGarment) {
+        const garmentViewer = this.utils.createModelViewer("garment-viewer", {
+          src: this.state.garmentUrl,
+          alt: "Garment Model",
+          environment: "neutral",
+        })
 
-    console.log("Combined view created successfully")
-  }
+        garmentViewer.style.cssText = `
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: transparent;
+          z-index: 2;
+          transform: scale(1.0);
+          transition: transform 0.3s ease;
+        `
 
-  updateAvatarTransform(scale, opacity) {
-    const avatarViewer = document.getElementById("avatar-viewer")
-    if (avatarViewer) {
-      avatarViewer.style.transform = `scale(${scale})`
-      avatarViewer.style.opacity = opacity
+        backgroundContainer.appendChild(garmentViewer)
+        this.state.setGarmentViewer(garmentViewer)
+      }
+
+      combinedContainer.appendChild(backgroundContainer)
+      this.state.setCombinedViewerContainer(combinedContainer)
+
+      // Update model info
+      this.updateModelInfo("combined", "Avatar + Garment")
+
+      this.utils.updateStatus("✅ Combined view created with unified background")
+      this.utils.updateModelStatus("Ready")
+      this.utils.updateCombinationStatus("Ready")
+
+      console.log("Combined view created successfully")
     }
   }
 
-  updateGarmentTransform(scale, opacity, offsetX = 0, offsetY = 0) {
-    const garmentViewer = document.getElementById("garment-viewer")
-    if (garmentViewer) {
-      const transform = `scale(${scale}) translateX(${offsetX * 100}px) translateY(${offsetY * 100}px)`
-      garmentViewer.style.transform = transform
-      garmentViewer.style.opacity = opacity
+  updateModelInfo(type, source) {
+    const modelName = document.getElementById("model-name")
+    const modelType = document.getElementById("model-type")
+    const modelStatus = document.getElementById("model-status")
+
+    if (modelName) {
+      if (type === "combined") {
+        modelName.textContent = "Combined View"
+      } else {
+        const filename = source.split("/").pop()
+        modelName.textContent = filename
+      }
+    }
+
+    if (modelType) {
+      modelType.textContent = type.charAt(0).toUpperCase() + type.slice(1)
+    }
+
+    if (modelStatus) {
+      modelStatus.textContent = "Loaded"
     }
   }
 
   switchModelType(type) {
-    this.state.setModelType(type)
+    this.state.setCurrentModelType(type)
 
     switch (type) {
       case "avatar":
@@ -236,33 +242,106 @@ export class ModelManager {
         }
         break
       case "both":
-        if (this.state.hasBothModels) {
+        if (this.state.hasAvatar && this.state.hasGarment) {
           this.createCombinedView()
         }
         break
     }
   }
 
-  resetCombination() {
-    this.state.setModelType("both")
-    if (this.state.hasBothModels) {
-      this.createCombinedView()
+  // Control methods
+  updateGarmentScale(scale) {
+    const garmentViewer = this.state.garmentViewer
+    if (garmentViewer) {
+      garmentViewer.style.transform = `scale(${scale})`
     }
-    this.utils.updateStatus("🔄 Combination reset")
+  }
+
+  updateGarmentPosition(x, y) {
+    const garmentViewer = this.state.garmentViewer
+    if (garmentViewer) {
+      const currentTransform = garmentViewer.style.transform || "scale(1.0)"
+      const scaleMatch = currentTransform.match(/scale$$[^)]*$$/)
+      const scaleTransform = scaleMatch ? scaleMatch[0] : "scale(1.0)"
+
+      garmentViewer.style.transform = `${scaleTransform} translateX(${x * 100}px) translateY(${y * 100}px)`
+    }
+  }
+
+  updateAvatarScale(scale) {
+    const avatarViewer = this.state.avatarViewer
+    if (avatarViewer) {
+      avatarViewer.style.transform = `scale(${scale})`
+    }
+  }
+
+  updateOpacity(type, opacity) {
+    const viewer = type === "avatar" ? this.state.avatarViewer : this.state.garmentViewer
+    if (viewer) {
+      viewer.style.opacity = opacity
+    }
+  }
+
+  // Screenshot functionality
+  async takeScreenshot() {
+    try {
+      let targetElement
+
+      if (this.state.currentModelType === "both" && this.state.combinedViewerContainer) {
+        targetElement = this.state.combinedViewerContainer
+      } else {
+        targetElement = document.getElementById("main-viewer")
+      }
+
+      if (targetElement) {
+        const blob = await this.utils.takeScreenshot(targetElement)
+        if (blob) {
+          const timestamp = new Date().toISOString().replace(/[:.]/g, "-")
+          this.utils.downloadBlob(blob, `lucifex-screenshot-${timestamp}.png`)
+          this.utils.updateStatus("📸 Screenshot saved")
+        } else {
+          throw new Error("Failed to capture screenshot")
+        }
+      }
+    } catch (error) {
+      console.error("Screenshot error:", error)
+      this.utils.updateStatus("❌ Screenshot failed")
+    }
+  }
+
+  // Export functionality
+  async exportScene() {
+    try {
+      const sceneData = {
+        timestamp: new Date().toISOString(),
+        avatar: this.state.avatarUrl,
+        garment: this.state.garmentUrl,
+        modelType: this.state.currentModelType,
+        environment: this.state.currentEnvironment,
+        physics: {
+          enabled: this.state.isPhysicsEnabled,
+          debugEnabled: this.state.isPhysicsDebugEnabled,
+        },
+      }
+
+      const blob = new Blob([JSON.stringify(sceneData, null, 2)], {
+        type: "application/json",
+      })
+
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-")
+      this.utils.downloadBlob(blob, `lucifex-scene-${timestamp}.json`)
+      this.utils.updateStatus("💾 Scene exported")
+    } catch (error) {
+      console.error("Export error:", error)
+      this.utils.updateStatus("❌ Export failed")
+    }
   }
 
   cleanup() {
-    const mainViewer = document.getElementById("main-viewer")
-    const combinedContainer = document.getElementById("combined-viewer-container")
-
-    if (mainViewer) {
-      mainViewer.src = ""
-    }
-
-    if (combinedContainer) {
-      combinedContainer.innerHTML = ""
-    }
-
-    console.log("🎭 ModelManager cleaned up")
+    // Clean up any resources
+    this.state.setAvatarViewer(null)
+    this.state.setGarmentViewer(null)
+    this.state.setCombinedViewerContainer(null)
+    console.log("🧹 ModelManager cleaned up")
   }
 }

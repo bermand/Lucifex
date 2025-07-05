@@ -13,109 +13,142 @@ export class EnvironmentManager {
   }
 
   async initialize() {
-    // Set default environment
-    await this.setEnvironment("studio")
     console.log("✅ EnvironmentManager initialized")
+    this.setEnvironment("studio")
   }
 
-  async setEnvironment(envType) {
-    const environmentImage = this.environments[envType] || "neutral"
-    this.state.setEnvironment(envType)
+  setEnvironment(environmentName) {
+    this.state.setCurrentEnvironment(environmentName)
 
-    // Update all model viewers
-    const viewers = document.querySelectorAll("model-viewer")
-    viewers.forEach((viewer) => {
-      viewer.setAttribute("environment-image", environmentImage)
-    })
+    const environmentImage = this.environments[environmentName] || "neutral"
 
-    this.utils.updateStatus(`Environment: ${envType.charAt(0).toUpperCase() + envType.slice(1)}`)
-    console.log("Environment set to:", envType)
+    // Update main viewer
+    const mainViewer = document.getElementById("main-viewer")
+    if (mainViewer) {
+      mainViewer.setAttribute("environment-image", environmentImage)
+    }
+
+    // Update combined viewers
+    const avatarViewer = this.state.avatarViewer
+    const garmentViewer = this.state.garmentViewer
+
+    if (avatarViewer) {
+      avatarViewer.setAttribute("environment-image", environmentImage)
+    }
+
+    if (garmentViewer) {
+      garmentViewer.setAttribute("environment-image", environmentImage)
+    }
+
+    this.utils.updateStatus(`Environment: ${environmentName.charAt(0).toUpperCase() + environmentName.slice(1)}`)
+    console.log("Environment set to:", environmentName)
   }
 
-  setExposure(value) {
-    this.state.exposure = value
-
-    const viewers = document.querySelectorAll("model-viewer")
+  updateExposure(value) {
+    const viewers = this.getAllViewers()
     viewers.forEach((viewer) => {
-      viewer.setAttribute("exposure", value.toString())
+      if (viewer) {
+        viewer.setAttribute("exposure", value)
+      }
     })
-
     console.log("Exposure set to:", value)
   }
 
-  setShadowIntensity(value) {
-    this.state.shadowIntensity = value
-
-    const viewers = document.querySelectorAll("model-viewer")
+  updateShadowIntensity(value) {
+    const viewers = this.getAllViewers()
     viewers.forEach((viewer) => {
-      viewer.setAttribute("shadow-intensity", value.toString())
+      if (viewer) {
+        viewer.setAttribute("shadow-intensity", value)
+      }
     })
-
     console.log("Shadow intensity set to:", value)
   }
 
-  setShadowSoftness(value) {
-    this.state.shadowSoftness = value
-
-    const viewers = document.querySelectorAll("model-viewer")
+  updateShadowSoftness(value) {
+    const viewers = this.getAllViewers()
     viewers.forEach((viewer) => {
-      viewer.setAttribute("shadow-softness", value.toString())
+      if (viewer) {
+        viewer.setAttribute("shadow-softness", value)
+      }
     })
-
     console.log("Shadow softness set to:", value)
   }
 
   setToneMapping(type) {
-    this.state.toneMapping = type
-
-    const viewers = document.querySelectorAll("model-viewer")
+    const viewers = this.getAllViewers()
     viewers.forEach((viewer) => {
-      viewer.setAttribute("tone-mapping", type)
+      if (viewer) {
+        viewer.setAttribute("tone-mapping", type)
+      }
     })
-
     console.log("Tone mapping set to:", type)
   }
 
   toggleAutoRotate() {
-    const viewers = document.querySelectorAll("model-viewer")
+    const viewers = this.getAllViewers()
+    let isEnabled = false
+
     viewers.forEach((viewer) => {
-      const isRotating = viewer.hasAttribute("auto-rotate")
-      if (isRotating) {
-        viewer.removeAttribute("auto-rotate")
-      } else {
-        viewer.setAttribute("auto-rotate", "")
+      if (viewer) {
+        const hasAutoRotate = viewer.hasAttribute("auto-rotate")
+        if (hasAutoRotate) {
+          viewer.removeAttribute("auto-rotate")
+        } else {
+          viewer.setAttribute("auto-rotate", "")
+          isEnabled = true
+        }
       }
     })
 
-    console.log("Auto rotate toggled")
+    const button = document.getElementById("auto-rotate-toggle")
+    if (button) {
+      button.classList.toggle("active", isEnabled)
+      button.innerHTML = `<span class="btn-icon">🔄</span> ${isEnabled ? "Stop Rotation" : "Auto Rotate"}`
+    }
+
+    console.log("Auto rotate:", isEnabled ? "enabled" : "disabled")
   }
 
   resetCamera() {
-    const viewers = document.querySelectorAll("model-viewer")
+    const viewers = this.getAllViewers()
     viewers.forEach((viewer) => {
-      if (viewer.resetTurntableRotation) {
+      if (viewer && viewer.resetTurntableRotation) {
         viewer.resetTurntableRotation()
       }
-      if (viewer.jumpCameraToGoal) {
-        viewer.jumpCameraToGoal()
-      }
     })
-
     console.log("Camera reset")
   }
 
   focusModel() {
-    const viewers = document.querySelectorAll("model-viewer")
+    const viewers = this.getAllViewers()
     viewers.forEach((viewer) => {
-      if (viewer.jumpCameraToGoal) {
+      if (viewer && viewer.jumpCameraToGoal) {
         viewer.jumpCameraToGoal()
       }
     })
-
     console.log("Model focused")
   }
 
+  getAllViewers() {
+    const viewers = []
+
+    const mainViewer = document.getElementById("main-viewer")
+    if (mainViewer && mainViewer.style.display !== "none") {
+      viewers.push(mainViewer)
+    }
+
+    if (this.state.avatarViewer) {
+      viewers.push(this.state.avatarViewer)
+    }
+
+    if (this.state.garmentViewer) {
+      viewers.push(this.state.garmentViewer)
+    }
+
+    return viewers
+  }
+
   cleanup() {
-    console.log("🌍 EnvironmentManager cleaned up")
+    console.log("🧹 EnvironmentManager cleaned up")
   }
 }

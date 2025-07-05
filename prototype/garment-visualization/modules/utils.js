@@ -17,14 +17,30 @@ export class Utils {
     console.log("Status:", message)
   }
 
-  updateModelInfo(name, type, status = "Ready") {
-    const nameElement = document.getElementById("model-name")
-    const typeElement = document.getElementById("model-type")
-    const statusElement = document.getElementById("model-status")
+  updatePhysicsStatus(status) {
+    const indicator = document.getElementById("physics-indicator")
+    const statusText = indicator?.querySelector(".status-text")
+    if (statusText) {
+      statusText.textContent = `Physics: ${status}`
+    }
 
-    if (nameElement) nameElement.textContent = name
-    if (typeElement) typeElement.textContent = type
-    if (statusElement) statusElement.textContent = status
+    if (indicator) {
+      const isEnabled = status.toLowerCase().includes("enabled") || status.toLowerCase().includes("running")
+      indicator.className = `status-indicator ${isEnabled ? "success" : "error"}`
+    }
+  }
+
+  updateModelStatus(status) {
+    const indicator = document.getElementById("model-indicator")
+    const statusText = indicator?.querySelector(".status-text")
+    if (statusText) {
+      statusText.textContent = `Models: ${status}`
+    }
+
+    if (indicator) {
+      const isReady = status.toLowerCase().includes("ready") || status.toLowerCase().includes("loaded")
+      indicator.className = `status-indicator ${isReady ? "success" : "warning"}`
+    }
   }
 
   updateCombinationStatus(status) {
@@ -34,16 +50,7 @@ export class Utils {
     }
   }
 
-  // Physics status updates
-  updatePhysicsStatus(message) {
-    const indicator = document.getElementById("physics-indicator")
-    const statusText = indicator?.querySelector(".status-text")
-    if (statusText) {
-      statusText.textContent = `Physics: ${message}`
-    }
-  }
-
-  // Show physics effect
+  // Physics effects
   showPhysicsEffect(message) {
     const effectElement = document.getElementById("physics-effect")
     if (effectElement) {
@@ -56,138 +63,94 @@ export class Utils {
     }
   }
 
-  // Value display updates
-  updateValueDisplay(inputId, valueId) {
-    const input = document.getElementById(inputId)
-    const valueDisplay = document.getElementById(valueId)
-
-    if (input && valueDisplay) {
-      const updateValue = () => {
-        valueDisplay.textContent = Number.parseFloat(input.value).toFixed(1)
-      }
-
-      updateValue()
-      input.addEventListener("input", updateValue)
-    }
+  // File handling
+  async loadFile(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = (e) => resolve(e.target.result)
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
   }
 
-  // File handling
-  handleFileUpload(file, callback) {
-    if (!file) return
+  // Model viewer helpers
+  createModelViewer(id, options = {}) {
+    const viewer = document.createElement("model-viewer")
+    viewer.id = id
+    viewer.setAttribute("alt", options.alt || "3D Model")
+    viewer.setAttribute("camera-controls", "")
+    viewer.setAttribute("auto-rotate", "")
+    viewer.setAttribute("shadow-intensity", options.shadowIntensity || "1")
+    viewer.setAttribute("exposure", options.exposure || "1")
+    viewer.setAttribute("environment-image", options.environment || "neutral")
 
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const url = e.target.result
-      if (callback) callback(url, file)
+    if (options.src) {
+      viewer.setAttribute("src", options.src)
     }
-    reader.readAsDataURL(file)
+
+    return viewer
   }
 
   // Screenshot functionality
-  async takeScreenshot() {
+  async takeScreenshot(element) {
     try {
-      const viewer = document.querySelector("model-viewer")
-      if (!viewer) {
-        throw new Error("No model viewer found")
+      if (element && element.toBlob) {
+        return new Promise((resolve) => {
+          element.toBlob(resolve, "image/png")
+        })
+      } else if (element && element.toDataURL) {
+        const dataUrl = element.toDataURL("image/png")
+        const blob = this.dataURLToBlob(dataUrl)
+        return blob
+      } else {
+        throw new Error("Element does not support screenshot")
       }
-
-      // Use model-viewer's built-in screenshot capability
-      const blob = await viewer.toBlob({
-        idealAspect: true,
-        mimeType: "image/png",
-      })
-
-      // Create download link
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement("a")
-      link.href = url
-      link.download = `lucifex-screenshot-${Date.now()}.png`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      URL.revokeObjectURL(url)
-
-      this.updateStatus("📸 Screenshot saved successfully")
-      return true
     } catch (error) {
       console.error("Screenshot failed:", error)
-      this.updateStatus("❌ Screenshot failed")
-      return false
+      return null
     }
   }
 
-  // Export scene data
-  async exportScene() {
-    try {
-      const state = window.lucifexApp?.getState()
-      if (!state) {
-        throw new Error("No application state found")
-      }
-
-      const sceneData = {
-        timestamp: new Date().toISOString(),
-        version: "1.0.0",
-        avatar: {
-          url: state.avatarUrl,
-          scale: state.avatarScale,
-          opacity: state.avatarOpacity,
-        },
-        garment: {
-          url: state.garmentUrl,
-          scale: state.garmentScale,
-          opacity: state.garmentOpacity,
-          offsetX: state.garmentOffsetX,
-          offsetY: state.garmentOffsetY,
-        },
-        environment: {
-          type: state.environment,
-          exposure: state.exposure,
-          shadowIntensity: state.shadowIntensity,
-          shadowSoftness: state.shadowSoftness,
-          toneMapping: state.toneMapping,
-        },
-        physics: {
-          enabled: state.isPhysicsEnabled,
-          debugEnabled: state.isPhysicsDebugEnabled,
-        },
-      }
-
-      const blob = new Blob([JSON.stringify(sceneData, null, 2)], {
-        type: "application/json",
-      })
-
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement("a")
-      link.href = url
-      link.download = `lucifex-scene-${Date.now()}.json`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      URL.revokeObjectURL(url)
-
-      this.updateStatus("💾 Scene exported successfully")
-      return true
-    } catch (error) {
-      console.error("Export failed:", error)
-      this.updateStatus("❌ Export failed")
-      return false
+  dataURLToBlob(dataURL) {
+    const arr = dataURL.split(",")
+    const mime = arr[0].match(/:(.*?);/)[1]
+    const bstr = atob(arr[1])
+    let n = bstr.length
+    const u8arr = new Uint8Array(n)
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n)
     }
+    return new Blob([u8arr], { type: mime })
+  }
+
+  // Download helpers
+  downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
   }
 
   // Animation helpers
-  animateValue(element, startValue, endValue, duration = 300) {
-    const startTime = performance.now()
+  animateValue(element, property, from, to, duration = 300) {
+    const start = performance.now()
+
     const animate = (currentTime) => {
-      const elapsed = currentTime - startTime
+      const elapsed = currentTime - start
       const progress = Math.min(elapsed / duration, 1)
 
-      const currentValue = startValue + (endValue - startValue) * this.easeOutCubic(progress)
-      element.textContent = currentValue.toFixed(1)
+      const value = from + (to - from) * this.easeOutCubic(progress)
+      element.style[property] = value
 
       if (progress < 1) {
         requestAnimationFrame(animate)
       }
     }
+
     requestAnimationFrame(animate)
   }
 
@@ -195,7 +158,7 @@ export class Utils {
     return 1 - Math.pow(1 - t, 3)
   }
 
-  // Debounce utility
+  // Debounce helper
   debounce(func, wait) {
     let timeout
     return function executedFunction(...args) {
@@ -208,7 +171,7 @@ export class Utils {
     }
   }
 
-  // Throttle utility
+  // Throttle helper
   throttle(func, limit) {
     let inThrottle
     return function () {
@@ -219,35 +182,6 @@ export class Utils {
         inThrottle = true
         setTimeout(() => (inThrottle = false), limit)
       }
-    }
-  }
-
-  // Format file size
-  formatFileSize(bytes) {
-    if (bytes === 0) return "0 Bytes"
-    const k = 1024
-    const sizes = ["Bytes", "KB", "MB", "GB"]
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i]
-  }
-
-  // Validate file type
-  isValidModelFile(file) {
-    const validTypes = [".glb", ".gltf"]
-    const fileName = file.name.toLowerCase()
-    return validTypes.some((type) => fileName.endsWith(type))
-  }
-
-  // Show loading state
-  showLoading(element) {
-    if (element) {
-      element.classList.add("loading")
-    }
-  }
-
-  hideLoading(element) {
-    if (element) {
-      element.classList.remove("loading")
     }
   }
 
