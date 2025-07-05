@@ -3,178 +3,209 @@ export class EnvironmentManager {
   constructor(state, utils) {
     this.state = state
     this.utils = utils
-    this.currentExposure = 1.0
-    this.currentShadowIntensity = 1.0
-    this.currentShadowSoftness = 1.0
-    this.currentToneMapping = "neutral"
-    this.isAutoRotating = true
+    this.currentEnvironment = "studio"
+    this.currentToneMapping = "aces"
+    this.isAutoRotating = false
     console.log("🌍 EnvironmentManager initialized")
   }
 
-  initialize() {
+  async initialize() {
     // Set default environment
     this.setEnvironment("studio")
     console.log("✅ EnvironmentManager initialized")
   }
 
+  // Set environment
   setEnvironment(environment) {
+    this.currentEnvironment = environment
     this.state.setCurrentEnvironment(environment)
 
-    // Apply environment to all model viewers
+    // Apply environment to all viewers
     this.applyEnvironmentToViewers(environment)
 
+    // Update UI
+    this.utils.setActiveButtonByData(".env-btn", "data-environment", environment)
     this.utils.updateStatus(`Environment: ${this.capitalizeFirst(environment)}`)
+
     console.log("Environment set to:", environment)
   }
 
+  // Apply environment to viewers
   applyEnvironmentToViewers(environment) {
-    const viewers = document.querySelectorAll("model-viewer")
+    const viewers = this.getAllViewers()
 
     viewers.forEach((viewer) => {
-      switch (environment) {
-        case "studio":
-          viewer.setAttribute("environment-image", "neutral")
-          viewer.setAttribute("skybox-image", "")
-          break
-        case "outdoor":
-          viewer.setAttribute("environment-image", "park")
-          viewer.setAttribute("skybox-image", "")
-          break
-        case "neutral":
-          viewer.setAttribute("environment-image", "neutral")
-          viewer.setAttribute("skybox-image", "")
-          break
-        default:
-          viewer.setAttribute("environment-image", "neutral")
+      if (viewer) {
+        viewer.setAttribute("environment-image", environment)
+
+        // Set environment-specific settings
+        switch (environment) {
+          case "studio":
+            viewer.setAttribute("exposure", "1.0")
+            viewer.setAttribute("shadow-intensity", "1.0")
+            break
+          case "sunset":
+            viewer.setAttribute("exposure", "1.2")
+            viewer.setAttribute("shadow-intensity", "0.8")
+            break
+          case "forest":
+            viewer.setAttribute("exposure", "0.8")
+            viewer.setAttribute("shadow-intensity", "1.2")
+            break
+          case "city":
+            viewer.setAttribute("exposure", "1.1")
+            viewer.setAttribute("shadow-intensity", "0.9")
+            break
+        }
       }
     })
   }
 
+  // Set tone mapping
   setToneMapping(toneMapping) {
     this.currentToneMapping = toneMapping
 
-    const viewers = document.querySelectorAll("model-viewer")
+    // Apply tone mapping to all viewers
+    const viewers = this.getAllViewers()
     viewers.forEach((viewer) => {
-      viewer.setAttribute("tone-mapping", toneMapping)
+      if (viewer) {
+        viewer.setAttribute("tone-mapping", toneMapping)
+      }
     })
 
+    // Update UI
+    this.utils.setActiveButtonByData("[data-tone-mapping]", "data-tone-mapping", toneMapping)
     this.utils.updateStatus(`Tone mapping: ${this.capitalizeFirst(toneMapping)}`)
-    console.log("Tone mapping set to:", toneMapping)
   }
 
+  // Set exposure
   setExposure(exposure) {
-    this.currentExposure = exposure
-
-    const viewers = document.querySelectorAll("model-viewer")
+    const viewers = this.getAllViewers()
     viewers.forEach((viewer) => {
-      viewer.setAttribute("exposure", exposure.toString())
+      if (viewer) {
+        viewer.setAttribute("exposure", exposure.toString())
+      }
     })
 
     this.utils.updateStatus(`Exposure: ${exposure}`)
-    console.log("Exposure set to:", exposure)
   }
 
+  // Set shadow intensity
   setShadowIntensity(intensity) {
-    this.currentShadowIntensity = intensity
-
-    const viewers = document.querySelectorAll("model-viewer")
+    const viewers = this.getAllViewers()
     viewers.forEach((viewer) => {
-      viewer.setAttribute("shadow-intensity", intensity.toString())
+      if (viewer) {
+        viewer.setAttribute("shadow-intensity", intensity.toString())
+      }
     })
 
     this.utils.updateStatus(`Shadow intensity: ${intensity}`)
-    console.log("Shadow intensity set to:", intensity)
   }
 
+  // Set shadow softness
   setShadowSoftness(softness) {
-    this.currentShadowSoftness = softness
-
-    const viewers = document.querySelectorAll("model-viewer")
+    const viewers = this.getAllViewers()
     viewers.forEach((viewer) => {
-      viewer.setAttribute("shadow-softness", softness.toString())
+      if (viewer) {
+        viewer.setAttribute("shadow-softness", softness.toString())
+      }
     })
 
     this.utils.updateStatus(`Shadow softness: ${softness}`)
-    console.log("Shadow softness set to:", softness)
   }
 
+  // Toggle auto rotate
   toggleAutoRotate() {
     this.isAutoRotating = !this.isAutoRotating
-    this.state.setAutoRotating(this.isAutoRotating)
 
-    const viewers = document.querySelectorAll("model-viewer")
+    const viewers = this.getAllViewers()
     viewers.forEach((viewer) => {
-      if (this.isAutoRotating) {
-        viewer.setAttribute("auto-rotate", "")
-      } else {
-        viewer.removeAttribute("auto-rotate")
+      if (viewer) {
+        if (this.isAutoRotating) {
+          viewer.setAttribute("auto-rotate", "")
+        } else {
+          viewer.removeAttribute("auto-rotate")
+        }
       }
     })
 
-    // Update button text
+    // Update button
     const button = document.getElementById("auto-rotate-toggle")
     if (button) {
-      button.innerHTML = `<span class="btn-icon">🔄</span> ${this.isAutoRotating ? "Stop Rotate" : "Auto Rotate"}`
+      button.innerHTML = `<span class="btn-icon">${this.isAutoRotating ? "⏸️" : "🔄"}</span> ${this.isAutoRotating ? "Stop Rotate" : "Auto Rotate"}`
+      button.classList.toggle("active", this.isAutoRotating)
     }
 
     this.utils.updateStatus(`Auto rotate: ${this.isAutoRotating ? "enabled" : "disabled"}`)
-    console.log("Auto rotate:", this.isAutoRotating ? "enabled" : "disabled")
   }
 
+  // Reset camera
   resetCamera() {
-    const viewers = document.querySelectorAll("model-viewer")
+    const viewers = this.getAllViewers()
     viewers.forEach((viewer) => {
-      if (viewer.resetTurntableRotation) {
-        viewer.resetTurntableRotation()
-      }
-      if (viewer.jumpCameraToGoal) {
-        viewer.jumpCameraToGoal()
+      if (viewer && viewer.resetCamera) {
+        viewer.resetCamera()
       }
     })
 
-    this.utils.updateStatus("📷 Camera reset to default position")
-    console.log("Camera reset")
+    this.utils.updateStatus("📷 Camera reset")
+    this.utils.showPhysicsEffect("📷 Camera Reset")
   }
 
+  // Focus on model
   focusModel() {
-    const viewers = document.querySelectorAll("model-viewer")
+    const viewers = this.getAllViewers()
     viewers.forEach((viewer) => {
-      if (viewer.jumpCameraToGoal) {
-        viewer.jumpCameraToGoal()
+      if (viewer && viewer.focusModel) {
+        viewer.focusModel()
       }
     })
 
-    this.utils.updateStatus("🎯 Camera focused on model")
-    console.log("Camera focused on model")
+    this.utils.updateStatus("🎯 Model focused")
+    this.utils.showPhysicsEffect("🎯 Model Focused")
   }
 
-  // Apply current settings to a new viewer
-  applyCurrentSettingsToViewer(viewer) {
-    viewer.setAttribute("environment-image", this.getEnvironmentImage())
-    viewer.setAttribute("tone-mapping", this.currentToneMapping)
-    viewer.setAttribute("exposure", this.currentExposure.toString())
-    viewer.setAttribute("shadow-intensity", this.currentShadowIntensity.toString())
-    viewer.setAttribute("shadow-softness", this.currentShadowSoftness.toString())
+  // Get all active viewers
+  getAllViewers() {
+    const viewers = []
 
-    if (this.isAutoRotating) {
-      viewer.setAttribute("auto-rotate", "")
+    // Main viewer
+    const mainViewer = document.getElementById("main-viewer")
+    if (mainViewer && mainViewer.style.display !== "none") {
+      viewers.push(mainViewer)
     }
+
+    // Combined viewers
+    const combinedContainer = document.getElementById("combined-viewer-container")
+    if (combinedContainer && combinedContainer.style.display !== "none") {
+      const avatarViewer = combinedContainer.querySelector("model-viewer:first-child")
+      const garmentViewer = combinedContainer.querySelector("model-viewer:last-child")
+
+      if (avatarViewer) viewers.push(avatarViewer)
+      if (garmentViewer) viewers.push(garmentViewer)
+    }
+
+    return viewers
   }
 
-  getEnvironmentImage() {
-    switch (this.state.getCurrentEnvironment()) {
-      case "studio":
-        return "neutral"
-      case "outdoor":
-        return "park"
-      case "neutral":
-        return "neutral"
+  // Update environment setting
+  updateEnvironmentSetting(setting, value) {
+    switch (setting) {
+      case "exposure":
+        this.setExposure(value)
+        break
+      case "shadow-intensity":
+        this.setShadowIntensity(value)
+        break
+      case "shadow-softness":
+        this.setShadowSoftness(value)
+        break
       default:
-        return "neutral"
+        this.utils.updateStatus(`Unknown environment setting: ${setting}`)
     }
   }
 
-  // Utility function to capitalize first letter
+  // Capitalize first letter
   capitalizeFirst(str) {
     return str.charAt(0).toUpperCase() + str.slice(1)
   }
@@ -182,38 +213,36 @@ export class EnvironmentManager {
   // Get current environment settings
   getCurrentSettings() {
     return {
-      environment: this.state.getCurrentEnvironment(),
+      environment: this.currentEnvironment,
       toneMapping: this.currentToneMapping,
-      exposure: this.currentExposure,
-      shadowIntensity: this.currentShadowIntensity,
-      shadowSoftness: this.currentShadowSoftness,
-      autoRotate: this.isAutoRotating,
+      isAutoRotating: this.isAutoRotating,
     }
   }
 
-  // Apply settings from saved state
-  applySettings(settings) {
-    if (settings.environment) {
-      this.setEnvironment(settings.environment)
+  // Apply settings to new viewer
+  applySettingsToViewer(viewer) {
+    if (!viewer) return
+
+    // Apply current environment
+    viewer.setAttribute("environment-image", this.currentEnvironment)
+    viewer.setAttribute("tone-mapping", this.currentToneMapping)
+
+    // Apply auto rotate
+    if (this.isAutoRotating) {
+      viewer.setAttribute("auto-rotate", "")
     }
-    if (settings.toneMapping) {
-      this.setToneMapping(settings.toneMapping)
-    }
-    if (settings.exposure !== undefined) {
-      this.setExposure(settings.exposure)
-    }
-    if (settings.shadowIntensity !== undefined) {
-      this.setShadowIntensity(settings.shadowIntensity)
-    }
-    if (settings.shadowSoftness !== undefined) {
-      this.setShadowSoftness(settings.shadowSoftness)
-    }
-    if (settings.autoRotate !== undefined) {
-      this.isAutoRotating = settings.autoRotate
-      this.state.setAutoRotating(this.isAutoRotating)
-    }
+
+    // Apply current control values
+    const exposure = document.getElementById("exposure")?.value || "1.0"
+    const shadowIntensity = document.getElementById("shadow-intensity")?.value || "1.0"
+    const shadowSoftness = document.getElementById("shadow-softness")?.value || "0.5"
+
+    viewer.setAttribute("exposure", exposure)
+    viewer.setAttribute("shadow-intensity", shadowIntensity)
+    viewer.setAttribute("shadow-softness", shadowSoftness)
   }
 
+  // Cleanup
   cleanup() {
     // Clean up any resources
     console.log("🌍 EnvironmentManager cleaned up")

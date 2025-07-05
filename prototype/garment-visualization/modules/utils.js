@@ -4,133 +4,20 @@ export class Utils {
     console.log("🔧 Utils initialized")
   }
 
-  initialize() {
+  async initialize() {
     console.log("✅ Utils initialized")
-  }
-
-  // Status updates
-  updateStatus(message) {
-    const statusIndicator = document.getElementById("status-indicator")
-    const statusText = statusIndicator?.querySelector(".status-text")
-
-    if (statusText) {
-      statusText.textContent = message
-    }
-
-    // Auto-clear status after 5 seconds for non-error messages
-    if (!message.includes("❌")) {
-      setTimeout(() => {
-        if (statusText && statusText.textContent === message) {
-          statusText.textContent = "Ready"
-        }
-      }, 5000)
-    }
-
-    console.log("Status:", message)
-  }
-
-  // Physics status updates
-  updatePhysicsStatus(message) {
-    const physicsIndicator = document.getElementById("physics-indicator")
-    const statusText = physicsIndicator?.querySelector(".status-text")
-
-    if (statusText) {
-      statusText.textContent = `Physics: ${message}`
-    }
-
-    console.log("Physics Status:", message)
-  }
-
-  // Model info updates
-  updateModelInfo(name, type) {
-    const modelNameEl = document.getElementById("model-name")
-    const modelTypeEl = document.getElementById("model-type")
-
-    if (modelNameEl) {
-      modelNameEl.textContent = name || "None loaded"
-    }
-
-    if (modelTypeEl) {
-      modelTypeEl.textContent = type || "-"
-    }
-  }
-
-  // Combination status
-  updateCombinationStatus(hasAvatar, hasGarment) {
-    const avatarStatus = document.getElementById("avatar-status")
-    const garmentStatus = document.getElementById("garment-status")
-
-    if (avatarStatus) {
-      avatarStatus.textContent = hasAvatar ? "✅ Loaded" : "❌ Not loaded"
-      avatarStatus.className = hasAvatar ? "status-value success" : "status-value error"
-    }
-
-    if (garmentStatus) {
-      garmentStatus.textContent = hasGarment ? "✅ Loaded" : "❌ Not loaded"
-      garmentStatus.className = hasGarment ? "status-value success" : "status-value error"
-    }
   }
 
   // File validation
   isValidModelFile(file) {
-    if (!file) return false
-
     const validExtensions = [".glb", ".gltf"]
     const fileName = file.name.toLowerCase()
-
     return validExtensions.some((ext) => fileName.endsWith(ext))
   }
 
-  // File size formatting
-  formatFileSize(bytes) {
-    if (bytes === 0) return "0 Bytes"
-
-    const k = 1024
-    const sizes = ["Bytes", "KB", "MB", "GB"]
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-
-    return Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i]
-  }
-
-  // Create object URL
+  // Create object URL for file
   createObjectURL(file) {
     return URL.createObjectURL(file)
-  }
-
-  // File info display
-  updateFileInfo(elementId, file, type) {
-    const fileInfo = document.getElementById(elementId)
-
-    if (fileInfo) {
-      fileInfo.innerHTML = `
-        <strong>✅ Loaded:</strong> ${file.name}<br>
-        <strong>📊 Size:</strong> ${this.formatFileSize(file.size)}<br>
-        <strong>🏷️ Type:</strong> ${type}
-      `
-      fileInfo.className = "file-info success"
-    }
-  }
-
-  // Value display updates
-  updateValueDisplay(inputId, displayId) {
-    const input = document.getElementById(inputId)
-    const display = document.getElementById(displayId)
-
-    if (input && display) {
-      display.textContent = input.value
-    }
-  }
-
-  // Set active button by data attribute
-  setActiveButtonByData(selector, dataAttribute, value) {
-    const buttons = document.querySelectorAll(selector)
-
-    buttons.forEach((button) => {
-      button.classList.remove("active")
-      if (button.dataset[dataAttribute.replace("data-", "")] === value) {
-        button.classList.add("active")
-      }
-    })
   }
 
   // Check if file exists
@@ -143,71 +30,165 @@ export class Utils {
     }
   }
 
-  // Physics effect display
-  showPhysicsEffect(message) {
-    const effectEl = document.getElementById("physics-effect")
-    const textEl = effectEl?.querySelector(".effect-text")
+  // Update status message
+  updateStatus(message) {
+    const statusElement = document.getElementById("app-status")
+    if (statusElement) {
+      statusElement.textContent = message
+    }
+    console.log("Status:", message)
+  }
 
-    if (effectEl && textEl) {
-      textEl.textContent = message
-      effectEl.classList.add("show")
+  // Update model info
+  updateModelInfo(name, type) {
+    const nameElement = document.getElementById("model-name")
+    const typeElement = document.getElementById("model-type")
+
+    if (nameElement) nameElement.textContent = name
+    if (typeElement) typeElement.textContent = type
+  }
+
+  // Update physics status
+  updatePhysicsStatus(status) {
+    const indicator = document.getElementById("physics-indicator")
+    const statusText = indicator?.querySelector(".status-text")
+
+    if (statusText) {
+      statusText.textContent = `Physics: ${status}`
+    }
+
+    if (indicator) {
+      indicator.className = `status-indicator ${status === "Enabled" ? "success" : "error"}`
+    }
+  }
+
+  // Update combination status
+  updateCombinationStatus(hasAvatar, hasGarment) {
+    const statusElement = document.getElementById("combination-status")
+    if (statusElement) {
+      if (hasAvatar && hasGarment) {
+        statusElement.textContent = "Ready"
+        statusElement.style.color = "#16a34a"
+      } else {
+        statusElement.textContent = "Not Ready"
+        statusElement.style.color = "#dc2626"
+      }
+    }
+  }
+
+  // Update file info display
+  updateFileInfo(elementId, file, type) {
+    const element = document.getElementById(elementId)
+    if (element) {
+      element.innerHTML = `
+        <div><strong>${type}:</strong> ${file.name}</div>
+        <div>Size: ${this.formatFileSize(file.size)}</div>
+      `
+    }
+  }
+
+  // Format file size
+  formatFileSize(bytes) {
+    if (bytes === 0) return "0 Bytes"
+    const k = 1024
+    const sizes = ["Bytes", "KB", "MB", "GB"]
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i]
+  }
+
+  // Update range input display
+  updateValueDisplay(inputId, displayId) {
+    const input = document.getElementById(inputId)
+    const display = document.getElementById(displayId)
+
+    if (input && display) {
+      display.textContent = Number.parseFloat(input.value).toFixed(1)
+    }
+  }
+
+  // Set active button by data attribute
+  setActiveButtonByData(selector, attribute, value) {
+    const buttons = document.querySelectorAll(selector)
+    buttons.forEach((button) => {
+      button.classList.remove("active")
+      if (button.dataset[attribute.replace("data-", "")] === value) {
+        button.classList.add("active")
+      }
+    })
+  }
+
+  // Show physics effect
+  showPhysicsEffect(message) {
+    const effect = document.getElementById("physics-effect")
+    if (effect) {
+      effect.textContent = message
+      effect.classList.add("show")
 
       setTimeout(() => {
-        effectEl.classList.remove("show")
+        effect.classList.remove("show")
       }, 2000)
     }
   }
 
-  // Screenshot functionality
+  // Take screenshot
   takeScreenshot() {
-    const viewer = document.querySelector("model-viewer")
+    const viewer = this.getCurrentViewer()
+    if (viewer && viewer.toBlob) {
+      viewer.toBlob((blob) => {
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.href = url
+        a.download = `lucifex-screenshot-${Date.now()}.png`
+        a.click()
+        URL.revokeObjectURL(url)
+      }, "image/png")
 
-    if (viewer) {
-      try {
-        const canvas = viewer.toDataURL("image/png")
-        const link = document.createElement("a")
-        link.download = `lucifex-screenshot-${Date.now()}.png`
-        link.href = canvas
-        link.click()
-
-        this.updateStatus("📸 Screenshot saved")
-      } catch (error) {
-        console.error("Screenshot error:", error)
-        this.updateStatus("❌ Screenshot failed")
-      }
+      this.updateStatus("📸 Screenshot saved")
+      this.showPhysicsEffect("📸 Screenshot Saved!")
     } else {
-      this.updateStatus("❌ No model loaded for screenshot")
+      this.updateStatus("❌ Screenshot not available")
     }
   }
 
-  // Scene export functionality
+  // Export scene
   exportScene() {
-    const state = window.lucifexApp?.state?.getState()
-
-    if (state) {
-      const sceneData = {
-        timestamp: new Date().toISOString(),
-        avatarUrl: window.lucifexApp.state.currentAvatarUrl,
-        garmentUrl: window.lucifexApp.state.currentGarmentUrl,
-        settings: state,
-      }
-
+    const viewer = this.getCurrentViewer()
+    if (viewer && viewer.exportScene) {
+      const sceneData = viewer.exportScene()
       const blob = new Blob([JSON.stringify(sceneData, null, 2)], {
         type: "application/json",
       })
 
-      const link = document.createElement("a")
-      link.download = `lucifex-scene-${Date.now()}.json`
-      link.href = URL.createObjectURL(blob)
-      link.click()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `lucifex-scene-${Date.now()}.json`
+      a.click()
+      URL.revokeObjectURL(url)
 
       this.updateStatus("💾 Scene exported")
+      this.showPhysicsEffect("💾 Scene Exported!")
     } else {
-      this.updateStatus("❌ No scene data to export")
+      this.updateStatus("❌ Scene export not available")
     }
   }
 
-  // Debounce utility
+  // Get current active viewer
+  getCurrentViewer() {
+    const mainViewer = document.getElementById("main-viewer")
+    const combinedContainer = document.getElementById("combined-viewer-container")
+
+    if (mainViewer && mainViewer.style.display !== "none") {
+      return mainViewer
+    } else if (combinedContainer && combinedContainer.style.display !== "none") {
+      const garmentViewer = combinedContainer.querySelector("model-viewer:last-child")
+      return garmentViewer
+    }
+
+    return null
+  }
+
+  // Debounce function
   debounce(func, wait) {
     let timeout
     return function executedFunction(...args) {
@@ -220,7 +201,7 @@ export class Utils {
     }
   }
 
-  // Throttle utility
+  // Throttle function
   throttle(func, limit) {
     let inThrottle
     return function () {
@@ -234,40 +215,27 @@ export class Utils {
     }
   }
 
-  // Animation frame utility
-  requestAnimationFrame(callback) {
-    return window.requestAnimationFrame(callback)
+  // Generate unique ID
+  generateId() {
+    return Math.random().toString(36).substr(2, 9)
   }
 
-  cancelAnimationFrame(id) {
-    return window.cancelAnimationFrame(id)
+  // Format timestamp
+  formatTimestamp(date = new Date()) {
+    return date.toISOString().replace(/[:.]/g, "-").slice(0, -5)
   }
 
-  // Local storage utilities
-  saveToLocalStorage(key, data) {
-    try {
-      localStorage.setItem(key, JSON.stringify(data))
-      return true
-    } catch (error) {
-      console.error("Failed to save to localStorage:", error)
-      return false
-    }
-  }
-
-  loadFromLocalStorage(key) {
-    try {
-      const data = localStorage.getItem(key)
-      return data ? JSON.parse(data) : null
-    } catch (error) {
-      console.error("Failed to load from localStorage:", error)
-      return null
-    }
+  // Log with timestamp
+  log(message, type = "info") {
+    const timestamp = new Date().toLocaleTimeString()
+    const prefix = type === "error" ? "❌" : type === "warning" ? "⚠️" : "ℹ️"
+    console.log(`${prefix} [${timestamp}] ${message}`)
   }
 
   // Error handling
   handleError(error, context = "Unknown") {
-    console.error(`Error in ${context}:`, error)
-    this.updateStatus(`❌ Error in ${context}: ${error.message}`)
+    this.log(`Error in ${context}: ${error.message}`, "error")
+    this.updateStatus(`❌ Error: ${error.message}`)
   }
 
   // Performance monitoring
@@ -279,9 +247,30 @@ export class Utils {
     console.timeEnd(label)
   }
 
+  // Local storage helpers
+  saveToStorage(key, data) {
+    try {
+      localStorage.setItem(key, JSON.stringify(data))
+      return true
+    } catch (error) {
+      this.handleError(error, "saveToStorage")
+      return false
+    }
+  }
+
+  loadFromStorage(key, defaultValue = null) {
+    try {
+      const data = localStorage.getItem(key)
+      return data ? JSON.parse(data) : defaultValue
+    } catch (error) {
+      this.handleError(error, "loadFromStorage")
+      return defaultValue
+    }
+  }
+
   // Cleanup
   cleanup() {
-    // Clean up any resources if needed
+    // Clean up any resources
     console.log("🔧 Utils cleaned up")
   }
 }
