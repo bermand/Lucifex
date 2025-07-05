@@ -14,26 +14,6 @@ class SimpleClothPhysics {
     this.timeStep = 1 / 60
     this.constraintIterations = 2 // Increased back to 2 for better collision
     this.simulationTime = 0
-    this.isRunning = false
-    this.meshUpdater = null
-    this.animationId = null
-
-    // Cloth properties
-    this.clothWidth = 20
-    this.clothHeight = 20
-    this.clothSpacing = 0.05
-    this.startHeight = 2.0 // Start 2 meters above avatar
-
-    // Avatar collision (simple sphere approximation)
-    this.avatarCollider = {
-      center: { x: 0, y: 0.8, z: 0 },
-      radius: 0.4,
-    }
-
-    // Wind and movement
-    this.windForce = { x: 0.1, y: 0, z: 0.05 }
-
-    console.log("🧬 SimpleClothPhysics initialized")
   }
 
   async initPhysicsWorld() {
@@ -158,22 +138,24 @@ class SimpleClothPhysics {
       console.log("🔄 Creating Simple Physics cloth body with improved draping...")
 
       // Create a more realistic t-shirt shaped cloth
+      const clothWidth = 20 // More particles for better draping
+      const clothHeight = 24 // More particles for better draping
       const clothParticles = []
       const clothConstraints = []
 
       // Physical dimensions
       const physicalWidth = 1.2 // Slightly wider
       const physicalHeight = 1.4 // Slightly longer
-      const spacing = physicalWidth / (this.clothWidth - 1)
+      const spacing = physicalWidth / (clothWidth - 1)
 
       // Start higher up so gravity has more effect
-      const startY = position.y + this.startHeight // Even higher starting position for better fall effect
+      const startY = position.y + 2.0 // Even higher starting position for better fall effect
 
       // Create particles in t-shirt shape
-      for (let y = 0; y < this.clothHeight; y++) {
-        for (let x = 0; x < this.clothWidth; x++) {
-          const normalizedY = y / (this.clothHeight - 1)
-          const normalizedX = x / (this.clothWidth - 1)
+      for (let y = 0; y < clothHeight; y++) {
+        for (let x = 0; x < clothWidth; x++) {
+          const normalizedY = y / (clothHeight - 1)
+          const normalizedX = x / (clothWidth - 1)
 
           // Create t-shirt silhouette
           let shouldCreateParticle = true
@@ -186,7 +168,7 @@ class SimpleClothPhysics {
           // Armholes (sides, upper portion)
           if (y < 8) {
             const armholeWidth = Math.max(0, 3 - y * 0.3)
-            if (x < armholeWidth || x >= this.clothWidth - armholeWidth) {
+            if (x < armholeWidth || x >= clothWidth - armholeWidth) {
               shouldCreateParticle = false
             }
           }
@@ -195,7 +177,7 @@ class SimpleClothPhysics {
           if (y > 16) {
             const taperAmount = (y - 16) * 0.1
             const minX = Math.floor(taperAmount)
-            const maxX = this.clothWidth - 1 - Math.floor(taperAmount)
+            const maxX = clothWidth - 1 - Math.floor(taperAmount)
             if (x < minX || x > maxX) {
               shouldCreateParticle = false
             }
@@ -219,11 +201,10 @@ class SimpleClothPhysics {
                 y: startY - normalizedY * physicalHeight + randomVelY,
                 z: position.z + randomVelZ,
               },
-              pinned: y === 0 && (x === 3 || x === this.clothWidth - 4), // Pin shoulder points
+              pinned: y === 0 && (x === 3 || x === clothWidth - 4), // Pin shoulder points
               mass: 1.0,
               gridX: x,
               gridY: y,
-              acceleration: { x: 0, y: 0, z: 0 },
             }
             clothParticles.push(particle)
           }
@@ -236,13 +217,13 @@ class SimpleClothPhysics {
       }
 
       // Structural constraints (horizontal and vertical)
-      for (let y = 0; y < this.clothHeight; y++) {
-        for (let x = 0; x < this.clothWidth; x++) {
+      for (let y = 0; y < clothHeight; y++) {
+        for (let x = 0; x < clothWidth; x++) {
           const particle = getParticleAt(x, y)
           if (!particle) continue
 
           // Right neighbor
-          if (x < this.clothWidth - 1) {
+          if (x < clothWidth - 1) {
             const rightParticle = getParticleAt(x + 1, y)
             if (rightParticle) {
               clothConstraints.push({
@@ -256,7 +237,7 @@ class SimpleClothPhysics {
           }
 
           // Bottom neighbor
-          if (y < this.clothHeight - 1) {
+          if (y < clothHeight - 1) {
             const bottomParticle = getParticleAt(x, y + 1)
             if (bottomParticle) {
               clothConstraints.push({
@@ -270,7 +251,7 @@ class SimpleClothPhysics {
           }
 
           // Diagonal constraints (shear)
-          if (x < this.clothWidth - 1 && y < this.clothHeight - 1) {
+          if (x < clothWidth - 1 && y < clothHeight - 1) {
             const diagParticle = getParticleAt(x + 1, y + 1)
             if (diagParticle) {
               clothConstraints.push({
@@ -283,7 +264,7 @@ class SimpleClothPhysics {
             }
           }
 
-          if (x > 0 && y < this.clothHeight - 1) {
+          if (x > 0 && y < clothHeight - 1) {
             const diagParticle = getParticleAt(x - 1, y + 1)
             if (diagParticle) {
               clothConstraints.push({
@@ -297,7 +278,7 @@ class SimpleClothPhysics {
           }
 
           // Bend constraints (skip one particle)
-          if (x < this.clothWidth - 2) {
+          if (x < clothWidth - 2) {
             const bendParticle = getParticleAt(x + 2, y)
             if (bendParticle) {
               clothConstraints.push({
@@ -310,7 +291,7 @@ class SimpleClothPhysics {
             }
           }
 
-          if (y < this.clothHeight - 2) {
+          if (y < clothHeight - 2) {
             const bendParticle = getParticleAt(x, y + 2)
             if (bendParticle) {
               clothConstraints.push({
@@ -329,8 +310,8 @@ class SimpleClothPhysics {
       this.clothMeshes.set(clothId, {
         particles: clothParticles,
         constraints: clothConstraints,
-        gridWidth: this.clothWidth,
-        gridHeight: this.clothHeight,
+        gridWidth: clothWidth,
+        gridHeight: clothHeight,
         physicalWidth: physicalWidth,
         physicalHeight: physicalHeight,
       })
@@ -339,7 +320,7 @@ class SimpleClothPhysics {
       console.log(`   • Cloth ID: ${clothId}`)
       console.log(`   • Particles: ${clothParticles.length}`)
       console.log(`   • Constraints: ${clothConstraints.length}`)
-      console.log(`   • Grid: ${this.clothWidth}x${this.clothHeight}`)
+      console.log(`   • Grid: ${clothWidth}x${clothHeight}`)
       console.log(`   • Physical size: ${physicalWidth}m x ${physicalHeight}m`)
       console.log(`   • Start position: Y=${startY}m (should drape on avatar)`)
       console.log(`   • Pinned particles: ${clothParticles.filter((p) => p.pinned).length}`)
@@ -351,46 +332,25 @@ class SimpleClothPhysics {
     }
   }
 
-  start() {
-    if (this.isRunning) return
+  updatePhysics(deltaTime) {
+    if (!this.isInitialized) return
 
-    this.isRunning = true
-    this.simulationTime = 0
-    console.log("▶️ Starting cloth physics simulation")
+    try {
+      const dt = Math.min(deltaTime, this.timeStep)
+      this.simulationTime += dt
 
-    this.simulate()
-  }
+      // Update all cloth meshes
+      this.clothMeshes.forEach((clothData) => {
+        this.updateClothPhysics(clothData, dt)
+      })
 
-  stop() {
-    this.isRunning = false
-    if (this.animationId) {
-      cancelAnimationFrame(this.animationId)
-      this.animationId = null
+      // Log movement every few seconds for debugging
+      if (Math.floor(this.simulationTime) % 3 === 0 && this.simulationTime % 1 < dt) {
+        this.logMovementDebug()
+      }
+    } catch (error) {
+      console.error("❌ Physics update error:", error)
     }
-    console.log("⏹️ Stopped cloth physics simulation")
-  }
-
-  simulate() {
-    if (!this.isRunning) return
-
-    const deltaTime = this.timeStep // 60 FPS
-    this.simulationTime += deltaTime
-
-    // Update all cloth meshes
-    this.clothMeshes.forEach((clothData) => {
-      this.updateClothPhysics(clothData, deltaTime)
-    })
-
-    // Update mesh if available
-    if (this.meshUpdater) {
-      this.meshUpdater.updateFromPhysics(
-        Array.from(this.clothMeshes.values()).flatMap((cloth) => cloth.particles),
-        this.simulationTime,
-      )
-    }
-
-    // Continue simulation
-    this.animationId = requestAnimationFrame(() => this.simulate())
   }
 
   updateClothPhysics(clothData, deltaTime) {
@@ -613,11 +573,6 @@ class SimpleClothPhysics {
     this.constraints = []
     this.isInitialized = false
     this.simulationTime = 0
-    this.isRunning = false
-    if (this.animationId) {
-      cancelAnimationFrame(this.animationId)
-      this.animationId = null
-    }
     console.log("✅ Enhanced Simple Physics cleanup complete")
   }
 
@@ -685,47 +640,6 @@ class SimpleClothPhysics {
         )
       })
     })
-  }
-
-  updateSettings(settings) {
-    if (settings.stiffness !== undefined) {
-      this.constraintIterations = settings.stiffness
-      console.log(`🔧 Updated stiffness: ${this.constraintIterations}`)
-    }
-
-    if (settings.gravity !== undefined) {
-      this.gravity.y = -settings.gravity
-      console.log(`🔧 Updated gravity: ${settings.gravity}`)
-    }
-
-    if (settings.damping !== undefined) {
-      this.damping = settings.damping
-      console.log(`🔧 Updated damping: ${this.damping}`)
-    }
-  }
-
-  setMeshUpdater(meshUpdater) {
-    this.meshUpdater = meshUpdater
-    console.log("🔗 Mesh updater connected to physics simulation")
-  }
-
-  getParticles() {
-    return Array.from(this.clothMeshes.values()).flatMap((cloth) => cloth.particles)
-  }
-
-  getConstraints() {
-    return Array.from(this.clothMeshes.values()).flatMap((cloth) => cloth.constraints)
-  }
-
-  getStatus() {
-    return {
-      isRunning: this.isRunning,
-      particleCount: Array.from(this.clothMeshes.values()).reduce((sum, cloth) => sum + cloth.particles.length, 0),
-      constraintCount: Array.from(this.clothMeshes.values()).reduce((sum, cloth) => sum + cloth.constraints.length, 0),
-      gravity: this.gravity,
-      stiffness: this.constraintIterations,
-      damping: this.damping,
-    }
   }
 }
 
