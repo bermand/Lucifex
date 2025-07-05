@@ -113,7 +113,7 @@ export class PhysicsManager {
         await this.state.clothSimulation.initialize()
       }
 
-      if (window.PhysicsMeshUpdater && !this.state.physicsMeshUpdater) {
+      if (window.PhysicsMeshUpdater && !this.state.physicsMeshUpdater && this.state.garmentViewer) {
         this.state.setPhysicsMeshUpdater(new window.PhysicsMeshUpdater())
         this.state.physicsMeshUpdater.initialize(this.state.garmentViewer)
       }
@@ -160,11 +160,11 @@ export class PhysicsManager {
     const utils = window.lucifexApp?.utils
 
     if (this.state.clothSimulation) {
-      this.state.clothSimulation.reset()
+      this.state.clothSimulation.resetSimulation()
     }
 
     if (this.state.physicsMeshUpdater) {
-      this.state.physicsMeshUpdater.reset()
+      this.state.physicsMeshUpdater.resetMesh()
     }
 
     if (utils) {

@@ -8,67 +8,72 @@ import { UIControls } from "./modules/ui-controls.js"
 
 class LucifexApp {
   constructor() {
+    // Initialize state
     this.state = new AppState()
+
+    // Initialize managers
     this.utils = new Utils(this.state)
     this.modelManager = new ModelManager(this.state)
     this.environmentManager = new EnvironmentManager(this.state)
     this.physicsManager = new PhysicsManager(this.state)
     this.uiControls = new UIControls(this.state)
 
-    // Make available globally for modules to access
-    window.lucifexApp = this
+    console.log("🚀 Lucifex Garment Visualizer initializing...")
   }
 
   async initialize() {
     try {
-      console.log("🚀 Lucifex Garment Visualizer initializing...")
-
-      // Initialize all managers
+      // Initialize all managers in order
+      await this.utils.initialize()
       await this.modelManager.initialize()
       await this.environmentManager.initialize()
       await this.physicsManager.initialize()
       await this.uiControls.initialize()
 
+      console.log("✅ Lucifex Garment Visualizer initialized successfully")
+
       // Check for available models and load them
       await this.modelManager.checkForAvailableModels()
 
-      console.log("✅ Lucifex Garment Visualizer initialized successfully")
-
-      // Set up live reload for development
-      this.setupLiveReload()
+      return true
     } catch (error) {
-      console.error("❌ Failed to initialize Lucifex App:", error)
-      this.utils.updateStatus("❌ Initialization failed")
-    }
-  }
-
-  setupLiveReload() {
-    if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
-      console.log("Live reload enabled.")
-
-      // Simple live reload check every 2 seconds
-      setInterval(() => {
-        fetch(location.href, { method: "HEAD" }).catch(() => location.reload())
-      }, 2000)
+      console.error("❌ Failed to initialize Lucifex Garment Visualizer:", error)
+      return false
     }
   }
 
   cleanup() {
-    this.modelManager?.cleanup()
-    this.physicsManager?.cleanup()
     this.uiControls?.cleanup()
+    this.physicsManager?.cleanup()
+    this.modelManager?.cleanup()
+    this.environmentManager?.cleanup()
+    this.utils?.cleanup()
+    this.state?.reset()
   }
 }
 
-// Initialize the application when DOM is ready
-document.addEventListener("DOMContentLoaded", async () => {
-  const app = new LucifexApp()
-  await app.initialize()
-})
+// Initialize the application
+const app = new LucifexApp()
 
-// Handle page unload
-window.addEventListener("beforeunload", () => {
-  if (window.lucifexApp) {
-    window.lucifexApp.cleanup()
+// Make app globally available for debugging and module access
+window.lucifexApp = app
+
+// Initialize when DOM is ready
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", () => app.initialize())
+} else {
+  app.initialize()
+}
+
+// Live reload for development
+if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
+  console.log("Live reload enabled.")
+  const ws = new WebSocket("ws://localhost:35729")
+  ws.onmessage = (event) => {
+    if (event.data === "reload") {
+      location.reload()
+    }
   }
-})
+}
+
+export { LucifexApp }
