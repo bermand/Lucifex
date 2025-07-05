@@ -93,21 +93,28 @@ window.addEventListener("beforeunload", () => {
   app.cleanup()
 })
 
-// Live reload for development
+// Live reload for development (single instance)
 if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
-  console.log("Live reload enabled.")
+  console.log("🔄 Live reload enabled for development")
   try {
     const ws = new WebSocket("ws://localhost:35729/")
+    ws.onopen = () => {
+      console.log("✅ Live reload WebSocket connected")
+    }
     ws.onmessage = (event) => {
       if (event.data === "reload") {
+        console.log("🔄 Reloading page...")
         location.reload()
       }
     }
+    ws.onclose = () => {
+      console.log("⚠️ Live reload WebSocket disconnected")
+    }
     ws.onerror = () => {
-      console.log("WebSocket connection to 'ws://localhost:35729/' failed:")
+      console.log("⚠️ Live reload server not available (this is normal in production)")
     }
   } catch (error) {
-    console.log("WebSocket connection to 'ws://localhost:35729/' failed:")
+    console.log("⚠️ Live reload not available:", error.message)
   }
 }
 

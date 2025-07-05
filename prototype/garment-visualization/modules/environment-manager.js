@@ -3,248 +3,119 @@ export class EnvironmentManager {
   constructor(state, utils) {
     this.state = state
     this.utils = utils
-    this.currentEnvironment = "studio"
-    this.currentToneMapping = "aces"
-    this.isAutoRotating = false
+    this.environments = {
+      studio: "neutral",
+      sunset: "sunset",
+      forest: "forest",
+      city: "city",
+    }
     console.log("🌍 EnvironmentManager initialized")
   }
 
   async initialize() {
     // Set default environment
-    this.setEnvironment("studio")
+    await this.setEnvironment("studio")
     console.log("✅ EnvironmentManager initialized")
   }
 
-  // Set environment
-  setEnvironment(environment) {
-    this.currentEnvironment = environment
-    this.state.setCurrentEnvironment(environment)
+  async setEnvironment(envType) {
+    const environmentImage = this.environments[envType] || "neutral"
+    this.state.setEnvironment(envType)
 
-    // Apply environment to all viewers
-    this.applyEnvironmentToViewers(environment)
-
-    // Update UI
-    this.utils.setActiveButtonByData(".env-btn", "data-environment", environment)
-    this.utils.updateStatus(`Environment: ${this.capitalizeFirst(environment)}`)
-
-    console.log("Environment set to:", environment)
-  }
-
-  // Apply environment to viewers
-  applyEnvironmentToViewers(environment) {
-    const viewers = this.getAllViewers()
-
+    // Update all model viewers
+    const viewers = document.querySelectorAll("model-viewer")
     viewers.forEach((viewer) => {
-      if (viewer) {
-        viewer.setAttribute("environment-image", environment)
-
-        // Set environment-specific settings
-        switch (environment) {
-          case "studio":
-            viewer.setAttribute("exposure", "1.0")
-            viewer.setAttribute("shadow-intensity", "1.0")
-            break
-          case "sunset":
-            viewer.setAttribute("exposure", "1.2")
-            viewer.setAttribute("shadow-intensity", "0.8")
-            break
-          case "forest":
-            viewer.setAttribute("exposure", "0.8")
-            viewer.setAttribute("shadow-intensity", "1.2")
-            break
-          case "city":
-            viewer.setAttribute("exposure", "1.1")
-            viewer.setAttribute("shadow-intensity", "0.9")
-            break
-        }
-      }
-    })
-  }
-
-  // Set tone mapping
-  setToneMapping(toneMapping) {
-    this.currentToneMapping = toneMapping
-
-    // Apply tone mapping to all viewers
-    const viewers = this.getAllViewers()
-    viewers.forEach((viewer) => {
-      if (viewer) {
-        viewer.setAttribute("tone-mapping", toneMapping)
-      }
+      viewer.setAttribute("environment-image", environmentImage)
     })
 
-    // Update UI
-    this.utils.setActiveButtonByData("[data-tone-mapping]", "data-tone-mapping", toneMapping)
-    this.utils.updateStatus(`Tone mapping: ${this.capitalizeFirst(toneMapping)}`)
+    this.utils.updateStatus(`Environment: ${envType.charAt(0).toUpperCase() + envType.slice(1)}`)
+    console.log("Environment set to:", envType)
   }
 
-  // Set exposure
-  setExposure(exposure) {
-    const viewers = this.getAllViewers()
+  setExposure(value) {
+    this.state.exposure = value
+
+    const viewers = document.querySelectorAll("model-viewer")
     viewers.forEach((viewer) => {
-      if (viewer) {
-        viewer.setAttribute("exposure", exposure.toString())
-      }
+      viewer.setAttribute("exposure", value.toString())
     })
 
-    this.utils.updateStatus(`Exposure: ${exposure}`)
+    console.log("Exposure set to:", value)
   }
 
-  // Set shadow intensity
-  setShadowIntensity(intensity) {
-    const viewers = this.getAllViewers()
+  setShadowIntensity(value) {
+    this.state.shadowIntensity = value
+
+    const viewers = document.querySelectorAll("model-viewer")
     viewers.forEach((viewer) => {
-      if (viewer) {
-        viewer.setAttribute("shadow-intensity", intensity.toString())
-      }
+      viewer.setAttribute("shadow-intensity", value.toString())
     })
 
-    this.utils.updateStatus(`Shadow intensity: ${intensity}`)
+    console.log("Shadow intensity set to:", value)
   }
 
-  // Set shadow softness
-  setShadowSoftness(softness) {
-    const viewers = this.getAllViewers()
+  setShadowSoftness(value) {
+    this.state.shadowSoftness = value
+
+    const viewers = document.querySelectorAll("model-viewer")
     viewers.forEach((viewer) => {
-      if (viewer) {
-        viewer.setAttribute("shadow-softness", softness.toString())
-      }
+      viewer.setAttribute("shadow-softness", value.toString())
     })
 
-    this.utils.updateStatus(`Shadow softness: ${softness}`)
+    console.log("Shadow softness set to:", value)
   }
 
-  // Toggle auto rotate
+  setToneMapping(type) {
+    this.state.toneMapping = type
+
+    const viewers = document.querySelectorAll("model-viewer")
+    viewers.forEach((viewer) => {
+      viewer.setAttribute("tone-mapping", type)
+    })
+
+    console.log("Tone mapping set to:", type)
+  }
+
   toggleAutoRotate() {
-    this.isAutoRotating = !this.isAutoRotating
-
-    const viewers = this.getAllViewers()
+    const viewers = document.querySelectorAll("model-viewer")
     viewers.forEach((viewer) => {
-      if (viewer) {
-        if (this.isAutoRotating) {
-          viewer.setAttribute("auto-rotate", "")
-        } else {
-          viewer.removeAttribute("auto-rotate")
-        }
+      const isRotating = viewer.hasAttribute("auto-rotate")
+      if (isRotating) {
+        viewer.removeAttribute("auto-rotate")
+      } else {
+        viewer.setAttribute("auto-rotate", "")
       }
     })
 
-    // Update button
-    const button = document.getElementById("auto-rotate-toggle")
-    if (button) {
-      button.innerHTML = `<span class="btn-icon">${this.isAutoRotating ? "⏸️" : "🔄"}</span> ${this.isAutoRotating ? "Stop Rotate" : "Auto Rotate"}`
-      button.classList.toggle("active", this.isAutoRotating)
-    }
-
-    this.utils.updateStatus(`Auto rotate: ${this.isAutoRotating ? "enabled" : "disabled"}`)
+    console.log("Auto rotate toggled")
   }
 
-  // Reset camera
   resetCamera() {
-    const viewers = this.getAllViewers()
+    const viewers = document.querySelectorAll("model-viewer")
     viewers.forEach((viewer) => {
-      if (viewer && viewer.resetCamera) {
-        viewer.resetCamera()
+      if (viewer.resetTurntableRotation) {
+        viewer.resetTurntableRotation()
+      }
+      if (viewer.jumpCameraToGoal) {
+        viewer.jumpCameraToGoal()
       }
     })
 
-    this.utils.updateStatus("📷 Camera reset")
-    this.utils.showPhysicsEffect("📷 Camera Reset")
+    console.log("Camera reset")
   }
 
-  // Focus on model
   focusModel() {
-    const viewers = this.getAllViewers()
+    const viewers = document.querySelectorAll("model-viewer")
     viewers.forEach((viewer) => {
-      if (viewer && viewer.focusModel) {
-        viewer.focusModel()
+      if (viewer.jumpCameraToGoal) {
+        viewer.jumpCameraToGoal()
       }
     })
 
-    this.utils.updateStatus("🎯 Model focused")
-    this.utils.showPhysicsEffect("🎯 Model Focused")
+    console.log("Model focused")
   }
 
-  // Get all active viewers
-  getAllViewers() {
-    const viewers = []
-
-    // Main viewer
-    const mainViewer = document.getElementById("main-viewer")
-    if (mainViewer && mainViewer.style.display !== "none") {
-      viewers.push(mainViewer)
-    }
-
-    // Combined viewers
-    const combinedContainer = document.getElementById("combined-viewer-container")
-    if (combinedContainer && combinedContainer.style.display !== "none") {
-      const avatarViewer = combinedContainer.querySelector("model-viewer:first-child")
-      const garmentViewer = combinedContainer.querySelector("model-viewer:last-child")
-
-      if (avatarViewer) viewers.push(avatarViewer)
-      if (garmentViewer) viewers.push(garmentViewer)
-    }
-
-    return viewers
-  }
-
-  // Update environment setting
-  updateEnvironmentSetting(setting, value) {
-    switch (setting) {
-      case "exposure":
-        this.setExposure(value)
-        break
-      case "shadow-intensity":
-        this.setShadowIntensity(value)
-        break
-      case "shadow-softness":
-        this.setShadowSoftness(value)
-        break
-      default:
-        this.utils.updateStatus(`Unknown environment setting: ${setting}`)
-    }
-  }
-
-  // Capitalize first letter
-  capitalizeFirst(str) {
-    return str.charAt(0).toUpperCase() + str.slice(1)
-  }
-
-  // Get current environment settings
-  getCurrentSettings() {
-    return {
-      environment: this.currentEnvironment,
-      toneMapping: this.currentToneMapping,
-      isAutoRotating: this.isAutoRotating,
-    }
-  }
-
-  // Apply settings to new viewer
-  applySettingsToViewer(viewer) {
-    if (!viewer) return
-
-    // Apply current environment
-    viewer.setAttribute("environment-image", this.currentEnvironment)
-    viewer.setAttribute("tone-mapping", this.currentToneMapping)
-
-    // Apply auto rotate
-    if (this.isAutoRotating) {
-      viewer.setAttribute("auto-rotate", "")
-    }
-
-    // Apply current control values
-    const exposure = document.getElementById("exposure")?.value || "1.0"
-    const shadowIntensity = document.getElementById("shadow-intensity")?.value || "1.0"
-    const shadowSoftness = document.getElementById("shadow-softness")?.value || "0.5"
-
-    viewer.setAttribute("exposure", exposure)
-    viewer.setAttribute("shadow-intensity", shadowIntensity)
-    viewer.setAttribute("shadow-softness", shadowSoftness)
-  }
-
-  // Cleanup
   cleanup() {
-    // Clean up any resources
     console.log("🌍 EnvironmentManager cleaned up")
   }
 }

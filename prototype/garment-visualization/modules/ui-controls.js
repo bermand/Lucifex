@@ -1,4 +1,4 @@
-// UI Controls and Event Handling
+// UI controls and event handling
 export class UIControls {
   constructor(state, modelManager, environmentManager, physicsManager, utils) {
     this.state = state
@@ -9,17 +9,14 @@ export class UIControls {
     console.log("🎮 UIControls initialized")
   }
 
-  initialize() {
+  async initialize() {
     this.setupTabNavigation()
-    this.setupModelTypeSelector()
-    this.setupAvatarControls()
-    this.setupGarmentControls()
-    this.setupCombinedControls()
+    this.setupModelControls()
+    this.setupFileUploads()
+    this.setupRangeControls()
     this.setupPhysicsControls()
     this.setupEnvironmentControls()
     this.setupActionButtons()
-    this.setupFileUploads()
-    this.setupRangeInputs()
     console.log("✅ UIControls initialized")
   }
 
@@ -29,177 +26,200 @@ export class UIControls {
 
     tabs.forEach((tab) => {
       tab.addEventListener("click", () => {
-        const tabName = tab.dataset.tab
+        const targetTab = tab.dataset.tab
 
         // Update active tab
         tabs.forEach((t) => t.classList.remove("active"))
         tab.classList.add("active")
 
         // Update active content
-        tabContents.forEach((content) => content.classList.remove("active"))
-        const activeContent = document.getElementById(`${tabName}-tab`)
-        if (activeContent) {
-          activeContent.classList.add("active")
-        }
+        tabContents.forEach((content) => {
+          content.classList.remove("active")
+          if (content.id === `${targetTab}-tab`) {
+            content.classList.add("active")
+          }
+        })
 
-        // Update state
-        this.state.setCurrentTab(tabName)
+        this.state.setCurrentTab(targetTab)
       })
     })
   }
 
-  setupModelTypeSelector() {
-    const modelButtons = document.querySelectorAll(".model-btn")
-
-    modelButtons.forEach((button) => {
-      button.addEventListener("click", () => {
-        const modelType = button.dataset.modelType
-
-        // Update active button
-        modelButtons.forEach((btn) => btn.classList.remove("active"))
-        button.classList.add("active")
-
-        // Update state and view
-        this.state.setCurrentModelType(modelType)
-        this.modelManager.updateModelDisplay(modelType)
-      })
-    })
-  }
-
-  setupAvatarControls() {
-    // Avatar preset selection
+  setupModelControls() {
+    // Avatar selection
     const avatarOptions = document.querySelectorAll(".avatar-option")
     avatarOptions.forEach((option) => {
       option.addEventListener("click", () => {
-        const avatarType = option.dataset.avatar
-
-        // Update active option
-        avatarOptions.forEach((opt) => opt.classList.remove("active"))
+        avatarOptions.forEach((o) => o.classList.remove("active"))
         option.classList.add("active")
 
-        // Load avatar
+        const avatarType = option.dataset.avatar
         this.modelManager.loadPresetAvatar(avatarType)
       })
     })
 
-    // Avatar scale control
-    const avatarScale = document.getElementById("avatar-scale")
-    if (avatarScale) {
-      avatarScale.addEventListener("input", (e) => {
-        const scale = Number.parseFloat(e.target.value)
-        this.modelManager.updateAvatarScale(scale)
-        this.utils.updateValueDisplay("avatar-scale", "avatar-scale-value")
-      })
-    }
+    // Garment selection
+    const garmentButtons = document.querySelectorAll(".preset-btn[data-garment]")
+    garmentButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        garmentButtons.forEach((b) => b.classList.remove("active"))
+        button.classList.add("active")
 
-    // Avatar opacity control
-    const avatarOpacity = document.getElementById("avatar-opacity")
-    if (avatarOpacity) {
-      avatarOpacity.addEventListener("input", (e) => {
-        const opacity = Number.parseFloat(e.target.value)
-        this.modelManager.updateAvatarOpacity(opacity)
-        this.utils.updateValueDisplay("avatar-opacity", "avatar-opacity-value")
-      })
-    }
-  }
-
-  setupGarmentControls() {
-    // Garment preset selection
-    const garmentPresets = document.querySelectorAll("[data-garment]")
-    garmentPresets.forEach((preset) => {
-      preset.addEventListener("click", () => {
-        const garmentType = preset.dataset.garment
-
-        // Update active preset
-        garmentPresets.forEach((p) => p.classList.remove("active"))
-        preset.classList.add("active")
-
-        // Load garment
+        const garmentType = button.dataset.garment
         this.modelManager.loadPresetGarment(garmentType)
       })
     })
 
-    // Garment scale control
-    const garmentScale = document.getElementById("garment-scale")
-    if (garmentScale) {
-      garmentScale.addEventListener("input", (e) => {
-        const scale = Number.parseFloat(e.target.value)
-        this.modelManager.updateGarmentScale(scale)
-        this.utils.updateValueDisplay("garment-scale", "garment-scale-value")
+    // Model type selector
+    const modelButtons = document.querySelectorAll(".model-btn")
+    modelButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        modelButtons.forEach((b) => b.classList.remove("active"))
+        button.classList.add("active")
+
+        const modelType = button.dataset.modelType
+        this.modelManager.switchModelType(modelType)
+      })
+    })
+  }
+
+  setupFileUploads() {
+    // Avatar file upload
+    const avatarFileInput = document.getElementById("avatar-file")
+    const avatarFileInfo = document.getElementById("avatar-file-info")
+
+    if (avatarFileInput) {
+      avatarFileInput.addEventListener("change", (e) => {
+        const file = e.target.files[0]
+        if (file) {
+          avatarFileInfo.textContent = `${file.name} (${this.utils.formatFileSize(file.size)})`
+          this.modelManager.loadCustomModel(file, "avatar")
+        }
       })
     }
 
-    // Garment opacity control
-    const garmentOpacity = document.getElementById("garment-opacity")
-    if (garmentOpacity) {
-      garmentOpacity.addEventListener("input", (e) => {
-        const opacity = Number.parseFloat(e.target.value)
-        this.modelManager.updateGarmentOpacity(opacity)
-        this.utils.updateValueDisplay("garment-opacity", "garment-opacity-value")
+    // Garment file upload
+    const garmentFileInput = document.getElementById("garment-file")
+    const garmentFileInfo = document.getElementById("garment-file-info")
+
+    if (garmentFileInput) {
+      garmentFileInput.addEventListener("change", (e) => {
+        const file = e.target.files[0]
+        if (file) {
+          garmentFileInfo.textContent = `${file.name} (${this.utils.formatFileSize(file.size)})`
+          this.modelManager.loadCustomModel(file, "garment")
+        }
       })
     }
   }
 
-  setupCombinedControls() {
-    // Combination method selection
-    const combinationMethods = document.querySelectorAll("[data-combination]")
-    combinationMethods.forEach((method) => {
-      method.addEventListener("click", () => {
-        const combinationType = method.dataset.combination
+  setupRangeControls() {
+    // Avatar controls
+    const avatarScale = document.getElementById("avatar-scale")
+    const avatarOpacity = document.getElementById("avatar-opacity")
 
-        // Update active method
-        combinationMethods.forEach((m) => m.classList.remove("active"))
-        method.classList.add("active")
+    if (avatarScale) {
+      this.utils.updateValueDisplay("avatar-scale", "avatar-scale-value")
+      avatarScale.addEventListener(
+        "input",
+        this.utils.throttle(() => {
+          const scale = Number.parseFloat(avatarScale.value)
+          const opacity = Number.parseFloat(avatarOpacity?.value || 1)
+          this.modelManager.updateAvatarTransform(scale, opacity)
+          this.utils.updateValueDisplay("avatar-scale", "avatar-scale-value")
+        }, 16),
+      )
+    }
 
-        // Update state
-        this.state.setCombinationMethod(combinationType)
-        this.utils.updateStatus(`Combination method: ${combinationType}`)
-      })
-    })
+    if (avatarOpacity) {
+      this.utils.updateValueDisplay("avatar-opacity", "avatar-opacity-value")
+      avatarOpacity.addEventListener(
+        "input",
+        this.utils.throttle(() => {
+          const scale = Number.parseFloat(avatarScale?.value || 1)
+          const opacity = Number.parseFloat(avatarOpacity.value)
+          this.modelManager.updateAvatarTransform(scale, opacity)
+          this.utils.updateValueDisplay("avatar-opacity", "avatar-opacity-value")
+        }, 16),
+      )
+    }
 
-    // Combined garment scale
+    // Garment controls
+    const garmentScale = document.getElementById("garment-scale")
+    const garmentOpacity = document.getElementById("garment-opacity")
     const garmentScaleCombined = document.getElementById("garment-scale-combined")
-    if (garmentScaleCombined) {
-      garmentScaleCombined.addEventListener("input", (e) => {
-        const scale = Number.parseFloat(e.target.value)
-        this.modelManager.updateGarmentScaleInCombined(scale)
-        this.utils.updateValueDisplay("garment-scale-combined", "garment-scale-combined-value")
-      })
-    }
-
-    // Garment position controls
     const garmentOffsetX = document.getElementById("garment-offset-x")
-    if (garmentOffsetX) {
-      garmentOffsetX.addEventListener("input", (e) => {
-        const offset = Number.parseFloat(e.target.value)
-        this.modelManager.updateGarmentPosition("x", offset)
-        this.utils.updateValueDisplay("garment-offset-x", "garment-offset-x-value")
-      })
-    }
-
     const garmentOffsetY = document.getElementById("garment-offset-y")
+
+    if (garmentScale) {
+      this.utils.updateValueDisplay("garment-scale", "garment-scale-value")
+      garmentScale.addEventListener(
+        "input",
+        this.utils.throttle(() => {
+          const scale = Number.parseFloat(garmentScale.value)
+          const opacity = Number.parseFloat(garmentOpacity?.value || 1)
+          this.modelManager.updateGarmentTransform(scale, opacity)
+          this.utils.updateValueDisplay("garment-scale", "garment-scale-value")
+        }, 16),
+      )
+    }
+
+    if (garmentOpacity) {
+      this.utils.updateValueDisplay("garment-opacity", "garment-opacity-value")
+      garmentOpacity.addEventListener(
+        "input",
+        this.utils.throttle(() => {
+          const scale = Number.parseFloat(garmentScale?.value || 1)
+          const opacity = Number.parseFloat(garmentOpacity.value)
+          this.modelManager.updateGarmentTransform(scale, opacity)
+          this.utils.updateValueDisplay("garment-opacity", "garment-opacity-value")
+        }, 16),
+      )
+    }
+
+    if (garmentScaleCombined) {
+      this.utils.updateValueDisplay("garment-scale-combined", "garment-scale-combined-value")
+      garmentScaleCombined.addEventListener(
+        "input",
+        this.utils.throttle(() => {
+          const scale = Number.parseFloat(garmentScaleCombined.value)
+          const opacity = Number.parseFloat(garmentOpacity?.value || 1)
+          const offsetX = Number.parseFloat(garmentOffsetX?.value || 0)
+          const offsetY = Number.parseFloat(garmentOffsetY?.value || 0)
+          this.modelManager.updateGarmentTransform(scale, opacity, offsetX, offsetY)
+          this.utils.updateValueDisplay("garment-scale-combined", "garment-scale-combined-value")
+        }, 16),
+      )
+    }
+
+    if (garmentOffsetX) {
+      this.utils.updateValueDisplay("garment-offset-x", "garment-offset-x-value")
+      garmentOffsetX.addEventListener(
+        "input",
+        this.utils.throttle(() => {
+          const scale = Number.parseFloat(garmentScaleCombined?.value || 1)
+          const opacity = Number.parseFloat(garmentOpacity?.value || 1)
+          const offsetX = Number.parseFloat(garmentOffsetX.value)
+          const offsetY = Number.parseFloat(garmentOffsetY?.value || 0)
+          this.modelManager.updateGarmentTransform(scale, opacity, offsetX, offsetY)
+          this.utils.updateValueDisplay("garment-offset-x", "garment-offset-x-value")
+        }, 16),
+      )
+    }
+
     if (garmentOffsetY) {
-      garmentOffsetY.addEventListener("input", (e) => {
-        const offset = Number.parseFloat(e.target.value)
-        this.modelManager.updateGarmentPosition("y", offset)
-        this.utils.updateValueDisplay("garment-offset-y", "garment-offset-y-value")
-      })
-    }
-
-    // Generate combined button
-    const generateCombined = document.getElementById("generate-combined")
-    if (generateCombined) {
-      generateCombined.addEventListener("click", () => {
-        this.modelManager.generateCombinedView()
-      })
-    }
-
-    // Reset combination button
-    const resetCombination = document.getElementById("reset-combination")
-    if (resetCombination) {
-      resetCombination.addEventListener("click", () => {
-        this.modelManager.resetCombination()
-      })
+      this.utils.updateValueDisplay("garment-offset-y", "garment-offset-y-value")
+      garmentOffsetY.addEventListener(
+        "input",
+        this.utils.throttle(() => {
+          const scale = Number.parseFloat(garmentScaleCombined?.value || 1)
+          const opacity = Number.parseFloat(garmentOpacity?.value || 1)
+          const offsetX = Number.parseFloat(garmentOffsetX?.value || 0)
+          const offsetY = Number.parseFloat(garmentOffsetY.value)
+          this.modelManager.updateGarmentTransform(scale, opacity, offsetX, offsetY)
+          this.utils.updateValueDisplay("garment-offset-y", "garment-offset-y-value")
+        }, 16),
+      )
     }
   }
 
@@ -212,7 +232,7 @@ export class UIControls {
       })
     }
 
-    // Physics reset
+    // Physics actions
     const physicsReset = document.getElementById("physics-reset")
     if (physicsReset) {
       physicsReset.addEventListener("click", () => {
@@ -220,7 +240,6 @@ export class UIControls {
       })
     }
 
-    // Reset cloth
     const resetCloth = document.getElementById("reset-cloth")
     if (resetCloth) {
       resetCloth.addEventListener("click", () => {
@@ -228,7 +247,6 @@ export class UIControls {
       })
     }
 
-    // Debug toggle
     const debugToggle = document.getElementById("debug-toggle")
     if (debugToggle) {
       debugToggle.addEventListener("click", () => {
@@ -236,7 +254,6 @@ export class UIControls {
       })
     }
 
-    // Debug log
     const debugLog = document.getElementById("debug-log")
     if (debugLog) {
       debugLog.addEventListener("click", () => {
@@ -244,7 +261,6 @@ export class UIControls {
       })
     }
 
-    // Drop test
     const dropTest = document.getElementById("drop-test")
     if (dropTest) {
       dropTest.addEventListener("click", () => {
@@ -252,7 +268,6 @@ export class UIControls {
       })
     }
 
-    // Basic test
     const basicTest = document.getElementById("basic-test")
     if (basicTest) {
       basicTest.addEventListener("click", () => {
@@ -260,24 +275,31 @@ export class UIControls {
       })
     }
 
-    // Cloth stiffness
+    // Physics settings
     const clothStiffness = document.getElementById("cloth-stiffness")
     if (clothStiffness) {
-      clothStiffness.addEventListener("input", (e) => {
-        const stiffness = Number.parseFloat(e.target.value)
-        this.physicsManager.updatePhysicsSetting("stiffness", stiffness)
-        this.utils.updateValueDisplay("cloth-stiffness", "cloth-stiffness-value")
-      })
+      this.utils.updateValueDisplay("cloth-stiffness", "cloth-stiffness-value")
+      clothStiffness.addEventListener(
+        "input",
+        this.utils.throttle(() => {
+          const value = Number.parseFloat(clothStiffness.value)
+          this.physicsManager.updatePhysicsSetting("stiffness", value)
+          this.utils.updateValueDisplay("cloth-stiffness", "cloth-stiffness-value")
+        }, 100),
+      )
     }
 
-    // Gravity strength
     const gravityStrength = document.getElementById("gravity-strength")
     if (gravityStrength) {
-      gravityStrength.addEventListener("input", (e) => {
-        const gravity = Number.parseFloat(e.target.value)
-        this.physicsManager.updatePhysicsSetting("gravity", gravity)
-        this.utils.updateValueDisplay("gravity-strength", "gravity-strength-value")
-      })
+      this.utils.updateValueDisplay("gravity-strength", "gravity-strength-value")
+      gravityStrength.addEventListener(
+        "input",
+        this.utils.throttle(() => {
+          const value = Number.parseFloat(gravityStrength.value)
+          this.physicsManager.updatePhysicsSetting("gravity", value)
+          this.utils.updateValueDisplay("gravity-strength", "gravity-strength-value")
+        }, 100),
+      )
     }
   }
 
@@ -286,63 +308,67 @@ export class UIControls {
     const envButtons = document.querySelectorAll(".env-btn")
     envButtons.forEach((button) => {
       button.addEventListener("click", () => {
-        const environment = button.dataset.environment
-
-        // Update active button
-        envButtons.forEach((btn) => btn.classList.remove("active"))
+        envButtons.forEach((b) => b.classList.remove("active"))
         button.classList.add("active")
 
-        // Update environment
-        this.environmentManager.setEnvironment(environment)
+        const envType = button.dataset.environment
+        this.environmentManager.setEnvironment(envType)
       })
     })
 
-    // Tone mapping selection
-    const toneMappingButtons = document.querySelectorAll("[data-tone-mapping]")
+    // Lighting controls
+    const exposure = document.getElementById("exposure")
+    if (exposure) {
+      this.utils.updateValueDisplay("exposure", "exposure-value")
+      exposure.addEventListener(
+        "input",
+        this.utils.throttle(() => {
+          const value = Number.parseFloat(exposure.value)
+          this.environmentManager.setExposure(value)
+          this.utils.updateValueDisplay("exposure", "exposure-value")
+        }, 50),
+      )
+    }
+
+    const shadowIntensity = document.getElementById("shadow-intensity")
+    if (shadowIntensity) {
+      this.utils.updateValueDisplay("shadow-intensity", "shadow-intensity-value")
+      shadowIntensity.addEventListener(
+        "input",
+        this.utils.throttle(() => {
+          const value = Number.parseFloat(shadowIntensity.value)
+          this.environmentManager.setShadowIntensity(value)
+          this.utils.updateValueDisplay("shadow-intensity", "shadow-intensity-value")
+        }, 50),
+      )
+    }
+
+    const shadowSoftness = document.getElementById("shadow-softness")
+    if (shadowSoftness) {
+      this.utils.updateValueDisplay("shadow-softness", "shadow-softness-value")
+      shadowSoftness.addEventListener(
+        "input",
+        this.utils.throttle(() => {
+          const value = Number.parseFloat(shadowSoftness.value)
+          this.environmentManager.setShadowSoftness(value)
+          this.utils.updateValueDisplay("shadow-softness", "shadow-softness-value")
+        }, 50),
+      )
+    }
+
+    // Tone mapping
+    const toneMappingButtons = document.querySelectorAll(".preset-btn[data-tone-mapping]")
     toneMappingButtons.forEach((button) => {
       button.addEventListener("click", () => {
-        const toneMapping = button.dataset.toneMapping
-
-        // Update active button
-        toneMappingButtons.forEach((btn) => btn.classList.remove("active"))
+        toneMappingButtons.forEach((b) => b.classList.remove("active"))
         button.classList.add("active")
 
-        // Update tone mapping
+        const toneMapping = button.dataset.toneMapping
         this.environmentManager.setToneMapping(toneMapping)
       })
     })
 
-    // Exposure control
-    const exposure = document.getElementById("exposure")
-    if (exposure) {
-      exposure.addEventListener("input", (e) => {
-        const value = Number.parseFloat(e.target.value)
-        this.environmentManager.setExposure(value)
-        this.utils.updateValueDisplay("exposure", "exposure-value")
-      })
-    }
-
-    // Shadow intensity control
-    const shadowIntensity = document.getElementById("shadow-intensity")
-    if (shadowIntensity) {
-      shadowIntensity.addEventListener("input", (e) => {
-        const value = Number.parseFloat(e.target.value)
-        this.environmentManager.setShadowIntensity(value)
-        this.utils.updateValueDisplay("shadow-intensity", "shadow-intensity-value")
-      })
-    }
-
-    // Shadow softness control
-    const shadowSoftness = document.getElementById("shadow-softness")
-    if (shadowSoftness) {
-      shadowSoftness.addEventListener("input", (e) => {
-        const value = Number.parseFloat(e.target.value)
-        this.environmentManager.setShadowSoftness(value)
-        this.utils.updateValueDisplay("shadow-softness", "shadow-softness-value")
-      })
-    }
-
-    // Auto rotate toggle
+    // Camera controls
     const autoRotateToggle = document.getElementById("auto-rotate-toggle")
     if (autoRotateToggle) {
       autoRotateToggle.addEventListener("click", () => {
@@ -350,7 +376,6 @@ export class UIControls {
       })
     }
 
-    // Camera reset
     const cameraReset = document.getElementById("camera-reset")
     if (cameraReset) {
       cameraReset.addEventListener("click", () => {
@@ -358,7 +383,6 @@ export class UIControls {
       })
     }
 
-    // Focus model
     const focusModel = document.getElementById("focus-model")
     if (focusModel) {
       focusModel.addEventListener("click", () => {
@@ -368,7 +392,7 @@ export class UIControls {
   }
 
   setupActionButtons() {
-    // Screenshot button
+    // Screenshot
     const takeScreenshot = document.getElementById("take-screenshot")
     if (takeScreenshot) {
       takeScreenshot.addEventListener("click", () => {
@@ -376,96 +400,72 @@ export class UIControls {
       })
     }
 
-    // Export scene button
+    // Export scene
     const exportScene = document.getElementById("export-scene")
     if (exportScene) {
       exportScene.addEventListener("click", () => {
         this.utils.exportScene()
       })
     }
-  }
 
-  setupFileUploads() {
-    // Avatar file upload
-    const avatarFile = document.getElementById("avatar-file")
-    if (avatarFile) {
-      avatarFile.addEventListener("change", (e) => {
-        const file = e.target.files[0]
-        if (file && this.utils.isValidModelFile(file)) {
-          const url = this.utils.createObjectURL(file)
-          this.modelManager.loadCustomAvatar(url, file.name)
-          this.utils.updateFileInfo("avatar-file-info", file, "Avatar")
-        } else {
-          this.utils.updateStatus("❌ Invalid avatar file format")
-        }
+    // Generate combined
+    const generateCombined = document.getElementById("generate-combined")
+    if (generateCombined) {
+      generateCombined.addEventListener("click", () => {
+        this.modelManager.createCombinedView()
       })
     }
 
-    // Garment file upload
-    const garmentFile = document.getElementById("garment-file")
-    if (garmentFile) {
-      garmentFile.addEventListener("change", (e) => {
-        const file = e.target.files[0]
-        if (file && this.utils.isValidModelFile(file)) {
-          const url = this.utils.createObjectURL(file)
-          this.modelManager.loadCustomGarment(url, file.name)
-          this.utils.updateFileInfo("garment-file-info", file, "Garment")
-        } else {
-          this.utils.updateStatus("❌ Invalid garment file format")
-        }
+    // Reset combination
+    const resetCombination = document.getElementById("reset-combination")
+    if (resetCombination) {
+      resetCombination.addEventListener("click", () => {
+        this.modelManager.resetCombination()
       })
     }
   }
 
-  setupRangeInputs() {
-    // Update all range input displays on page load
-    const rangeInputs = document.querySelectorAll('input[type="range"]')
-    rangeInputs.forEach((input) => {
-      const displayId = input.id + "-value"
-      this.utils.updateValueDisplay(input.id, displayId)
-    })
-  }
-
-  // Update UI state based on app state
-  updateUI() {
-    // Update combination status
-    this.utils.updateCombinationStatus(this.state.hasAvatar, this.state.hasGarment)
-
-    // Update model info
-    const modelName = this.state.hasGarment ? "Garment + Avatar" : this.state.hasAvatar ? "Avatar Only" : "None"
-    const modelType = this.state.getCurrentModelType()
-    this.utils.updateModelInfo(modelName, modelType)
-  }
-
-  // Handle keyboard shortcuts
   setupKeyboardShortcuts() {
     document.addEventListener("keydown", (e) => {
-      // Ctrl/Cmd + S for screenshot
-      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
-        e.preventDefault()
-        this.utils.takeScreenshot()
+      // Only handle shortcuts when not typing in inputs
+      if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") {
+        return
       }
 
-      // Ctrl/Cmd + E for export
-      if ((e.ctrlKey || e.metaKey) && e.key === "e") {
-        e.preventDefault()
-        this.utils.exportScene()
-      }
-
-      // Space for physics toggle
-      if (e.key === " " && e.target.tagName !== "INPUT") {
-        e.preventDefault()
-        this.physicsManager.togglePhysics()
-      }
-
-      // R for reset
-      if (e.key === "r" && !e.ctrlKey && !e.metaKey) {
-        this.physicsManager.resetPhysics()
+      switch (e.key) {
+        case "1":
+          document.querySelector('.tab[data-tab="avatar"]')?.click()
+          break
+        case "2":
+          document.querySelector('.tab[data-tab="garment"]')?.click()
+          break
+        case "3":
+          document.querySelector('.tab[data-tab="combined"]')?.click()
+          break
+        case "4":
+          document.querySelector('.tab[data-tab="physics"]')?.click()
+          break
+        case "5":
+          document.querySelector('.tab[data-tab="environment"]')?.click()
+          break
+        case " ":
+          e.preventDefault()
+          this.physicsManager.togglePhysics()
+          break
+        case "r":
+          this.physicsManager.resetPhysics()
+          break
+        case "s":
+          e.preventDefault()
+          this.utils.takeScreenshot()
+          break
+        case "e":
+          this.utils.exportScene()
+          break
       }
     })
   }
 
-  // Cleanup
   cleanup() {
     // Remove event listeners if needed
     console.log("🎮 UIControls cleaned up")
