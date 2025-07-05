@@ -3,171 +3,149 @@ export class EnvironmentManager {
   constructor(state) {
     this.state = state
     this.environments = {
-      studio: {
-        name: "Studio",
-        hdri: "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/studio_small_03_1k.hdr",
-        exposure: 1.0,
-        shadowIntensity: 1.0,
-        shadowSoftness: 0.5,
-      },
-      outdoor: {
-        name: "Outdoor",
-        hdri: "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/kloppenheim_06_1k.hdr",
-        exposure: 1.2,
-        shadowIntensity: 0.8,
-        shadowSoftness: 0.3,
-      },
-      neutral: {
-        name: "Neutral",
-        hdri: "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/studio_small_09_1k.hdr",
-        exposure: 0.8,
-        shadowIntensity: 0.6,
-        shadowSoftness: 0.7,
-      },
+      studio: "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/studio_small_03_1k.hdr",
+      outdoor: "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/kloppenheim_06_1k.hdr",
+      neutral: "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/neutral_1k.hdr",
     }
     console.log("🌍 EnvironmentManager initialized")
   }
 
   async initialize() {
     // Set default environment
-    this.setEnvironment("studio")
+    this.state.setEnvironment("studio")
+    const utils = window.lucifexApp?.utils
+    if (utils) {
+      utils.updateStatus("Environment: Studio")
+    }
     console.log("✅ EnvironmentManager initialized")
   }
 
-  setEnvironment(environmentName) {
-    const environment = this.environments[environmentName]
-    if (!environment) {
-      console.warn(`Environment ${environmentName} not found`)
-      return
-    }
+  setEnvironment(environment) {
+    this.state.setEnvironment(environment)
 
-    this.state.setEnvironment(environmentName)
+    const envUrl = this.environments[environment] || this.environments.studio
 
-    // Apply to all active viewers
-    const viewers = [this.state.mainViewer, this.state.avatarViewer, this.state.garmentViewer].filter(
-      (viewer) => viewer,
-    )
-
+    // Apply to all viewers
+    const viewers = this.getAllViewers()
     viewers.forEach((viewer) => {
-      this.applyEnvironmentToViewer(viewer, environment)
+      if (viewer) {
+        viewer.setAttribute("environment-image", envUrl)
+        viewer.setAttribute("skybox-image", envUrl)
+      }
     })
 
     const utils = window.lucifexApp?.utils
     if (utils) {
-      utils.updateStatus(`Environment: ${environment.name}`)
+      utils.updateStatus(`Environment: ${environment}`)
     }
   }
 
-  applyEnvironmentToViewer(viewer, environment = null) {
-    if (!viewer) return
-
-    const env = environment || this.environments[this.state.currentEnvironment]
-    if (!env) return
-
-    viewer.setAttribute("environment-image", env.hdri)
-    viewer.setAttribute("skybox-image", env.hdri)
-    viewer.setAttribute("exposure", env.exposure)
-    viewer.setAttribute("shadow-intensity", env.shadowIntensity)
-    viewer.setAttribute("shadow-softness", env.shadowSoftness)
-  }
-
-  setToneMapping(toneMapping) {
-    const viewers = [this.state.mainViewer, this.state.avatarViewer, this.state.garmentViewer].filter(
-      (viewer) => viewer,
-    )
-
+  setToneMapping(mapping) {
+    const viewers = this.getAllViewers()
     viewers.forEach((viewer) => {
-      viewer.setAttribute("tone-mapping", toneMapping)
+      if (viewer) {
+        viewer.setAttribute("tone-mapping", mapping)
+      }
     })
 
     const utils = window.lucifexApp?.utils
     if (utils) {
-      utils.updateStatus(`Tone mapping: ${toneMapping}`)
+      utils.updateStatus(`Tone mapping: ${mapping}`)
     }
   }
 
   updateLighting() {
-    const exposure = document.getElementById("exposure")?.value || 1.0
-    const shadowIntensity = document.getElementById("shadow-intensity")?.value || 1.0
+    const exposure = document.getElementById("exposure")?.value || 1
+    const shadowIntensity = document.getElementById("shadow-intensity")?.value || 1
     const shadowSoftness = document.getElementById("shadow-softness")?.value || 0.5
 
-    const viewers = [this.state.mainViewer, this.state.avatarViewer, this.state.garmentViewer].filter(
-      (viewer) => viewer,
-    )
-
+    const viewers = this.getAllViewers()
     viewers.forEach((viewer) => {
-      viewer.setAttribute("exposure", exposure)
-      viewer.setAttribute("shadow-intensity", shadowIntensity)
-      viewer.setAttribute("shadow-softness", shadowSoftness)
+      if (viewer) {
+        viewer.setAttribute("exposure", exposure)
+        viewer.setAttribute("shadow-intensity", shadowIntensity)
+        viewer.setAttribute("shadow-softness", shadowSoftness)
+      }
     })
   }
 
   toggleAutoRotate() {
-    this.state.setAutoRotating(!this.state.isAutoRotating)
-
-    const viewers = [this.state.mainViewer, this.state.avatarViewer, this.state.garmentViewer].filter(
-      (viewer) => viewer,
-    )
-
+    const viewers = this.getAllViewers()
     viewers.forEach((viewer) => {
-      if (this.state.isAutoRotating) {
-        viewer.setAttribute("auto-rotate", "")
-      } else {
-        viewer.removeAttribute("auto-rotate")
+      if (viewer) {
+        if (this.state.isAutoRotating) {
+          viewer.setAttribute("auto-rotate", "")
+        } else {
+          viewer.removeAttribute("auto-rotate")
+        }
       }
     })
-
-    // Update button state
-    const button = document.getElementById("auto-rotate-toggle")
-    if (button) {
-      button.classList.toggle("active", this.state.isAutoRotating)
-      button.textContent = this.state.isAutoRotating ? "⏸️ Stop Rotate" : "🔄 Auto Rotate"
-    }
-
-    const utils = window.lucifexApp?.utils
-    if (utils) {
-      utils.updateStatus(`Auto rotate: ${this.state.isAutoRotating ? "enabled" : "disabled"}`)
-    }
   }
 
   resetCamera() {
-    const viewers = [this.state.mainViewer, this.state.avatarViewer, this.state.garmentViewer].filter(
-      (viewer) => viewer,
-    )
-
+    const viewers = this.getAllViewers()
     viewers.forEach((viewer) => {
-      if (viewer.resetTurntableRotation) {
+      if (viewer && viewer.resetTurntableRotation) {
         viewer.resetTurntableRotation()
       }
-      if (viewer.jumpCameraToGoal) {
+      if (viewer && viewer.jumpCameraToGoal) {
         viewer.jumpCameraToGoal()
       }
     })
 
     const utils = window.lucifexApp?.utils
     if (utils) {
-      utils.updateStatus("Camera reset")
+      utils.updateStatus("📷 Camera reset")
     }
   }
 
   focusOnModel() {
-    const viewers = [this.state.mainViewer, this.state.avatarViewer, this.state.garmentViewer].filter(
-      (viewer) => viewer,
-    )
-
+    const viewers = this.getAllViewers()
     viewers.forEach((viewer) => {
-      if (viewer.jumpCameraToGoal) {
+      if (viewer && viewer.jumpCameraToGoal) {
         viewer.jumpCameraToGoal()
       }
     })
 
     const utils = window.lucifexApp?.utils
     if (utils) {
-      utils.updateStatus("Focused on model")
+      utils.updateStatus("🎯 Focused on model")
     }
   }
 
+  applyEnvironmentToViewer(viewer) {
+    if (!viewer) return
+
+    const envUrl = this.environments[this.state.currentEnvironment] || this.environments.studio
+    viewer.setAttribute("environment-image", envUrl)
+    viewer.setAttribute("skybox-image", envUrl)
+
+    // Apply current lighting settings
+    const exposure = document.getElementById("exposure")?.value || 1
+    const shadowIntensity = document.getElementById("shadow-intensity")?.value || 1
+    const shadowSoftness = document.getElementById("shadow-softness")?.value || 0.5
+
+    viewer.setAttribute("exposure", exposure)
+    viewer.setAttribute("shadow-intensity", shadowIntensity)
+    viewer.setAttribute("shadow-softness", shadowSoftness)
+
+    if (this.state.isAutoRotating) {
+      viewer.setAttribute("auto-rotate", "")
+    }
+  }
+
+  getAllViewers() {
+    return [
+      this.state.mainViewer,
+      this.state.avatarViewer,
+      this.state.garmentViewer,
+      document.getElementById("main-viewer"),
+      document.getElementById("combined-avatar-viewer"),
+      document.getElementById("combined-garment-viewer"),
+    ].filter((viewer) => viewer !== null)
+  }
+
   cleanup() {
-    // No specific cleanup needed for environment manager
+    // No specific cleanup needed
   }
 }
