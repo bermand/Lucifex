@@ -6,545 +6,552 @@ export class UIControls {
   }
 
   async initialize() {
-    this.setupEventListeners()
-    this.setupValueDisplayUpdates()
+    this.setupTabControls()
+    this.setupModelControls()
+    this.setupFileUploads()
+    this.setupPresetButtons()
+    this.setupRangeControls()
+    this.setupActionButtons()
+    this.setupPhysicsControls()
+    this.setupEnvironmentControls()
+
     console.log("✅ UIControls initialized")
   }
 
-  setupEventListeners() {
-    // Tab switching
-    document.querySelectorAll(".tab").forEach((tab) => {
-      tab.addEventListener("click", (e) => {
-        const tabName = e.target.dataset.tab
-        this.switchTab(tabName)
+  setupTabControls() {
+    const tabs = document.querySelectorAll(".tab")
+    const tabContents = document.querySelectorAll(".tab-content")
+
+    tabs.forEach((tab) => {
+      tab.addEventListener("click", () => {
+        const targetTab = tab.dataset.tab
+
+        // Remove active class from all tabs and contents
+        tabs.forEach((t) => t.classList.remove("active"))
+        tabContents.forEach((content) => content.classList.remove("active"))
+
+        // Add active class to clicked tab and corresponding content
+        tab.classList.add("active")
+        const targetContent = document.getElementById(`${targetTab}-tab`)
+        if (targetContent) {
+          targetContent.classList.add("active")
+        }
+
+        // Update state
+        this.state.setCurrentTab(targetTab)
       })
     })
+  }
 
-    // Model type switching
-    document.querySelectorAll(".model-btn").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        const modelType = e.target.dataset.modelType
-        this.switchModelType(modelType)
+  setupModelControls() {
+    const modelButtons = document.querySelectorAll(".model-btn")
+
+    modelButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const modelType = button.dataset.modelType
+
+        // Update button states
+        modelButtons.forEach((btn) => btn.classList.remove("active"))
+        button.classList.add("active")
+
+        // Update state and switch view
+        this.state.setModelType(modelType)
+        this.switchModelView(modelType)
       })
     })
+  }
 
-    // Avatar selection
-    document.querySelectorAll(".avatar-option").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        const avatarType = e.target.dataset.avatar
-        this.selectAvatar(avatarType)
-      })
-    })
+  async switchModelView(modelType) {
+    const utils = window.lucifexApp?.utils
+    const modelManager = window.lucifexApp?.modelManager
 
-    // Garment selection
-    document.querySelectorAll(".preset-btn[data-garment]").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        const garmentType = e.target.dataset.garment
-        this.selectGarment(garmentType)
-      })
-    })
+    if (!modelManager) return
 
-    // File uploads
-    const avatarFileInput = document.getElementById("avatar-file")
-    if (avatarFileInput) {
-      avatarFileInput.addEventListener("change", (e) => this.handleAvatarFileUpload(e))
+    const mainViewer = document.getElementById("main-viewer")
+    const combinedContainer = document.getElementById("combined-viewer-container")
+
+    // Hide combined container by default
+    if (combinedContainer) {
+      combinedContainer.style.display = "none"
     }
 
-    const garmentFileInput = document.getElementById("garment-file")
-    if (garmentFileInput) {
-      garmentFileInput.addEventListener("change", (e) => this.handleGarmentFileUpload(e))
-    }
+    switch (modelType) {
+      case "avatar":
+        if (this.state.currentAvatarUrl) {
+          mainViewer.src = this.state.currentAvatarUrl
+          mainViewer.style.display = "block"
+          this.state.setMainViewer(mainViewer)
+          if (utils) {
+            utils.updateModelInfo(this.state.currentAvatarUrl, "Avatar")
+          }
+        }
+        break
 
-    // Combined view controls
-    const generateCombinedBtn = document.getElementById("generate-combined")
-    if (generateCombinedBtn) {
-      generateCombinedBtn.addEventListener("click", () => this.handleGenerateCombined())
-    }
+      case "garment":
+        if (this.state.currentGarmentUrl) {
+          mainViewer.src = this.state.currentGarmentUrl
+          mainViewer.style.display = "block"
+          this.state.setMainViewer(mainViewer)
+          if (utils) {
+            utils.updateModelInfo(this.state.currentGarmentUrl, "Garment")
+          }
+        }
+        break
 
-    const resetCombinationBtn = document.getElementById("reset-combination")
-    if (resetCombinationBtn) {
-      resetCombinationBtn.addEventListener("click", () => this.handleResetCombination())
-    }
-
-    // Physics controls
-    const physicsToggleBtn = document.getElementById("physics-toggle")
-    if (physicsToggleBtn) {
-      physicsToggleBtn.addEventListener("click", () => this.handlePhysicsToggle())
-    }
-
-    const physicsResetBtn = document.getElementById("physics-reset")
-    if (physicsResetBtn) {
-      physicsResetBtn.addEventListener("click", () => this.handlePhysicsReset())
-    }
-
-    const resetClothBtn = document.getElementById("reset-cloth")
-    if (resetClothBtn) {
-      resetClothBtn.addEventListener("click", () => this.handleResetCloth())
-    }
-
-    const debugToggleBtn = document.getElementById("debug-toggle")
-    if (debugToggleBtn) {
-      debugToggleBtn.addEventListener("click", () => this.handleDebugToggle())
-    }
-
-    const debugLogBtn = document.getElementById("debug-log")
-    if (debugLogBtn) {
-      debugLogBtn.addEventListener("click", () => this.handleDebugLog())
-    }
-
-    const dropTestBtn = document.getElementById("drop-test")
-    if (dropTestBtn) {
-      dropTestBtn.addEventListener("click", () => this.handleDropTest())
-    }
-
-    const basicTestBtn = document.getElementById("basic-test")
-    if (basicTestBtn) {
-      basicTestBtn.addEventListener("click", () => this.handleBasicTest())
-    }
-
-    // Environment controls
-    document.querySelectorAll(".env-btn").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        const environment = e.target.dataset.environment
-        this.selectEnvironment(environment)
-      })
-    })
-
-    // Tone mapping controls
-    document.querySelectorAll(".preset-btn[data-tone-mapping]").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        const toneMapping = e.target.dataset.toneMapping
-        this.selectToneMapping(toneMapping)
-      })
-    })
-
-    // Camera controls
-    const autoRotateToggleBtn = document.getElementById("auto-rotate-toggle")
-    if (autoRotateToggleBtn) {
-      autoRotateToggleBtn.addEventListener("click", () => this.handleAutoRotateToggle())
-    }
-
-    const cameraResetBtn = document.getElementById("camera-reset")
-    if (cameraResetBtn) {
-      cameraResetBtn.addEventListener("click", () => this.handleCameraReset())
-    }
-
-    const focusModelBtn = document.getElementById("focus-model")
-    if (focusModelBtn) {
-      focusModelBtn.addEventListener("click", () => this.handleFocusModel())
-    }
-
-    // Action bar controls
-    const takeScreenshotBtn = document.getElementById("take-screenshot")
-    if (takeScreenshotBtn) {
-      takeScreenshotBtn.addEventListener("click", () => this.handleTakeScreenshot())
-    }
-
-    const exportSceneBtn = document.getElementById("export-scene")
-    if (exportSceneBtn) {
-      exportSceneBtn.addEventListener("click", () => this.handleExportScene())
+      case "both":
+        if (this.state.canCombine) {
+          mainViewer.style.display = "none"
+          if (combinedContainer) {
+            combinedContainer.style.display = "block"
+          }
+          await modelManager.generateCombinedView()
+          if (utils) {
+            utils.updateModelInfo("Combined View", "Avatar + Garment")
+          }
+        } else {
+          if (utils) {
+            utils.updateStatus("❌ Need both avatar and garment for combined view")
+          }
+        }
+        break
     }
   }
 
-  setupValueDisplayUpdates() {
+  setupFileUploads() {
+    // Avatar file upload
+    const avatarFileInput = document.getElementById("avatar-file")
+    if (avatarFileInput) {
+      avatarFileInput.addEventListener("change", (e) => {
+        this.handleFileUpload(e, "avatar")
+      })
+    }
+
+    // Garment file upload
+    const garmentFileInput = document.getElementById("garment-file")
+    if (garmentFileInput) {
+      garmentFileInput.addEventListener("change", (e) => {
+        this.handleFileUpload(e, "garment")
+      })
+    }
+  }
+
+  async handleFileUpload(event, type) {
+    const file = event.target.files[0]
+    const utils = window.lucifexApp?.utils
+    const modelManager = window.lucifexApp?.modelManager
+
+    if (!file || !utils) return
+
+    if (!utils.isValidModelFile(file)) {
+      utils.updateStatus("❌ Please select a valid .glb or .gltf file")
+      return
+    }
+
+    try {
+      const objectURL = utils.createObjectURL(file)
+
+      if (type === "avatar") {
+        this.state.setAvatarUrl(objectURL)
+        utils.updateFileInfo("avatar-file-info", file, "Avatar")
+        utils.updateStatus(`Loading custom avatar: ${file.name}`)
+      } else if (type === "garment") {
+        this.state.setGarmentUrl(objectURL)
+        utils.updateFileInfo("garment-file-info", file, "Garment")
+        utils.updateStatus(`Loading custom garment: ${file.name}`)
+      }
+
+      // Update combination status
+      utils.updateCombinationStatus(this.state.hasAvatar, this.state.hasGarment)
+
+      // If in combined mode and both models are available, regenerate
+      if (this.state.currentModelType === "both" && this.state.canCombine && modelManager) {
+        await modelManager.generateCombinedView()
+      } else if (this.state.currentModelType === type && modelManager) {
+        await modelManager.loadSingleModel(objectURL, type)
+      }
+    } catch (error) {
+      console.error(`Error loading ${type}:`, error)
+      utils.updateStatus(`❌ Failed to load ${type}`)
+    }
+  }
+
+  setupPresetButtons() {
+    // Avatar presets
+    const avatarOptions = document.querySelectorAll(".avatar-option")
+    avatarOptions.forEach((option) => {
+      option.addEventListener("click", () => {
+        this.handleAvatarPreset(option.dataset.avatar)
+      })
+    })
+
+    // Garment presets
+    const garmentPresets = document.querySelectorAll(".preset-btn[data-garment]")
+    garmentPresets.forEach((preset) => {
+      preset.addEventListener("click", () => {
+        this.handleGarmentPreset(preset.dataset.garment)
+      })
+    })
+
+    // Combination method presets
+    const combinationPresets = document.querySelectorAll(".preset-btn[data-combination]")
+    combinationPresets.forEach((preset) => {
+      preset.addEventListener("click", () => {
+        this.handleCombinationPreset(preset.dataset.combination)
+      })
+    })
+  }
+
+  async handleAvatarPreset(avatarType) {
+    const utils = window.lucifexApp?.utils
+    const modelManager = window.lucifexApp?.modelManager
+
+    const avatarUrls = {
+      male: "../assets/avatars/male.glb",
+      female: "../assets/avatars/female.glb",
+    }
+
+    const url = avatarUrls[avatarType]
+    if (!url) return
+
+    try {
+      // Check if file exists
+      const exists = await utils?.checkFileExists(url)
+      if (!exists) {
+        utils?.updateStatus(`❌ Avatar file not found: ${avatarType}`)
+        return
+      }
+
+      this.state.setAvatarUrl(url)
+      utils?.setActiveButtonByData(".avatar-option", "data-avatar", avatarType)
+      utils?.updateStatus(`Loading avatar: ${avatarType}`)
+      utils?.updateCombinationStatus(this.state.hasAvatar, this.state.hasGarment)
+
+      // Load model if appropriate
+      if (this.state.currentModelType === "avatar" && modelManager) {
+        await modelManager.loadSingleModel(url, "avatar")
+      } else if (this.state.currentModelType === "both" && this.state.canCombine && modelManager) {
+        await modelManager.generateCombinedView()
+      }
+    } catch (error) {
+      console.error("Error loading avatar preset:", error)
+      utils?.updateStatus(`❌ Failed to load avatar: ${avatarType}`)
+    }
+  }
+
+  async handleGarmentPreset(garmentType) {
+    const utils = window.lucifexApp?.utils
+    const modelManager = window.lucifexApp?.modelManager
+
+    const garmentUrls = {
+      tshirt: "../assets/garments/tshirt.glb",
+      "tshirt-1": "../assets/garments/tshirt-1.glb",
+      thsirt: "../assets/garments/thsirt.gltf",
+    }
+
+    const url = garmentUrls[garmentType]
+    if (!url) return
+
+    try {
+      // Check if file exists
+      const exists = await utils?.checkFileExists(url)
+      if (!exists) {
+        utils?.updateStatus(`❌ Garment file not found: ${garmentType}`)
+        return
+      }
+
+      this.state.setGarmentUrl(url)
+      utils?.setActiveButtonByData(".preset-btn[data-garment]", "data-garment", garmentType)
+      utils?.updateStatus(`Loading garment: ${garmentType}`)
+      utils?.updateCombinationStatus(this.state.hasAvatar, this.state.hasGarment)
+
+      // Load model if appropriate
+      if (this.state.currentModelType === "garment" && modelManager) {
+        await modelManager.loadSingleModel(url, "garment")
+      } else if (this.state.currentModelType === "both" && this.state.canCombine && modelManager) {
+        await modelManager.generateCombinedView()
+      }
+    } catch (error) {
+      console.error("Error loading garment preset:", error)
+      utils?.updateStatus(`❌ Failed to load garment: ${garmentType}`)
+    }
+  }
+
+  handleCombinationPreset(method) {
+    const utils = window.lucifexApp?.utils
+
+    this.state.setCombinationMethod(method)
+    utils?.setActiveButtonByData(".preset-btn[data-combination]", "data-combination", method)
+    utils?.updateStatus(`Combination method: ${method}`)
+  }
+
+  setupRangeControls() {
     // Avatar scale
-    const avatarScaleInput = document.getElementById("avatar-scale")
-    if (avatarScaleInput) {
-      avatarScaleInput.addEventListener("input", (e) => {
+    const avatarScale = document.getElementById("avatar-scale")
+    if (avatarScale) {
+      avatarScale.addEventListener("input", (e) => {
+        const value = e.target.value
         const utils = window.lucifexApp?.utils
-        if (utils) {
-          utils.updateValueDisplay("avatar-scale", "avatar-scale-value")
-        }
-        window.lucifexApp?.modelManager?.updateModelScale("avatar", Number.parseFloat(e.target.value))
+        const modelManager = window.lucifexApp?.modelManager
+
+        utils?.updateValueDisplay("avatar-scale", "avatar-scale-value")
+        modelManager?.updateModelScale("avatar", Number.parseFloat(value))
       })
     }
 
     // Garment scale
-    const garmentScaleInput = document.getElementById("garment-scale")
-    if (garmentScaleInput) {
-      garmentScaleInput.addEventListener("input", (e) => {
+    const garmentScale = document.getElementById("garment-scale")
+    if (garmentScale) {
+      garmentScale.addEventListener("input", (e) => {
+        const value = e.target.value
         const utils = window.lucifexApp?.utils
-        if (utils) {
-          utils.updateValueDisplay("garment-scale", "garment-scale-value")
-        }
-        window.lucifexApp?.modelManager?.updateModelScale("garment", Number.parseFloat(e.target.value))
+        const modelManager = window.lucifexApp?.modelManager
+
+        utils?.updateValueDisplay("garment-scale", "garment-scale-value")
+        modelManager?.updateModelScale("garment", Number.parseFloat(value))
       })
     }
 
-    // Combined garment scale
-    const garmentScaleCombinedInput = document.getElementById("garment-scale-combined")
-    if (garmentScaleCombinedInput) {
-      garmentScaleCombinedInput.addEventListener("input", (e) => {
-        const utils = window.lucifexApp?.utils
-        if (utils) {
-          utils.updateValueDisplay("garment-scale-combined", "garment-scale-combined-value")
-        }
-        window.lucifexApp?.modelManager?.updateModelScale("garment", Number.parseFloat(e.target.value))
-      })
-    }
+    // Combined controls
+    const combinedControls = [
+      "garment-scale-combined",
+      "garment-offset-x",
+      "garment-offset-y",
+      "avatar-opacity",
+      "garment-opacity",
+    ]
 
-    // Garment position
-    const garmentOffsetXInput = document.getElementById("garment-offset-x")
-    if (garmentOffsetXInput) {
-      garmentOffsetXInput.addEventListener("input", (e) => {
-        const utils = window.lucifexApp?.utils
-        if (utils) {
-          utils.updateValueDisplay("garment-offset-x", "garment-offset-x-value")
-        }
-        window.lucifexApp?.modelManager?.updateGarmentPosition()
-      })
-    }
+    combinedControls.forEach((controlId) => {
+      const control = document.getElementById(controlId)
+      if (control) {
+        control.addEventListener("input", (e) => {
+          const value = e.target.value
+          const utils = window.lucifexApp?.utils
+          const modelManager = window.lucifexApp?.modelManager
 
-    const garmentOffsetYInput = document.getElementById("garment-offset-y")
-    if (garmentOffsetYInput) {
-      garmentOffsetYInput.addEventListener("input", (e) => {
-        const utils = window.lucifexApp?.utils
-        if (utils) {
-          utils.updateValueDisplay("garment-offset-y", "garment-offset-y-value")
-        }
-        window.lucifexApp?.modelManager?.updateGarmentPosition()
-      })
-    }
+          utils?.updateValueDisplay(controlId, `${controlId}-value`)
 
-    // Avatar opacity
-    const avatarOpacityInput = document.getElementById("avatar-opacity")
-    if (avatarOpacityInput) {
-      avatarOpacityInput.addEventListener("input", (e) => {
-        const utils = window.lucifexApp?.utils
-        if (utils) {
-          utils.updateValueDisplay("avatar-opacity", "avatar-opacity-value")
-        }
-        window.lucifexApp?.modelManager?.updateModelOpacity("avatar", Number.parseFloat(e.target.value))
-      })
-    }
+          if (controlId.includes("opacity")) {
+            const type = controlId.includes("avatar") ? "avatar" : "garment"
+            modelManager?.updateModelOpacity(type, Number.parseFloat(value))
+          } else if (controlId.includes("offset")) {
+            modelManager?.updateGarmentPosition()
+          } else if (controlId.includes("scale")) {
+            modelManager?.updateModelScale("garment", Number.parseFloat(value))
+          }
+        })
+      }
+    })
 
-    // Garment opacity
-    const garmentOpacityInput = document.getElementById("garment-opacity")
-    if (garmentOpacityInput) {
-      garmentOpacityInput.addEventListener("input", (e) => {
-        const utils = window.lucifexApp?.utils
-        if (utils) {
-          utils.updateValueDisplay("garment-opacity", "garment-opacity-value")
-        }
-        window.lucifexApp?.modelManager?.updateModelOpacity("garment", Number.parseFloat(e.target.value))
-      })
-    }
+    // Environment controls
+    const environmentControls = ["exposure", "shadow-intensity", "shadow-softness"]
+    environmentControls.forEach((controlId) => {
+      const control = document.getElementById(controlId)
+      if (control) {
+        control.addEventListener("input", (e) => {
+          const value = e.target.value
+          const utils = window.lucifexApp?.utils
+          const environmentManager = window.lucifexApp?.environmentManager
 
-    // Lighting controls
-    const exposureInput = document.getElementById("exposure")
-    if (exposureInput) {
-      exposureInput.addEventListener("input", (e) => {
-        const utils = window.lucifexApp?.utils
-        if (utils) {
-          utils.updateValueDisplay("exposure", "exposure-value")
-        }
-        window.lucifexApp?.environmentManager?.updateLighting()
-      })
-    }
-
-    const shadowIntensityInput = document.getElementById("shadow-intensity")
-    if (shadowIntensityInput) {
-      shadowIntensityInput.addEventListener("input", (e) => {
-        const utils = window.lucifexApp?.utils
-        if (utils) {
-          utils.updateValueDisplay("shadow-intensity", "shadow-intensity-value")
-        }
-        window.lucifexApp?.environmentManager?.updateLighting()
-      })
-    }
-
-    const shadowSoftnessInput = document.getElementById("shadow-softness")
-    if (shadowSoftnessInput) {
-      shadowSoftnessInput.addEventListener("input", (e) => {
-        const utils = window.lucifexApp?.utils
-        if (utils) {
-          utils.updateValueDisplay("shadow-softness", "shadow-softness-value")
-        }
-        window.lucifexApp?.environmentManager?.updateLighting()
-      })
-    }
+          utils?.updateValueDisplay(controlId, `${controlId}-value`)
+          environmentManager?.updateEnvironmentSetting(controlId, Number.parseFloat(value))
+        })
+      }
+    })
 
     // Physics controls
-    const clothStiffnessInput = document.getElementById("cloth-stiffness")
-    if (clothStiffnessInput) {
-      clothStiffnessInput.addEventListener("input", (e) => {
-        const utils = window.lucifexApp?.utils
-        if (utils) {
-          utils.updateValueDisplay("cloth-stiffness", "cloth-stiffness-value")
-        }
-        window.lucifexApp?.physicsManager?.updatePhysicsSettings()
-      })
-    }
+    const physicsControls = ["cloth-stiffness", "gravity-strength"]
+    physicsControls.forEach((controlId) => {
+      const control = document.getElementById(controlId)
+      if (control) {
+        control.addEventListener("input", (e) => {
+          const value = e.target.value
+          const utils = window.lucifexApp?.utils
+          const physicsManager = window.lucifexApp?.physicsManager
 
-    const gravityStrengthInput = document.getElementById("gravity-strength")
-    if (gravityStrengthInput) {
-      gravityStrengthInput.addEventListener("input", (e) => {
-        const utils = window.lucifexApp?.utils
-        if (utils) {
-          utils.updateValueDisplay("gravity-strength", "gravity-strength-value")
-        }
-        window.lucifexApp?.physicsManager?.updatePhysicsSettings()
-      })
-    }
-  }
-
-  // Tab switching
-  switchTab(tabName) {
-    // Remove active class from all tabs
-    document.querySelectorAll(".tab").forEach((tab) => {
-      tab.classList.remove("active")
-    })
-    document.querySelectorAll(".tab-content").forEach((content) => {
-      content.classList.remove("active")
-    })
-
-    // Add active class to selected tab
-    const selectedTab = document.querySelector(`[data-tab="${tabName}"]`)
-    const selectedContent = document.getElementById(`${tabName}-tab`)
-
-    if (selectedTab) selectedTab.classList.add("active")
-    if (selectedContent) selectedContent.classList.add("active")
-
-    this.state.setCurrentTab(tabName)
-  }
-
-  // Model type switching
-  switchModelType(modelType) {
-    const utils = window.lucifexApp?.utils
-    if (utils) {
-      utils.setActiveButtonByData(".model-btn", "data-model-type", modelType)
-    }
-
-    this.state.setModelType(modelType)
-
-    const modelManager = window.lucifexApp?.modelManager
-    if (modelManager) {
-      if (modelType === "avatar" && this.state.hasAvatar) {
-        modelManager.loadSingleModel(this.state.currentAvatarUrl, "avatar")
-      } else if (modelType === "garment" && this.state.hasGarment) {
-        modelManager.loadSingleModel(this.state.currentGarmentUrl, "garment")
-      } else if (modelType === "both") {
-        modelManager.generateCombinedView()
+          utils?.updateValueDisplay(controlId, `${controlId}-value`)
+          physicsManager?.updatePhysicsSetting(controlId, Number.parseFloat(value))
+        })
       }
+    })
+  }
+
+  setupActionButtons() {
+    // Combined view actions
+    const generateCombined = document.getElementById("generate-combined")
+    if (generateCombined) {
+      generateCombined.addEventListener("click", async () => {
+        const modelManager = window.lucifexApp?.modelManager
+        if (modelManager) {
+          await modelManager.generateCombinedView()
+        }
+      })
+    }
+
+    const resetCombination = document.getElementById("reset-combination")
+    if (resetCombination) {
+      resetCombination.addEventListener("click", () => {
+        const modelManager = window.lucifexApp?.modelManager
+        if (modelManager) {
+          modelManager.resetCombination()
+        }
+      })
+    }
+
+    // Screenshot and export
+    const takeScreenshot = document.getElementById("take-screenshot")
+    if (takeScreenshot) {
+      takeScreenshot.addEventListener("click", () => {
+        const utils = window.lucifexApp?.utils
+        if (utils) {
+          utils.takeScreenshot()
+        }
+      })
+    }
+
+    const exportScene = document.getElementById("export-scene")
+    if (exportScene) {
+      exportScene.addEventListener("click", () => {
+        const utils = window.lucifexApp?.utils
+        if (utils) {
+          utils.exportScene()
+        }
+      })
+    }
+
+    // Environment actions
+    const autoRotateToggle = document.getElementById("auto-rotate-toggle")
+    if (autoRotateToggle) {
+      autoRotateToggle.addEventListener("click", () => {
+        const environmentManager = window.lucifexApp?.environmentManager
+        if (environmentManager) {
+          environmentManager.toggleAutoRotate()
+        }
+      })
+    }
+
+    const cameraReset = document.getElementById("camera-reset")
+    if (cameraReset) {
+      cameraReset.addEventListener("click", () => {
+        const environmentManager = window.lucifexApp?.environmentManager
+        if (environmentManager) {
+          environmentManager.resetCamera()
+        }
+      })
+    }
+
+    const focusModel = document.getElementById("focus-model")
+    if (focusModel) {
+      focusModel.addEventListener("click", () => {
+        const environmentManager = window.lucifexApp?.environmentManager
+        if (environmentManager) {
+          environmentManager.focusModel()
+        }
+      })
     }
   }
 
-  // Avatar selection
-  selectAvatar(avatarType) {
-    const utils = window.lucifexApp?.utils
-    if (utils) {
-      utils.setActiveButtonByData(".avatar-option", "data-avatar", avatarType)
+  setupPhysicsControls() {
+    const physicsToggle = document.getElementById("physics-toggle")
+    if (physicsToggle) {
+      physicsToggle.addEventListener("click", () => {
+        const physicsManager = window.lucifexApp?.physicsManager
+        if (physicsManager) {
+          physicsManager.togglePhysics()
+        }
+      })
     }
 
-    const avatarUrl = `../assets/avatars/${avatarType}.glb`
-    this.state.setAvatarUrl(avatarUrl)
-
-    const modelManager = window.lucifexApp?.modelManager
-    if (modelManager && this.state.currentModelType === "avatar") {
-      modelManager.loadSingleModel(avatarUrl, "avatar")
-    } else if (modelManager && this.state.currentModelType === "both") {
-      modelManager.generateCombinedView()
-    }
-  }
-
-  // Garment selection
-  selectGarment(garmentType) {
-    const utils = window.lucifexApp?.utils
-    if (utils) {
-      utils.setActiveButtonByData(".preset-btn[data-garment]", "data-garment", garmentType)
+    const physicsReset = document.getElementById("physics-reset")
+    if (physicsReset) {
+      physicsReset.addEventListener("click", () => {
+        const physicsManager = window.lucifexApp?.physicsManager
+        if (physicsManager) {
+          physicsManager.resetPhysics()
+        }
+      })
     }
 
-    const garmentUrl = `../assets/garments/${garmentType}.glb`
-    this.state.setGarmentUrl(garmentUrl)
-
-    const modelManager = window.lucifexApp?.modelManager
-    if (modelManager && this.state.currentModelType === "garment") {
-      modelManager.loadSingleModel(garmentUrl, "garment")
-    } else if (modelManager && this.state.currentModelType === "both") {
-      modelManager.generateCombinedView()
-    }
-  }
-
-  // File upload handlers
-  handleAvatarFileUpload(event) {
-    const file = event.target.files[0]
-    if (!file) return
-
-    const url = URL.createObjectURL(file)
-    this.state.setAvatarUrl(url)
-
-    const utils = window.lucifexApp?.utils
-    if (utils) {
-      utils.updateStatus(`Loading custom avatar: ${file.name}`)
+    const resetCloth = document.getElementById("reset-cloth")
+    if (resetCloth) {
+      resetCloth.addEventListener("click", () => {
+        const physicsManager = window.lucifexApp?.physicsManager
+        if (physicsManager) {
+          physicsManager.resetCloth()
+        }
+      })
     }
 
-    const modelManager = window.lucifexApp?.modelManager
-    if (modelManager && this.state.currentModelType === "avatar") {
-      modelManager.loadSingleModel(url, "avatar")
-    } else if (modelManager && this.state.currentModelType === "both") {
-      modelManager.generateCombinedView()
-    }
-  }
-
-  handleGarmentFileUpload(event) {
-    const file = event.target.files[0]
-    if (!file) return
-
-    const url = URL.createObjectURL(file)
-    this.state.setGarmentUrl(url)
-
-    const utils = window.lucifexApp?.utils
-    if (utils) {
-      utils.updateStatus(`Loading garment: ${file.name}`)
+    const debugToggle = document.getElementById("debug-toggle")
+    if (debugToggle) {
+      debugToggle.addEventListener("click", () => {
+        const physicsManager = window.lucifexApp?.physicsManager
+        if (physicsManager) {
+          physicsManager.toggleDebug()
+        }
+      })
     }
 
-    const modelManager = window.lucifexApp?.modelManager
-    if (modelManager && this.state.currentModelType === "garment") {
-      modelManager.loadSingleModel(url, "garment")
-    } else if (modelManager && this.state.currentModelType === "both") {
-      modelManager.generateCombinedView()
+    const debugLog = document.getElementById("debug-log")
+    if (debugLog) {
+      debugLog.addEventListener("click", () => {
+        const physicsManager = window.lucifexApp?.physicsManager
+        if (physicsManager) {
+          physicsManager.logStatus()
+        }
+      })
+    }
+
+    const dropTest = document.getElementById("drop-test")
+    if (dropTest) {
+      dropTest.addEventListener("click", () => {
+        const physicsManager = window.lucifexApp?.physicsManager
+        if (physicsManager) {
+          physicsManager.runDropTest()
+        }
+      })
+    }
+
+    const basicTest = document.getElementById("basic-test")
+    if (basicTest) {
+      basicTest.addEventListener("click", () => {
+        const physicsManager = window.lucifexApp?.physicsManager
+        if (physicsManager) {
+          physicsManager.runBasicTest()
+        }
+      })
     }
   }
 
-  // Combined view handlers
-  handleGenerateCombined() {
-    const modelManager = window.lucifexApp?.modelManager
-    if (modelManager) {
-      modelManager.generateCombinedModel()
-    }
-  }
+  setupEnvironmentControls() {
+    // Environment presets
+    const envButtons = document.querySelectorAll(".env-btn")
+    envButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const environment = button.dataset.environment
+        const environmentManager = window.lucifexApp?.environmentManager
 
-  handleResetCombination() {
-    const modelManager = window.lucifexApp?.modelManager
-    if (modelManager) {
-      modelManager.resetCombination()
-    }
-  }
+        if (environmentManager) {
+          environmentManager.setEnvironment(environment)
+        }
+      })
+    })
 
-  // Physics handlers
-  async handlePhysicsToggle() {
-    const physicsManager = window.lucifexApp?.physicsManager
-    if (physicsManager) {
-      await physicsManager.togglePhysics()
-    }
-  }
+    // Tone mapping presets
+    const toneMappingButtons = document.querySelectorAll(".preset-btn[data-tone-mapping]")
+    toneMappingButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const toneMapping = button.dataset.toneMapping
+        const environmentManager = window.lucifexApp?.environmentManager
 
-  handlePhysicsReset() {
-    const physicsManager = window.lucifexApp?.physicsManager
-    if (physicsManager) {
-      physicsManager.resetPhysics()
-    }
-  }
-
-  handleResetCloth() {
-    const physicsManager = window.lucifexApp?.physicsManager
-    if (physicsManager) {
-      physicsManager.resetClothPosition()
-    }
-  }
-
-  handleDebugToggle() {
-    const physicsManager = window.lucifexApp?.physicsManager
-    if (physicsManager) {
-      physicsManager.togglePhysicsDebug()
-    }
-  }
-
-  handleDebugLog() {
-    const physicsManager = window.lucifexApp?.physicsManager
-    if (physicsManager) {
-      physicsManager.logPhysicsStatus()
-    }
-  }
-
-  handleDropTest() {
-    const physicsManager = window.lucifexApp?.physicsManager
-    if (physicsManager) {
-      physicsManager.startDropTest()
-    }
-  }
-
-  handleBasicTest() {
-    const physicsManager = window.lucifexApp?.physicsManager
-    if (physicsManager) {
-      physicsManager.startBasicTest()
-    }
-  }
-
-  // Environment handlers
-  selectEnvironment(environment) {
-    const utils = window.lucifexApp?.utils
-    if (utils) {
-      utils.setActiveButtonByData(".env-btn", "data-environment", environment)
-    }
-
-    this.state.setEnvironment(environment)
-
-    const environmentManager = window.lucifexApp?.environmentManager
-    if (environmentManager) {
-      environmentManager.setEnvironment(environment)
-    }
-  }
-
-  selectToneMapping(toneMapping) {
-    const utils = window.lucifexApp?.utils
-    if (utils) {
-      utils.setActiveButtonByData(".preset-btn[data-tone-mapping]", "data-tone-mapping", toneMapping)
-    }
-
-    const environmentManager = window.lucifexApp?.environmentManager
-    if (environmentManager) {
-      environmentManager.setToneMapping(toneMapping)
-    }
-  }
-
-  // Camera handlers
-  handleAutoRotateToggle() {
-    this.state.isAutoRotating = !this.state.isAutoRotating
-
-    const environmentManager = window.lucifexApp?.environmentManager
-    if (environmentManager) {
-      environmentManager.toggleAutoRotate()
-    }
-
-    const button = document.getElementById("auto-rotate-toggle")
-    if (button) {
-      button.textContent = this.state.isAutoRotating ? "⏸️ Stop Rotate" : "🔄 Auto Rotate"
-      button.classList.toggle("active", this.state.isAutoRotating)
-    }
-  }
-
-  handleCameraReset() {
-    const environmentManager = window.lucifexApp?.environmentManager
-    if (environmentManager) {
-      environmentManager.resetCamera()
-    }
-  }
-
-  handleFocusModel() {
-    const environmentManager = window.lucifexApp?.environmentManager
-    if (environmentManager) {
-      environmentManager.focusOnModel()
-    }
-  }
-
-  // Action handlers
-  handleTakeScreenshot() {
-    const utils = window.lucifexApp?.utils
-    if (utils) {
-      utils.updateStatus("📸 Screenshot feature coming soon")
-    }
-  }
-
-  handleExportScene() {
-    const utils = window.lucifexApp?.utils
-    if (utils) {
-      utils.updateStatus("💾 Export feature coming soon")
-    }
+        if (environmentManager) {
+          environmentManager.setToneMapping(toneMapping)
+        }
+      })
+    })
   }
 
   cleanup() {
     // Remove event listeners if needed
-    // This is handled automatically when elements are removed from DOM
+    console.log("🎮 UIControls cleaned up")
   }
 }

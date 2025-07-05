@@ -12,7 +12,7 @@ export class EnvironmentManager {
 
   async initialize() {
     // Set default environment
-    this.state.setEnvironment("studio")
+    this.setEnvironment(this.state.currentEnvironment)
     const utils = window.lucifexApp?.utils
     if (utils) {
       utils.updateStatus("Environment: Studio")
@@ -20,57 +20,97 @@ export class EnvironmentManager {
     console.log("✅ EnvironmentManager initialized")
   }
 
-  setEnvironment(environment) {
-    this.state.setEnvironment(environment)
-
-    const envUrl = this.environments[environment] || this.environments.studio
-
-    // Apply to all viewers
-    const viewers = this.getAllViewers()
-    viewers.forEach((viewer) => {
-      if (viewer) {
-        viewer.setAttribute("environment-image", envUrl)
-        viewer.setAttribute("skybox-image", envUrl)
-      }
-    })
-
+  setEnvironment(environmentName) {
+    this.state.setEnvironment(environmentName)
     const utils = window.lucifexApp?.utils
+
+    const environmentUrl = this.environments[environmentName]
+    if (!environmentUrl) return
+
+    // Update all viewers
+    this.updateViewerEnvironment(this.state.mainViewer, environmentUrl)
+    this.updateViewerEnvironment(this.state.avatarViewer, environmentUrl)
+    this.updateViewerEnvironment(this.state.garmentViewer, environmentUrl)
+
+    // Update combined viewers
+    const combinedAvatar = document.getElementById("combined-avatar-viewer")
+    const combinedGarment = document.getElementById("combined-garment-viewer")
+    this.updateViewerEnvironment(combinedAvatar, environmentUrl)
+    this.updateViewerEnvironment(combinedGarment, environmentUrl)
+
+    // Update button states
     if (utils) {
-      utils.updateStatus(`Environment: ${environment}`)
+      utils.setActiveButtonByData(".env-btn", "data-environment", environmentName)
+    }
+
+    console.log(`Environment set to: ${environmentName}`)
+  }
+
+  updateViewerEnvironment(viewer, environmentUrl) {
+    if (viewer) {
+      viewer.setAttribute("environment-image", environmentUrl)
+      viewer.setAttribute("skybox-image", environmentUrl)
     }
   }
 
-  setToneMapping(mapping) {
-    const viewers = this.getAllViewers()
-    viewers.forEach((viewer) => {
-      if (viewer) {
-        viewer.setAttribute("tone-mapping", mapping)
-      }
-    })
-
+  setToneMapping(toneMapping) {
     const utils = window.lucifexApp?.utils
+
+    // Update all viewers
+    this.updateViewerToneMapping(this.state.mainViewer, toneMapping)
+    this.updateViewerToneMapping(this.state.avatarViewer, toneMapping)
+    this.updateViewerToneMapping(this.state.garmentViewer, toneMapping)
+
+    // Update combined viewers
+    const combinedAvatar = document.getElementById("combined-avatar-viewer")
+    const combinedGarment = document.getElementById("combined-garment-viewer")
+    this.updateViewerToneMapping(combinedAvatar, toneMapping)
+    this.updateViewerToneMapping(combinedGarment, toneMapping)
+
+    // Update button states
     if (utils) {
-      utils.updateStatus(`Tone mapping: ${mapping}`)
+      utils.setActiveButtonByData(".preset-btn[data-tone-mapping]", "data-tone-mapping", toneMapping)
+    }
+
+    console.log(`Tone mapping set to: ${toneMapping}`)
+  }
+
+  updateViewerToneMapping(viewer, toneMapping) {
+    if (viewer) {
+      viewer.setAttribute("tone-mapping", toneMapping)
     }
   }
 
-  updateLighting() {
-    const exposure = document.getElementById("exposure")?.value || 1
-    const shadowIntensity = document.getElementById("shadow-intensity")?.value || 1
-    const shadowSoftness = document.getElementById("shadow-softness")?.value || 0.5
+  updateEnvironmentSetting(setting, value) {
+    const viewers = [
+      this.state.mainViewer,
+      this.state.avatarViewer,
+      this.state.garmentViewer,
+      document.getElementById("combined-avatar-viewer"),
+      document.getElementById("combined-garment-viewer"),
+    ]
 
-    const viewers = this.getAllViewers()
     viewers.forEach((viewer) => {
       if (viewer) {
-        viewer.setAttribute("exposure", exposure)
-        viewer.setAttribute("shadow-intensity", shadowIntensity)
-        viewer.setAttribute("shadow-softness", shadowSoftness)
+        viewer.setAttribute(setting, value)
       }
     })
+
+    console.log(`${setting} set to: ${value}`)
   }
 
   toggleAutoRotate() {
-    const viewers = this.getAllViewers()
+    this.state.isAutoRotating = !this.state.isAutoRotating
+    const utils = window.lucifexApp?.utils
+
+    const viewers = [
+      this.state.mainViewer,
+      this.state.avatarViewer,
+      this.state.garmentViewer,
+      document.getElementById("combined-avatar-viewer"),
+      document.getElementById("combined-garment-viewer"),
+    ]
+
     viewers.forEach((viewer) => {
       if (viewer) {
         if (this.state.isAutoRotating) {
@@ -80,16 +120,36 @@ export class EnvironmentManager {
         }
       }
     })
+
+    // Update button state
+    const button = document.getElementById("auto-rotate-toggle")
+    if (button) {
+      if (this.state.isAutoRotating) {
+        button.classList.add("active")
+        button.textContent = "🔄 Auto Rotate"
+      } else {
+        button.classList.remove("active")
+        button.textContent = "⏸️ Auto Rotate"
+      }
+    }
+
+    if (utils) {
+      utils.updateStatus(`Auto rotate: ${this.state.isAutoRotating ? "enabled" : "disabled"}`)
+    }
   }
 
   resetCamera() {
-    const viewers = this.getAllViewers()
+    const viewers = [
+      this.state.mainViewer,
+      this.state.avatarViewer,
+      this.state.garmentViewer,
+      document.getElementById("combined-avatar-viewer"),
+      document.getElementById("combined-garment-viewer"),
+    ]
+
     viewers.forEach((viewer) => {
       if (viewer && viewer.resetTurntableRotation) {
         viewer.resetTurntableRotation()
-      }
-      if (viewer && viewer.jumpCameraToGoal) {
-        viewer.jumpCameraToGoal()
       }
     })
 
@@ -99,8 +159,15 @@ export class EnvironmentManager {
     }
   }
 
-  focusOnModel() {
-    const viewers = this.getAllViewers()
+  focusModel() {
+    const viewers = [
+      this.state.mainViewer,
+      this.state.avatarViewer,
+      this.state.garmentViewer,
+      document.getElementById("combined-avatar-viewer"),
+      document.getElementById("combined-garment-viewer"),
+    ]
+
     viewers.forEach((viewer) => {
       if (viewer && viewer.jumpCameraToGoal) {
         viewer.jumpCameraToGoal()
@@ -109,43 +176,11 @@ export class EnvironmentManager {
 
     const utils = window.lucifexApp?.utils
     if (utils) {
-      utils.updateStatus("🎯 Focused on model")
+      utils.updateStatus("🎯 Model focused")
     }
-  }
-
-  applyEnvironmentToViewer(viewer) {
-    if (!viewer) return
-
-    const envUrl = this.environments[this.state.currentEnvironment] || this.environments.studio
-    viewer.setAttribute("environment-image", envUrl)
-    viewer.setAttribute("skybox-image", envUrl)
-
-    // Apply current lighting settings
-    const exposure = document.getElementById("exposure")?.value || 1
-    const shadowIntensity = document.getElementById("shadow-intensity")?.value || 1
-    const shadowSoftness = document.getElementById("shadow-softness")?.value || 0.5
-
-    viewer.setAttribute("exposure", exposure)
-    viewer.setAttribute("shadow-intensity", shadowIntensity)
-    viewer.setAttribute("shadow-softness", shadowSoftness)
-
-    if (this.state.isAutoRotating) {
-      viewer.setAttribute("auto-rotate", "")
-    }
-  }
-
-  getAllViewers() {
-    return [
-      this.state.mainViewer,
-      this.state.avatarViewer,
-      this.state.garmentViewer,
-      document.getElementById("main-viewer"),
-      document.getElementById("combined-avatar-viewer"),
-      document.getElementById("combined-garment-viewer"),
-    ].filter((viewer) => viewer !== null)
   }
 
   cleanup() {
-    // No specific cleanup needed
+    console.log("🌍 EnvironmentManager cleaned up")
   }
 }
