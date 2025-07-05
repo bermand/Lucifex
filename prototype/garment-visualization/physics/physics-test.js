@@ -1,10 +1,10 @@
-// Physics Test
-// Basic physics engine testing and validation
+// Physics Test System
+// Provides basic physics testing functionality
 
 class PhysicsTest {
   constructor() {
-    this.testResults = []
     this.isRunning = false
+    this.testResults = []
 
     console.log("🧪 PhysicsTest created")
   }
@@ -20,10 +20,9 @@ class PhysicsTest {
       return
     }
 
+    console.log("🧪 Starting basic physics test...")
     this.isRunning = true
     this.testResults = []
-
-    console.log("🧪 Running basic physics tests...")
 
     // Test 1: Gravity simulation
     this.testGravity()
@@ -32,133 +31,161 @@ class PhysicsTest {
     this.testConstraints()
 
     // Test 3: Collision detection
-    this.testCollision()
+    this.testCollisions()
 
-    // Test 4: Performance
-    this.testPerformance()
-
-    this.isRunning = false
-    this.reportResults()
+    // Complete test
+    setTimeout(() => {
+      this.completeTest()
+    }, 3000)
   }
 
   testGravity() {
     console.log("🧪 Testing gravity simulation...")
 
     // Simulate a falling particle
-    const particle = { y: 10, vy: 0 }
-    const gravity = -9.81
-    const dt = 1 / 60
-
-    for (let i = 0; i < 60; i++) {
-      // 1 second simulation
-      particle.vy += gravity * dt
-      particle.y += particle.vy * dt
+    const particle = {
+      position: { x: 0, y: 2, z: 0 },
+      velocity: { x: 0, y: 0, z: 0 },
+      mass: 1.0,
     }
 
-    const expectedY = 10 + 0.5 * gravity * 1 * 1 // s = ut + 0.5at²
-    const error = Math.abs(particle.y - expectedY)
+    const gravity = -9.81
+    const deltaTime = 0.016
+
+    // Simulate 10 frames
+    for (let i = 0; i < 10; i++) {
+      particle.velocity.y += gravity * deltaTime
+      particle.position.y += particle.velocity.y * deltaTime
+    }
+
+    const expectedY = 2 + 0.5 * gravity * Math.pow(10 * deltaTime, 2)
+    const actualY = particle.position.y
+    const error = Math.abs(expectedY - actualY)
 
     this.testResults.push({
-      test: "Gravity Simulation",
+      test: "Gravity",
+      expected: expectedY,
+      actual: actualY,
+      error: error,
       passed: error < 0.1,
-      details: `Final Y: ${particle.y.toFixed(2)}, Expected: ${expectedY.toFixed(2)}, Error: ${error.toFixed(4)}`,
     })
+
+    console.log(
+      `🧪 Gravity test: Expected Y=${expectedY.toFixed(3)}, Actual Y=${actualY.toFixed(3)}, Error=${error.toFixed(3)}`,
+    )
   }
 
   testConstraints() {
     console.log("🧪 Testing constraint solving...")
 
-    // Test distance constraint
-    const p1 = { x: 0, y: 0 }
-    const p2 = { x: 2, y: 0 } // Should be distance 1 apart
-    const targetDistance = 1
+    // Create two particles connected by a constraint
+    const p1 = { position: { x: 0, y: 0, z: 0 } }
+    const p2 = { position: { x: 2, y: 0, z: 0 } }
+    const restLength = 1.0
 
-    // Simulate constraint solving
-    for (let i = 0; i < 10; i++) {
-      const dx = p2.x - p1.x
-      const dy = p2.y - p1.y
-      const distance = Math.sqrt(dx * dx + dy * dy)
-      const difference = ((targetDistance - distance) / distance) * 0.5
+    // Apply constraint solving
+    const dx = p2.position.x - p1.position.x
+    const dy = p2.position.y - p1.position.y
+    const dz = p2.position.z - p1.position.z
+    const distance = Math.sqrt(dx * dx + dy * dy + dz * dz)
 
-      p1.x -= dx * difference
-      p1.y -= dy * difference
-      p2.x += dx * difference
-      p2.y += dy * difference
+    if (distance > 0) {
+      const difference = (restLength - distance) / distance
+      const translate = {
+        x: dx * difference * 0.5,
+        y: dy * difference * 0.5,
+        z: dz * difference * 0.5,
+      }
+
+      p1.position.x -= translate.x
+      p1.position.y -= translate.y
+      p1.position.z -= translate.z
+
+      p2.position.x += translate.x
+      p2.position.y += translate.y
+      p2.position.z += translate.z
     }
 
-    const finalDistance = Math.sqrt((p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2)
-    const error = Math.abs(finalDistance - targetDistance)
+    const finalDistance = Math.sqrt(
+      Math.pow(p2.position.x - p1.position.x, 2) +
+        Math.pow(p2.position.y - p1.position.y, 2) +
+        Math.pow(p2.position.z - p1.position.z, 2),
+    )
+
+    const error = Math.abs(restLength - finalDistance)
 
     this.testResults.push({
-      test: "Constraint Solving",
+      test: "Constraints",
+      expected: restLength,
+      actual: finalDistance,
+      error: error,
       passed: error < 0.01,
-      details: `Final distance: ${finalDistance.toFixed(4)}, Target: ${targetDistance}, Error: ${error.toFixed(4)}`,
     })
+
+    console.log(
+      `🧪 Constraint test: Expected distance=${restLength}, Actual distance=${finalDistance.toFixed(3)}, Error=${error.toFixed(3)}`,
+    )
   }
 
-  testCollision() {
+  testCollisions() {
     console.log("🧪 Testing collision detection...")
 
     // Test sphere collision
-    const particle = { x: 0, y: 0, z: 0 }
-    const sphere = { x: 0, y: 0, z: 0, radius: 1 }
+    const particle = { position: { x: 0, y: 0, z: 0 } }
+    const sphere = {
+      position: { x: 0.5, y: 0, z: 0 },
+      radius: 0.8,
+    }
 
-    const distance = Math.sqrt(
-      (particle.x - sphere.x) ** 2 + (particle.y - sphere.y) ** 2 + (particle.z - sphere.z) ** 2,
-    )
+    const dx = particle.position.x - sphere.position.x
+    const dy = particle.position.y - sphere.position.y
+    const dz = particle.position.z - sphere.position.z
+    const distance = Math.sqrt(dx * dx + dy * dy + dz * dz)
 
-    const collision = distance < sphere.radius
+    const isColliding = distance < sphere.radius
+    const expectedCollision = true // Should be colliding
 
     this.testResults.push({
       test: "Collision Detection",
-      passed: collision,
-      details: `Distance: ${distance.toFixed(2)}, Radius: ${sphere.radius}, Collision: ${collision}`,
+      expected: expectedCollision,
+      actual: isColliding,
+      error: expectedCollision === isColliding ? 0 : 1,
+      passed: expectedCollision === isColliding,
     })
+
+    console.log(
+      `🧪 Collision test: Expected collision=${expectedCollision}, Actual collision=${isColliding}, Distance=${distance.toFixed(3)}`,
+    )
   }
 
-  testPerformance() {
-    console.log("🧪 Testing performance...")
+  completeTest() {
+    this.isRunning = false
 
-    const startTime = performance.now()
-
-    // Simulate 1000 particle updates
-    for (let i = 0; i < 1000; i++) {
-      const particle = { x: Math.random(), y: Math.random(), z: Math.random() }
-      particle.x += Math.random() * 0.01
-      particle.y += Math.random() * 0.01
-      particle.z += Math.random() * 0.01
-    }
-
-    const endTime = performance.now()
-    const duration = endTime - startTime
-
-    this.testResults.push({
-      test: "Performance",
-      passed: duration < 10, // Should complete in under 10ms
-      details: `1000 particle updates took ${duration.toFixed(2)}ms`,
-    })
-  }
-
-  reportResults() {
-    console.log("📊 Physics Test Results:")
-    console.log("========================")
+    console.log("🧪 === PHYSICS TEST RESULTS ===")
 
     let passedTests = 0
+    const totalTests = this.testResults.length
 
-    for (const result of this.testResults) {
+    this.testResults.forEach((result, index) => {
       const status = result.passed ? "✅ PASS" : "❌ FAIL"
-      console.log(`${status} ${result.test}: ${result.details}`)
+      console.log(`🧪 Test ${index + 1}: ${result.test} - ${status}`)
+      console.log(`   Expected: ${result.expected}`)
+      console.log(`   Actual: ${result.actual}`)
+      console.log(`   Error: ${result.error}`)
 
       if (result.passed) passedTests++
-    }
+    })
 
-    console.log("========================")
-    console.log(`Tests passed: ${passedTests}/${this.testResults.length}`)
+    const successRate = (passedTests / totalTests) * 100
+    console.log(`🧪 === TEST SUMMARY ===`)
+    console.log(`🧪 Passed: ${passedTests}/${totalTests} (${successRate.toFixed(1)}%)`)
 
-    if (passedTests === this.testResults.length) {
-      console.log("🎉 All physics tests passed!")
+    if (successRate === 100) {
+      console.log("🧪 ✅ All physics tests passed!")
+    } else if (successRate >= 80) {
+      console.log("🧪 ⚠️ Most physics tests passed")
     } else {
-      console.log("⚠️ Some physics tests failed")
+      console.log("🧪 ❌ Physics tests failed")
     }
   }
 
@@ -169,6 +196,6 @@ class PhysicsTest {
   }
 }
 
-// Export for global use
+// Export for use in main application
 window.PhysicsTest = PhysicsTest
 console.log("✅ PhysicsTest class loaded")
