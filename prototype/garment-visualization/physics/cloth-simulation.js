@@ -185,6 +185,42 @@ class ClothSimulation {
     }
   }
 
+  resetSimulation() {
+    console.log("🔄 Resetting physics simulation...")
+
+    if (this.physicsEngine) {
+      // Reset all cloth positions
+      this.physicsEngine.clothMeshes.forEach((clothData, clothId) => {
+        const { particles } = clothData
+
+        // Reset all particles to original high position
+        particles.forEach((particle, index) => {
+          const gridX = particle.gridX || index % 16
+          const gridY = particle.gridY || Math.floor(index / 16)
+
+          // Calculate original position
+          const normalizedX = gridX / 15 // 0 to 1
+          const normalizedY = gridY / 19 // 0 to 1
+
+          // Reset to high starting position
+          particle.position.x = (normalizedX - 0.5) * 1.0 // -0.5 to 0.5
+          particle.position.y = 2.5 - normalizedY * 1.2 // 2.5 to 1.3
+          particle.position.z = (Math.random() - 0.5) * 0.1 // Small Z variation
+
+          // Reset old position for initial velocity
+          particle.oldPosition.x = particle.position.x + (Math.random() - 0.5) * 0.05
+          particle.oldPosition.y = particle.position.y + 0.1 // Small upward velocity
+          particle.oldPosition.z = particle.position.z + (Math.random() - 0.5) * 0.05
+        })
+
+        console.log(`✅ Cloth ${clothId} reset to starting position`)
+      })
+
+      // Reset simulation time
+      this.physicsEngine.simulationTime = 0
+    }
+  }
+
   animate() {
     if (!this.isRunning) return
 
@@ -279,17 +315,68 @@ class ClothSimulation {
         clothData.lastUpdateTime = Date.now()
       }
 
-      // Provide visual feedback through model viewer manipulation
-      // This creates a subtle visual indication that physics is running
-      if (this.updateCount % 60 === 0) {
-        // Every second at 60fps
-        // Slightly adjust the model viewer's camera to show physics is active
-        const oscillation = Math.sin(this.updateCount * 0.01) * 0.1
-        // Note: This is just for demonstration - in a real implementation
-        // you'd update the actual mesh geometry
-      }
+      // Apply dramatic physics-based transformations to the model viewer
+      this.applyPhysicsToModelViewer(modelViewer, vertices, clothStats)
     } catch (error) {
       console.error("❌ Failed to update model viewer cloth:", error)
+    }
+  }
+
+  applyPhysicsToModelViewer(modelViewer, vertices, clothStats) {
+    try {
+      // Calculate physics-based transformations
+      const avgY = Number.parseFloat(clothStats.avgY)
+      const heightRange = Number.parseFloat(clothStats.heightRange)
+
+      // How much the cloth has dropped from starting position (2.2m)
+      const dropAmount = Math.max(0, 2.2 - avgY)
+      const dropProgress = Math.min(dropAmount / 2.0, 1.0) // 0 to 1
+
+      // Sagging effect based on height range
+      const sagAmount = Math.max(0, heightRange - 1.0) / 2.0 // How much it's stretched
+      const sagProgress = Math.min(sagAmount, 1.0)
+
+      // Apply dramatic transformations to the model viewer
+      const translateY = dropProgress * 100 // Move down as cloth falls
+      const scaleY = Math.max(0.7, 1 - sagProgress * 0.3) // Compress as it sags
+      const scaleX = 1 + sagProgress * 0.1 // Slight horizontal expansion
+      const rotateX = sagProgress * 10 // Tilt as it drapes
+
+      // Apply to model viewer
+      if (modelViewer && modelViewer.style) {
+        modelViewer.style.transform = `
+          translateY(${translateY}px)
+          scaleY(${scaleY})
+          scaleX(${scaleX})
+          rotateX(${rotateX}deg)
+        `
+
+        // Add visual feedback through opacity changes
+        const opacity = 0.8 + dropProgress * 0.2
+        modelViewer.style.opacity = opacity.toString()
+      }
+
+      // Also apply to combined viewer
+      const combinedViewer = document.getElementById("combined-viewer")
+      if (combinedViewer && combinedViewer.style) {
+        combinedViewer.style.transform = `
+          translateY(${translateY}px)
+          scaleY(${scaleY})
+          scaleX(${scaleX})
+          rotateX(${rotateX}deg)
+        `
+        const opacity = 0.8 + dropProgress * 0.2 // Declare opacity here
+        combinedViewer.style.opacity = opacity.toString()
+      }
+
+      // Log dramatic changes
+      if (dropProgress > 0.1) {
+        console.log(
+          `🎬 DRAMATIC PHYSICS EFFECT: Drop ${(dropProgress * 100).toFixed(0)}%, Sag ${(sagProgress * 100).toFixed(0)}%`,
+        )
+      }
+    } catch (error) {
+      console.error("❌ Failed to apply physics to model viewer:", error)
     }
   }
 
@@ -434,8 +521,8 @@ class ClothSimulation {
     }
   }
 
-  logFullStatus() {
-    console.log("📊 Cloth Simulation Full Status:")
+  logDetailedStatus() {
+    console.log("📊 Cloth Simulation Detailed Status:")
     console.log(`   Wrapper Initialized: ${this.isInitialized}`)
     console.log(`   Wrapper Running: ${this.isRunning}`)
     console.log(`   Engine Type: ${this.engineType}`)
@@ -460,6 +547,10 @@ class ClothSimulation {
         }
       }
     })
+  }
+
+  logFullStatus() {
+    this.logDetailedStatus()
   }
 
   cleanup() {

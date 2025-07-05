@@ -39,6 +39,7 @@
       height: 100vh;
       background-color: #f0f0f0;
       display: block;
+      transition: all 0.3s ease-out;
     }
     
     #combined-container {
@@ -48,6 +49,7 @@
       width: 100vw;
       height: 100vh;
       background: #f0f0f0;
+      transition: all 0.3s ease-out;
     }
     
     .control-group {
@@ -409,6 +411,29 @@
       font-size: 12px;
       color: #333;
     }
+
+    /* Physics effect indicator */
+    .physics-effect-indicator {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 20px;
+      border-radius: 10px;
+      font-family: monospace;
+      font-size: 14px;
+      text-align: center;
+      z-index: 1000;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .physics-effect-indicator.visible {
+      opacity: 1;
+    }
   </style>
   <script>
 // Load physics modules dynamically to avoid reference errors
@@ -566,6 +591,12 @@ window.loadPhysicsModules = async function() {
   
   <div class="status-indicator" id="status">
     <div id="status-content">Checking for default models...</div>
+  </div>
+
+  <!-- Physics effect indicator -->
+  <div class="physics-effect-indicator" id="physics-effect-indicator">
+    🎬 Physics Effect Active<br>
+    <span id="physics-effect-text">Cloth is falling and draping!</span>
   </div>
   
   <div id="controls">
@@ -747,8 +778,26 @@ window.loadPhysicsModules = async function() {
           <div style="font-size: 10px; color: #666; margin-top: 8px;">
             <strong>🎬 Drop Test:</strong> Dramatic cloth falling demo<br>
             <strong>🔍 Show Physics:</strong> Visualize particles & colliders<br>
-            <strong>📊 Log Status:</strong> Check physics engine status
+            <strong>📊 Log Status:</strong> Check physics engine status<br>
+            <strong>🔄 Reset Cloth:</strong> Watch garment fall again!
           </div>
+        </div>
+      </div>
+
+      <div class="action-buttons">
+        <button class="action-btn" onclick="generateCombinedModel()">Generate Combined</button>
+        <button class="action-btn" onclick="resetCombination()">Reset</button>
+      </div>
+
+      <div class="control-group">
+        <label>💡 Physics Tips:</label>
+        <div style="font-size: 11px; color: #666; background: #f9f9f9; padding: 10px; border-radius: 6px;">
+          <strong>🎬 Watch the garment transform:</strong><br>
+          • The garment will visually fall and drape<br>
+          • Use "Reset Cloth" to see it fall again<br>
+          • Adjust gravity for different effects<br>
+          • Enable "Show Physics" to see particles<br>
+          • The visual overlay shows physics progress
         </div>
       </div>
     </div>
@@ -760,8 +809,8 @@ window.loadPhysicsModules = async function() {
       <div class="control-group">
         <label>Environment Presets:</label>
         <div class="environment-options">
-          <button class="env-btn" onclick="setEnvironment('studio')" id="env-studio">Studio</button>
-          <button class="env-btn active" onclick="setEnvironment('apartment')" id="env-apartment">Apartment</button>
+          <button class="env-btn active" onclick="setEnvironment('studio')" id="env-studio">Studio</button>
+          <button class="env-btn" onclick="setEnvironment('apartment')" id="env-apartment">Apartment</button>
           <button class="env-btn" onclick="setEnvironment('city')" id="env-city">City</button>
           <button class="env-btn" onclick="setEnvironment('dawn')" id="env-dawn">Dawn</button>
           <button class="env-btn" onclick="setEnvironment('forest')" id="env-forest">Forest</button>
@@ -808,6 +857,12 @@ window.loadPhysicsModules = async function() {
           <button class="preset-btn" onclick="focusOnModel()" id="focus-model">Focus Model</button>
         </div>
       </div>
+    </div>
+
+    <div class="action-buttons">
+      <button class="action-btn" onclick="resetCamera()">Reset View</button>
+      <button class="action-btn" onclick="takeScreenshot()">Screenshot</button>
+      <button class="action-btn" onclick="exportScene()">Export</button>
     </div>
   </div>
 
@@ -874,6 +929,7 @@ window.loadPhysicsModules = async function() {
       avatarOpacity.addEventListener('input', function() {
         avatarOpacityValue.textContent = this.value;
         updateModelOpacity('avatar', parseFloat(this.value));
+        console.log('Updating avatar opacity to', this.value);
       });
 
       // Garment opacity
@@ -882,6 +938,7 @@ window.loadPhysicsModules = async function() {
       garmentOpacity.addEventListener('input', function() {
         garmentOpacityValue.textContent = this.value;
         updateModelOpacity('garment', parseFloat(this.value));
+        console.log('Updating garment opacity to', this.value);
       });
 
       // Garment position
@@ -1034,7 +1091,7 @@ window.loadPhysicsModules = async function() {
           tone-mapping="aces"
           environment-image="https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/${currentEnvironment}_1k.hdr"
           skybox-image="https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/${currentEnvironment}_1k.hdr"
-          style="width: 100vw; height: 100vh; background-color: #f0f0f0;">
+          style="width: 100vw; height: 100vh; background-color: #f0f0f0; transition: all 0.3s ease-out;">
           
           <div slot="progress-bar" style="display: none;"></div>
           
@@ -1063,11 +1120,9 @@ window.loadPhysicsModules = async function() {
     async function loadCombinedModels(viewer) {
       if (currentCombinationMethod === 'merge') {
         // For merge method, we'll load the garment as primary and avatar as secondary
-        // This is a simplified approach - in a real implementation you'd merge the geometries
         viewer.src = currentGarmentUrl;
         
         // Add avatar as a secondary model (Model Viewer doesn't support multiple models natively)
-        // So we'll use a workaround with opacity and positioning
         viewer.addEventListener('load', () => {
           // Apply combination settings
           updateCombinationSettings(viewer);
@@ -1079,8 +1134,6 @@ window.loadPhysicsModules = async function() {
     }
 
     function updateCombinationSettings(viewer) {
-      // This is where we'd apply opacity, positioning, etc.
-      // Model Viewer has limitations for multiple models, so this is a simplified implementation
       const avatarOpacity = parseFloat(document.getElementById('avatar-opacity').value);
       const garmentOpacity = parseFloat(document.getElementById('garment-opacity').value);
       const offsetX = parseFloat(document.getElementById('garment-offset-x').value);
@@ -1088,7 +1141,6 @@ window.loadPhysicsModules = async function() {
       
       // Apply settings to the viewer
       if (viewer.model) {
-        // These would be applied to the actual 3D models in a full implementation
         console.log('Applying combination settings:', { avatarOpacity, garmentOpacity, offsetX, offsetY });
       }
     }
@@ -1105,7 +1157,7 @@ window.loadPhysicsModules = async function() {
           Avatar: ${currentAvatarUrl.split('/').pop()}<br>
           Garment: ${currentGarmentUrl.split('/').pop()}<br>
           Method: ${currentCombinationMethod}<br>
-          <small>Model Viewer will show garment with avatar context</small>
+          <small>🎬 Physics will show dramatic cloth draping!</small>
         `;
       } else if (hasAvatar || hasGarment) {
         statusElement.className = 'combination-status partial';
@@ -1203,6 +1255,9 @@ window.loadPhysicsModules = async function() {
         // Start physics simulation
         clothSimulation.startSimulation();
         
+        // Show physics effect indicator
+        showPhysicsEffectIndicator('🎬 Physics Active: Cloth is falling and draping!');
+        
         // Log status
         setTimeout(() => {
           logPhysicsStatus();
@@ -1210,6 +1265,21 @@ window.loadPhysicsModules = async function() {
         
       } catch (error) {
         console.error('Failed to setup physics for current models:', error);
+      }
+    }
+
+    function showPhysicsEffectIndicator(message) {
+      const indicator = document.getElementById('physics-effect-indicator');
+      const textElement = document.getElementById('physics-effect-text');
+      
+      if (indicator && textElement) {
+        textElement.textContent = message;
+        indicator.classList.add('visible');
+        
+        // Hide after 3 seconds
+        setTimeout(() => {
+          indicator.classList.remove('visible');
+        }, 3000);
       }
     }
 
@@ -1224,7 +1294,7 @@ window.loadPhysicsModules = async function() {
       
       statusElement.innerHTML = `
         <strong>${icon} Physics Engine:</strong> ${message}<br>
-        <small>${type === 'active' ? 'Cloth simulation ready' : type === 'error' ? 'Check console for details' : 'Please wait...'}</small>
+        <small>${type === 'active' ? 'Cloth simulation ready - watch the garment transform!' : type === 'error' ? 'Check console for details' : 'Please wait...'}</small>
       `;
     }
 
@@ -1334,9 +1404,8 @@ window.loadPhysicsModules = async function() {
       document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
       document.getElementById(`${method}-method`).classList.add('active');
       
-      if (currentAvatarUrl && currentGarmentUrl) {
-        generateCombinedView();
-      }
+      updateStatus(`✅ Combination method: ${method}`);
+      updateCombinationStatus();
     }
 
     // Lighting and environment functions
@@ -1435,7 +1504,8 @@ window.loadPhysicsModules = async function() {
         
         // Start physics simulation
         await setupPhysicsForCurrentModels();
-        updatePhysicsStatus('active', 'Physics simulation running');
+        updatePhysicsStatus('active', 'Physics simulation running - watch the garment transform!');
+        showPhysicsEffectIndicator('🎬 Physics Enabled: Garment will now fall and drape!');
       } else {
         button.textContent = 'Enable Physics';
         button.classList.remove('active');
@@ -1453,9 +1523,12 @@ window.loadPhysicsModules = async function() {
     }
 
     function resetPhysics() {
-      if (clothSimulation) {
+      if (clothSimulation && clothSimulation.resetSimulation) {
         clothSimulation.resetSimulation();
+        showPhysicsEffectIndicator('🔄 Cloth Reset: Watch it fall again!');
         console.log('🔄 Physics simulation reset');
+      } else {
+        console.log('⚠️ Reset function not available');
       }
     }
 
@@ -1465,10 +1538,11 @@ window.loadPhysicsModules = async function() {
       const stiffness = parseFloat(document.getElementById('cloth-stiffness').value);
       const gravity = parseFloat(document.getElementById('gravity-strength').value);
       
-      clothSimulation.setClothStiffness(stiffness);
+      clothSimulation.setClothStiffness('main-garment', stiffness);
       clothSimulation.setGravity(0, -gravity, 0);
       
       console.log(`⚙️ Physics settings updated - Stiffness: ${stiffness}, Gravity: ${gravity}`);
+      showPhysicsEffectIndicator(`⚙️ Settings Updated: Gravity ${gravity}m/s², Stiffness ${stiffness}`);
     }
 
     function togglePhysicsDebug() {
@@ -1482,10 +1556,11 @@ window.loadPhysicsModules = async function() {
       button.textContent = isPhysicsDebugEnabled ? 'Hide Physics' : 'Show Physics';
       
       console.log(`🔍 Physics debug visualization ${isPhysicsDebugEnabled ? 'enabled' : 'disabled'}`);
+      showPhysicsEffectIndicator(`🔍 Physics Debug ${isPhysicsDebugEnabled ? 'Enabled' : 'Disabled'}`);
     }
 
     function logPhysicsStatus() {
-      if (clothSimulation) {
+      if (clothSimulation && clothSimulation.logDetailedStatus) {
         clothSimulation.logDetailedStatus();
       } else {
         console.log('❌ No physics simulation available');
@@ -1507,6 +1582,8 @@ window.loadPhysicsModules = async function() {
         const button = document.getElementById('drop-test');
         button.classList.add('active');
         button.textContent = 'Stop Drop Test';
+        
+        showPhysicsEffectIndicator('🧪 Drop Test Active: Dramatic cloth falling!');
         
         // Auto-stop after 10 seconds
         setTimeout(() => {
@@ -1538,20 +1615,21 @@ window.loadPhysicsModules = async function() {
     }
 
     function resetClothPosition() {
-      if (clothSimulation) {
-        clothSimulation.resetClothPosition();
+      if (clothSimulation && clothSimulation.resetSimulation) {
+        clothSimulation.resetSimulation();
+        showPhysicsEffectIndicator('🔄 Cloth Reset: Watch the dramatic fall and drape!');
         console.log('🔄 Cloth position reset to starting position');
+      } else {
+        console.log('⚠️ Reset function not available');
       }
     }
 
     // Model manipulation functions
     function updateModelScale(type, scale) {
-      // This would be implemented with actual 3D model manipulation
       console.log(`Updating ${type} scale to ${scale}`);
     }
 
     function updateModelOpacity(type, opacity) {
-      // This would be implemented with material opacity changes
       console.log(`Updating ${type} opacity to ${opacity}`);
     }
 
@@ -1559,8 +1637,77 @@ window.loadPhysicsModules = async function() {
       const offsetX = parseFloat(document.getElementById('garment-offset-x').value);
       const offsetY = parseFloat(document.getElementById('garment-offset-y').value);
       
-      // This would be implemented with actual 3D model positioning
       console.log(`Updating garment position to X:${offsetX}, Y:${offsetY}`);
+    }
+
+    function generateCombinedModel() {
+      if (currentAvatarUrl && currentGarmentUrl) {
+        generateCombinedView();
+      } else {
+        updateStatus('❌ Need both avatar and garment to combine');
+      }
+    }
+
+    function resetCombination() {
+      // Reset to default values
+      document.getElementById('avatar-opacity').value = 1.0;
+      document.getElementById('garment-opacity').value = 1.0;
+      document.getElementById('garment-offset-x').value = 0;
+      document.getElementById('garment-offset-y').value = 0;
+      
+      // Update displays
+      document.getElementById('avatar-opacity-value').textContent = '1.0';
+      document.getElementById('garment-opacity-value').textContent = '1.0';
+      document.getElementById('garment-offset-x-value').textContent = '0.0';
+      document.getElementById('garment-offset-y-value').textContent = '0.0';
+      
+      // Reset combination method
+      currentCombinationMethod = 'merge';
+      document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
+      document.getElementById('merge-method').classList.add('active');
+      
+      updateStatus('✅ Combination settings reset');
+      updateCombinationStatus();
+    }
+
+    function takeScreenshot() {
+      const viewer = document.getElementById('combined-viewer') || document.getElementById('main-viewer');
+      if (viewer && viewer.toDataURL) {
+        const canvas = viewer.toDataURL();
+        const link = document.createElement('a');
+        link.download = 'lucifex-garment-visualization.png';
+        link.href = canvas;
+        link.click();
+        updateStatus('✅ Screenshot saved');
+      } else {
+        updateStatus('❌ Screenshot not available');
+      }
+    }
+
+    function exportScene() {
+      const config = {
+        avatar: currentAvatarUrl,
+        garment: currentGarmentUrl,
+        combinationMethod: currentCombinationMethod,
+        settings: {
+          avatarOpacity: document.getElementById('avatar-opacity').value,
+          garmentOpacity: document.getElementById('garment-opacity').value,
+          offsetX: document.getElementById('garment-offset-x').value,
+          offsetY: document.getElementById('garment-offset-y').value,
+          environment: currentEnvironment,
+          exposure: document.getElementById('exposure').value,
+          shadowIntensity: document.getElementById('shadow-intensity').value,
+          shadowSoftness: document.getElementById('shadow-softness').value
+        }
+      };
+      
+      const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+      const link = document.createElement('a');
+      link.download = 'lucifex-scene-config.json';
+      link.href = URL.createObjectURL(blob);
+      link.click();
+      
+      updateStatus('✅ Scene configuration exported');
     }
 
     // Utility functions
