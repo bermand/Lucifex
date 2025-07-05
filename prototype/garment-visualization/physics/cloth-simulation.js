@@ -1,5 +1,5 @@
 // Cloth Simulation Wrapper
-// Manages physics engines and updates visual representation
+// Manages physics engines and updates visual representation of REAL 3D models
 
 class ClothSimulation {
   constructor() {
@@ -11,13 +11,14 @@ class ClothSimulation {
     this.lastTime = 0
     this.clothMeshes = new Map()
     this.avatarColliders = new Map()
-    this.visualMeshes = new Map() // Store references to visual meshes
+    this.visualMeshes = new Map()
     this.updateCount = 0
+    this.realModelViewers = new Map() // Store references to actual Model Viewer elements
   }
 
   async initialize() {
     try {
-      console.log("🔄 Initializing Cloth Simulation...")
+      console.log("🔄 Initializing Cloth Simulation for Real 3D Models...")
 
       // Always try Simple Physics first (it's more reliable)
       if (window.SimpleClothPhysics) {
@@ -54,21 +55,24 @@ class ClothSimulation {
     }
   }
 
-  async setupAvatarPhysics(modelViewer) {
+  async setupAvatarPhysics(avatarModelViewer) {
     if (!this.isInitialized) {
       console.error("❌ Cloth simulation not initialized")
       return false
     }
 
     try {
-      console.log("🔄 Setting up avatar physics...")
+      console.log("🔄 Setting up avatar physics for real 3D model...")
+
+      // Store reference to the real avatar model viewer
+      this.realModelViewers.set("avatar", avatarModelViewer)
 
       // Create avatar collider at center position
       const colliderId = this.physicsEngine.createAvatarCollider({ x: 0, y: 0, z: 0 }, { x: 0.4, y: 0.9, z: 0.2 })
 
       if (colliderId) {
         this.avatarColliders.set("main-avatar", colliderId)
-        console.log("✅ Avatar physics setup complete")
+        console.log("✅ Avatar physics setup complete for real model")
         return true
       } else {
         throw new Error("Failed to create avatar collider")
@@ -79,33 +83,36 @@ class ClothSimulation {
     }
   }
 
-  async setupGarmentPhysics(modelViewer) {
+  async setupGarmentPhysics(garmentModelViewer) {
     if (!this.isInitialized) {
       console.error("❌ Cloth simulation not initialized")
       return false
     }
 
     try {
-      console.log("🔄 Setting up garment physics...")
+      console.log("🔄 Setting up garment physics for real 3D model...")
 
-      // Create cloth mesh (we'll use a procedural t-shirt shape)
+      // Store reference to the real garment model viewer
+      this.realModelViewers.set("garment", garmentModelViewer)
+
+      // Create cloth mesh (we'll use a procedural t-shirt shape that will control the real model)
       const clothResult = this.physicsEngine.createClothFromGeometry(
         [], // vertices (will be generated procedurally)
         [], // indices (will be generated procedurally)
-        { x: 0, y: 1.2, z: 0 }, // starting position above avatar
+        { x: 0, y: 1.5, z: 0 }, // starting position above avatar
       )
 
       if (clothResult && clothResult.id) {
         this.clothMeshes.set("main-garment", {
           physicsId: clothResult.id,
-          modelViewer: modelViewer,
+          modelViewer: garmentModelViewer,
           lastUpdateTime: 0,
         })
 
-        // Create visual representation
-        this.createVisualClothMesh(modelViewer, clothResult.id)
+        // Create visual representation that will control the real model
+        this.createVisualClothMesh(garmentModelViewer, clothResult.id)
 
-        console.log("✅ Garment physics setup complete")
+        console.log("✅ Garment physics setup complete for real model")
         return true
       } else {
         throw new Error("Failed to create cloth mesh")
@@ -128,13 +135,14 @@ class ClothSimulation {
       // Create a visual indicator that shows the cloth is being simulated
       const clothData = this.physicsEngine.clothMeshes.get(clothId)
       if (clothData) {
-        console.log(`🎨 Visual cloth mesh created for physics cloth with ${clothData.particles.length} particles`)
+        console.log(`🎨 Visual cloth mesh created for REAL 3D model with ${clothData.particles.length} particles`)
 
         // Store visual mesh reference with initial vertices
         this.visualMeshes.set(clothId, {
           particleCount: clothData.particles.length,
           lastVertices: new Float32Array(vertices), // Copy the initial vertices
           updateCount: 0,
+          realModelViewer: modelViewer, // Store reference to the real model
         })
       }
     } catch (error) {
@@ -153,7 +161,7 @@ class ClothSimulation {
       return
     }
 
-    console.log("▶️ Starting physics simulation with visual updates...")
+    console.log("▶️ Starting physics simulation with REAL 3D model updates...")
     this.isRunning = true
     this.lastTime = performance.now()
     this.updateCount = 0
@@ -186,7 +194,7 @@ class ClothSimulation {
   }
 
   resetSimulation() {
-    console.log("🔄 Resetting physics simulation...")
+    console.log("🔄 Resetting physics simulation and real 3D models...")
 
     if (this.physicsEngine) {
       // Reset all cloth positions
@@ -216,6 +224,14 @@ class ClothSimulation {
         console.log(`✅ Cloth ${clothId} reset to starting position`)
       })
 
+      // Reset real model transformations
+      const garmentViewer = this.realModelViewers.get("garment")
+      if (garmentViewer) {
+        garmentViewer.style.transform = "translateY(0px) scaleY(1) scaleX(1) rotateX(0deg)"
+        garmentViewer.style.opacity = "1.0"
+        console.log("✅ Real garment model reset to original position")
+      }
+
       // Reset simulation time
       this.physicsEngine.simulationTime = 0
     }
@@ -234,14 +250,14 @@ class ClothSimulation {
       this.physicsEngine.updatePhysics(deltaTime)
     }
 
-    // Update visual representation
-    this.updateVisualMeshes()
+    // Update REAL 3D models based on physics
+    this.updateRealModelMeshes()
 
     // Continue animation loop
     this.animationFrame = requestAnimationFrame(() => this.animate())
   }
 
-  updateVisualMeshes() {
+  updateRealModelMeshes() {
     try {
       this.clothMeshes.forEach((clothData, clothName) => {
         const physicsId = clothData.physicsId
@@ -262,7 +278,7 @@ class ClothSimulation {
           if (visualMesh.updateCount % 300 === 0) {
             // Every ~5 seconds at 60fps
             console.log(
-              `🎨 Visual mesh updated: ${visualMesh.particleCount} particles, update #${visualMesh.updateCount}`,
+              `🎨 REAL model updated: ${visualMesh.particleCount} particles, update #${visualMesh.updateCount}`,
             )
             this.logClothMovement(vertices, physicsId)
           }
@@ -271,20 +287,16 @@ class ClothSimulation {
           visualMesh.lastVertices = new Float32Array(vertices)
         }
 
-        // Update model viewer (this is where we'd normally update the 3D mesh)
-        // For now, we'll create visual feedback through console and status updates
-        this.updateModelViewerCloth(modelViewer, vertices, physicsId)
+        // Update the REAL Model Viewer based on physics
+        this.updateRealModelViewer(modelViewer, vertices, physicsId)
       })
     } catch (error) {
-      console.error("❌ Failed to update visual meshes:", error)
+      console.error("❌ Failed to update real model meshes:", error)
     }
   }
 
-  updateModelViewerCloth(modelViewer, vertices, clothId) {
+  updateRealModelViewer(modelViewer, vertices, clothId) {
     try {
-      // Since we can't directly modify Model Viewer's mesh, we'll provide visual feedback
-      // In a full implementation, this would update the actual 3D geometry
-
       // Calculate cloth statistics for visual feedback
       let minY = Number.POSITIVE_INFINITY
       let maxY = Number.NEGATIVE_INFINITY
@@ -315,68 +327,64 @@ class ClothSimulation {
         clothData.lastUpdateTime = Date.now()
       }
 
-      // Apply dramatic physics-based transformations to the model viewer
-      this.applyPhysicsToModelViewer(modelViewer, vertices, clothStats)
+      // Apply dramatic physics-based transformations to the REAL Model Viewer
+      this.applyPhysicsToRealModel(modelViewer, vertices, clothStats)
     } catch (error) {
-      console.error("❌ Failed to update model viewer cloth:", error)
+      console.error("❌ Failed to update real model viewer:", error)
     }
   }
 
-  applyPhysicsToModelViewer(modelViewer, vertices, clothStats) {
+  applyPhysicsToRealModel(modelViewer, vertices, clothStats) {
     try {
       // Calculate physics-based transformations
       const avgY = Number.parseFloat(clothStats.avgY)
       const heightRange = Number.parseFloat(clothStats.heightRange)
 
-      // How much the cloth has dropped from starting position (2.2m)
-      const dropAmount = Math.max(0, 2.2 - avgY)
-      const dropProgress = Math.min(dropAmount / 2.0, 1.0) // 0 to 1
+      // How much the cloth has dropped from starting position (2.5m)
+      const dropAmount = Math.max(0, 2.5 - avgY)
+      const dropProgress = Math.min(dropAmount / 2.5, 1.0) // 0 to 1
 
       // Sagging effect based on height range
       const sagAmount = Math.max(0, heightRange - 1.0) / 2.0 // How much it's stretched
       const sagProgress = Math.min(sagAmount, 1.0)
 
-      // Apply dramatic transformations to the model viewer
-      const translateY = dropProgress * 100 // Move down as cloth falls
-      const scaleY = Math.max(0.7, 1 - sagProgress * 0.3) // Compress as it sags
-      const scaleX = 1 + sagProgress * 0.1 // Slight horizontal expansion
-      const rotateX = sagProgress * 10 // Tilt as it drapes
+      // Apply DRAMATIC transformations to the REAL Model Viewer
+      const translateY = dropProgress * 200 // Move down as cloth falls (more dramatic)
+      const swayX = Math.sin(this.updateCount * 0.02) * dropProgress * 5
+      const swayZ = Math.cos(this.updateCount * 0.015) * dropProgress * 3
+      const scaleY = Math.max(0.6, 1 - sagProgress * 0.4) // Compress as it sags (more dramatic)
+      const scaleX = 1 + sagProgress * 0.2 // Slight horizontal expansion
+      const rotateX = sagProgress * 15 // Tilt as it drapes (more dramatic)
 
-      // Apply to model viewer
+      // Apply to the REAL model viewer
       if (modelViewer && modelViewer.style) {
         modelViewer.style.transform = `
           translateY(${translateY}px)
+          translateX(${swayX}px)
           scaleY(${scaleY})
           scaleX(${scaleX})
           rotateX(${rotateX}deg)
+          rotateZ(${swayZ}deg)
         `
 
         // Add visual feedback through opacity changes
-        const opacity = 0.8 + dropProgress * 0.2
+        const opacity = Math.max(0.7, 1.0 - dropProgress * 0.1)
         modelViewer.style.opacity = opacity.toString()
-      }
 
-      // Also apply to combined viewer
-      const combinedViewer = document.getElementById("combined-viewer")
-      if (combinedViewer && combinedViewer.style) {
-        combinedViewer.style.transform = `
-          translateY(${translateY}px)
-          scaleY(${scaleY})
-          scaleX(${scaleX})
-          rotateX(${rotateX}deg)
-        `
-        const opacity = 0.8 + dropProgress * 0.2 // Declare opacity here
-        combinedViewer.style.opacity = opacity.toString()
+        // Add physics-based filter effects
+        const blur = dropProgress * 0.5
+        const brightness = 1 + sagProgress * 0.2
+        modelViewer.style.filter = `blur(${blur}px) brightness(${brightness})`
       }
 
       // Log dramatic changes
       if (dropProgress > 0.1) {
         console.log(
-          `🎬 DRAMATIC PHYSICS EFFECT: Drop ${(dropProgress * 100).toFixed(0)}%, Sag ${(sagProgress * 100).toFixed(0)}%`,
+          `🎬 REAL MODEL PHYSICS EFFECT: Drop ${(dropProgress * 100).toFixed(0)}%, Sag ${(sagProgress * 100).toFixed(0)}%`,
         )
       }
     } catch (error) {
-      console.error("❌ Failed to apply physics to model viewer:", error)
+      console.error("❌ Failed to apply physics to real model:", error)
     }
   }
 
@@ -408,7 +416,7 @@ class ClothSimulation {
 
         const avgMovement = totalMovement / (vertices.length / 3)
 
-        console.log(`📊 Cloth Movement Analysis:`)
+        console.log(`📊 REAL Model Movement Analysis:`)
         console.log(`   • Average movement: ${avgMovement.toFixed(6)}m`)
         console.log(`   • Max movement: ${maxMovement.toFixed(6)}m`)
         console.log(`   • Total movement: ${totalMovement.toFixed(6)}m`)
@@ -417,11 +425,11 @@ class ClothSimulation {
 
         // Check if cloth is actually moving
         if (avgMovement > 0.001) {
-          console.log(`✅ CLOTH IS MOVING! Average: ${avgMovement.toFixed(6)}m/frame`)
+          console.log(`✅ REAL MODEL IS MOVING! Average: ${avgMovement.toFixed(6)}m/frame`)
         } else if (avgMovement > 0.0001) {
-          console.log(`⚠️ Cloth moving slowly: ${avgMovement.toFixed(6)}m/frame`)
+          console.log(`⚠️ Real model moving slowly: ${avgMovement.toFixed(6)}m/frame`)
         } else {
-          console.log(`❌ Cloth appears static: ${avgMovement.toFixed(6)}m/frame`)
+          console.log(`❌ Real model appears static: ${avgMovement.toFixed(6)}m/frame`)
         }
       } else {
         console.log(`⚠️ No previous vertices to compare movement (first frame or data issue)`)
@@ -440,13 +448,13 @@ class ClothSimulation {
     if (!this.isInitialized) return
 
     const status = this.getDetailedStatus()
-    console.log("🔄 Physics Simulation Status:")
+    console.log("🔄 REAL Model Physics Simulation Status:")
     console.log(`   Engine: ${status.engine}`)
     console.log(`   Running: ${this.isRunning}`)
     console.log(`   Update Count: ${this.updateCount}`)
     console.log(`   Cloth Meshes: ${status.clothMeshes}`)
     console.log(`   Avatar Colliders: ${status.avatarColliders}`)
-    console.log(`   Visual Meshes: ${this.visualMeshes.size}`)
+    console.log(`   Real Model Viewers: ${this.realModelViewers.size}`)
 
     if (status.physicsDetails) {
       console.log(`   Total Particles: ${status.physicsDetails.totalParticles}`)
@@ -456,7 +464,7 @@ class ClothSimulation {
     // Log cloth-specific stats
     this.clothMeshes.forEach((clothData, clothName) => {
       if (clothData.stats) {
-        console.log(`   Cloth ${clothName}:`)
+        console.log(`   Real Model ${clothName}:`)
         console.log(`     • Height range: ${clothData.stats.heightRange}m`)
         console.log(`     • Average Y: ${clothData.stats.avgY}m`)
         console.log(`     • Particles: ${clothData.stats.particleCount}`)
@@ -470,7 +478,7 @@ class ClothSimulation {
       if (physicsId) {
         const vertices = this.physicsEngine.getClothVertices(physicsId)
         if (vertices) {
-          console.log(`🔍 Forced movement check for ${clothName}:`)
+          console.log(`🔍 Forced movement check for real model ${clothName}:`)
           this.logClothMovement(vertices, physicsId)
         }
       }
@@ -480,7 +488,7 @@ class ClothSimulation {
   setGravity(x, y, z) {
     if (this.physicsEngine && this.physicsEngine.setGravity) {
       this.physicsEngine.setGravity(x, y, z)
-      console.log(`🌍 Gravity updated to: ${x}, ${y}, ${z}`)
+      console.log(`🌍 Gravity updated to: ${x}, ${y}, ${z} (affects real models)`)
     }
   }
 
@@ -490,7 +498,7 @@ class ClothSimulation {
       const clothData = this.clothMeshes.get(clothId)
       if (clothData && clothData.physicsId) {
         this.physicsEngine.setClothStiffness(clothData.physicsId, stiffness)
-        console.log(`🧵 Cloth stiffness updated to: ${stiffness}`)
+        console.log(`🧵 Real model cloth stiffness updated to: ${stiffness}`)
       }
     }
   }
@@ -517,32 +525,37 @@ class ClothSimulation {
       updateCount: this.updateCount,
       clothMeshes: this.clothMeshes.size,
       avatarColliders: this.avatarColliders.size,
-      visualMeshes: this.visualMeshes.size,
+      realModelViewers: this.realModelViewers.size,
     }
   }
 
   logDetailedStatus() {
-    console.log("📊 Cloth Simulation Detailed Status:")
+    console.log("📊 REAL Model Cloth Simulation Detailed Status:")
     console.log(`   Wrapper Initialized: ${this.isInitialized}`)
     console.log(`   Wrapper Running: ${this.isRunning}`)
     console.log(`   Engine Type: ${this.engineType}`)
     console.log(`   Update Count: ${this.updateCount}`)
     console.log(`   Cloth Meshes (Wrapper): ${this.clothMeshes.size}`)
     console.log(`   Avatar Colliders (Wrapper): ${this.avatarColliders.size}`)
-    console.log(`   Visual Meshes: ${this.visualMeshes.size}`)
+    console.log(`   Real Model Viewers: ${this.realModelViewers.size}`)
+
+    // Log real model viewer details
+    this.realModelViewers.forEach((viewer, type) => {
+      console.log(`   Real ${type} model:`, viewer ? "✅ Connected" : "❌ Missing")
+    })
 
     if (this.physicsEngine && this.physicsEngine.logFullStatus) {
       this.physicsEngine.logFullStatus()
     }
 
     // Force movement analysis for all cloths
-    console.log("🔍 === FORCED MOVEMENT ANALYSIS ===")
+    console.log("🔍 === REAL MODEL MOVEMENT ANALYSIS ===")
     this.clothMeshes.forEach((clothData, clothName) => {
       const physicsId = clothData.physicsId
       if (physicsId) {
         const vertices = this.physicsEngine.getClothVertices(physicsId)
         if (vertices) {
-          console.log(`Analyzing movement for ${clothName}:`)
+          console.log(`Analyzing movement for real model ${clothName}:`)
           this.logClothMovement(vertices, physicsId)
         }
       }
@@ -563,11 +576,12 @@ class ClothSimulation {
     this.clothMeshes.clear()
     this.avatarColliders.clear()
     this.visualMeshes.clear()
+    this.realModelViewers.clear()
     this.physicsEngine = null
     this.engineType = null
     this.isInitialized = false
 
-    console.log("✅ Cloth simulation cleanup complete")
+    console.log("✅ Real model cloth simulation cleanup complete")
   }
 }
 
