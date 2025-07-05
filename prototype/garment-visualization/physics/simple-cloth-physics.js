@@ -1,591 +1,386 @@
 // Simple Cloth Physics Engine
-// Uses Verlet integration for realistic cloth simulation without external dependencies
+// Verlet integration-based cloth simulation with improved collision detection
 
 class SimpleClothPhysics {
   constructor() {
-    this.particles = []
-    this.constraints = []
     this.isInitialized = false
-    this.clothIdCounter = 0
     this.clothMeshes = new Map()
     this.avatarColliders = new Map()
     this.gravity = { x: 0, y: -9.81, z: 0 }
-    this.damping = 0.98 // Was 0.995, now less damping for more movement
-    this.timeStep = 1 / 60
-    this.constraintIterations = 1 // Was 2, now just 1 for maximum flexibility
+    this.damping = 0.99
     this.simulationTime = 0
+    this.collisionResponse = 0.8 // How much the cloth bounces off colliders
+    this.friction = 0.3 // Friction when sliding on colliders
   }
 
   async initPhysicsWorld() {
     try {
-      console.log("🔄 Initializing Simple Physics Engine...")
-
-      // Simple physics doesn't need external libraries
+      console.log("🔄 Initializing Simple Physics World with improved collision...")
       this.isInitialized = true
-
-      console.log("✅ Simple Physics Engine initialized successfully")
+      console.log("✅ Simple Physics World initialized successfully")
       return true
     } catch (error) {
-      console.error("❌ Failed to initialize Simple Physics:", error)
+      console.error("❌ Failed to initialize Simple Physics World:", error)
       return false
     }
   }
 
-  createAvatarCollider(position = { x: 0, y: 0, z: 0 }, scale = { x: 0.4, y: 0.9, z: 0.2 }) {
-    if (!this.isInitialized) return null
+  createAvatarCollider(position, size) {
+    const colliderId = `collider_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 
-    try {
-      // Create multiple collision shapes for better avatar representation
-      const colliders = [
-        // Head
-        {
-          type: "sphere",
-          position: { x: position.x, y: position.y + 0.7, z: position.z },
-          radius: 0.12,
-        },
-        // Upper torso
-        {
-          type: "capsule",
-          position: { x: position.x, y: position.y + 0.3, z: position.z },
-          radius: scale.x * 0.8,
-          height: 0.4,
-        },
-        // Lower torso
-        {
-          type: "capsule",
-          position: { x: position.x, y: position.y - 0.1, z: position.z },
-          radius: scale.x * 0.7,
-          height: 0.3,
-        },
-        // Hips
-        {
-          type: "capsule",
-          position: { x: position.x, y: position.y - 0.4, z: position.z },
-          radius: scale.x * 0.6,
-          height: 0.2,
-        },
-      ]
-
-      const colliderId = `avatar_${Date.now()}`
-      this.avatarColliders.set(colliderId, colliders)
-
-      console.log("✅ Simple Physics avatar collider created with", colliders.length, "shapes")
-      return colliderId
-    } catch (error) {
-      console.error("❌ Failed to create avatar collider:", error)
-      return null
+    const collider = {
+      id: colliderId,
+      type: "box",
+      position: { ...position },
+      size: { ...size },
+      active: true,
     }
+
+    this.avatarColliders.set(colliderId, collider)
+    console.log(
+      `✅ Avatar collider created: ${colliderId} at (${position.x}, ${position.y}, ${position.z}) size (${size.x}, ${size.y}, ${size.z})`,
+    )
+
+    return colliderId
   }
 
-  createClothFromGeometry(vertices, indices, position = { x: 0, y: 1.5, z: 0 }) {
-    if (!this.isInitialized) {
-      console.error("❌ Simple Physics not initialized")
-      return null
+  createClothFromGeometry(vertices, indices, startPosition) {
+    const clothId = `cloth_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+
+    // Create a T-shirt shaped cloth mesh
+    const width = 16 // particles wide
+    const height = 20 // particles tall
+    const particles = []
+    const constraints = []
+
+    // Create particles in T-shirt shape
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const normalizedX = x / (width - 1) // 0 to 1
+        const normalizedY = y / (height - 1) // 0 to 1
+
+        // Create T-shirt shape (wider at shoulders, narrower at waist)
+        let shapeMultiplier = 1.0
+        if (normalizedY < 0.3) {
+          // Shoulder area - wider
+          shapeMultiplier = 1.2
+        } else if (normalizedY < 0.6) {
+          // Torso area - normal width
+          shapeMultiplier = 1.0
+        } else {
+          // Lower area - slightly wider
+          shapeMultiplier = 1.1
+        }
+
+        const particle = {
+          position: {
+            x: startPosition.x + (normalizedX - 0.5) * 1.0 * shapeMultiplier,
+            y: startPosition.y - normalizedY * 1.2,
+            z: startPosition.z + (Math.random() - 0.5) * 0.1,
+          },
+          oldPosition: {
+            x: startPosition.x + (normalizedX - 0.5) * 1.0 * shapeMultiplier + (Math.random() - 0.5) * 0.02,
+            y: startPosition.y - normalizedY * 1.2 + 0.05,
+            z: startPosition.z + (Math.random() - 0.5) * 0.1,
+          },
+          pinned: false,
+          gridX: x,
+          gridY: y,
+          mass: 1.0,
+          velocity: { x: 0, y: 0, z: 0 },
+        }
+
+        // Pin top corners and some top edge particles
+        if (
+          y === 0 &&
+          (x === 0 || x === width - 1 || x === Math.floor(width / 3) || x === Math.floor((2 * width) / 3))
+        ) {
+          particle.pinned = true
+        }
+
+        particles.push(particle)
+      }
     }
 
-    try {
-      console.log("🔄 Creating Simple Physics cloth body...")
+    // Create constraints (springs between particles)
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const index = y * width + x
 
-      // Create a more realistic t-shirt shaped cloth
-      const clothWidth = 16 // Fewer particles for better performance
-      const clothHeight = 20 // Fewer particles for better performance
-      const clothParticles = []
-      const clothConstraints = []
+        // Horizontal constraints
+        if (x < width - 1) {
+          const restLength = 1.0 / (width - 1)
+          constraints.push({
+            p1: index,
+            p2: index + 1,
+            restLength: restLength,
+            stiffness: 0.8,
+          })
+        }
 
-      // Physical dimensions
-      const physicalWidth = 1.0 // meters
-      const physicalHeight = 1.2 // meters
-      const spacing = physicalWidth / (clothWidth - 1)
+        // Vertical constraints
+        if (y < height - 1) {
+          const restLength = 1.2 / (height - 1)
+          constraints.push({
+            p1: index,
+            p2: index + width,
+            restLength: restLength,
+            stiffness: 0.8,
+          })
+        }
 
-      // Start higher up so gravity has more effect
-      const startY = position.y + 1.0 // Was 0.5, now 1.0 for more dramatic fall
+        // Diagonal constraints for stability
+        if (x < width - 1 && y < height - 1) {
+          const restLength = Math.sqrt(2) / Math.max(width - 1, height - 1)
+          constraints.push({
+            p1: index,
+            p2: index + width + 1,
+            restLength: restLength,
+            stiffness: 0.4,
+          })
+        }
 
-      // Create particles in t-shirt shape
-      for (let y = 0; y < clothHeight; y++) {
-        for (let x = 0; x < clothWidth; x++) {
-          const normalizedY = y / (clothHeight - 1)
-          const normalizedX = x / (clothWidth - 1)
-
-          // Create t-shirt silhouette
-          let shouldCreateParticle = true
-
-          // Neck opening (top center)
-          if (y < 2 && x > 6 && x < 10) {
-            shouldCreateParticle = false
-          }
-
-          // Armholes (sides, upper portion)
-          if (y < 6) {
-            const armholeWidth = Math.max(0, 2 - y * 0.3)
-            if (x < armholeWidth || x >= clothWidth - armholeWidth) {
-              shouldCreateParticle = false
-            }
-          }
-
-          // Body tapering (make it more fitted)
-          if (y > 12) {
-            const taperAmount = (y - 12) * 0.1
-            const minX = Math.floor(taperAmount)
-            const maxX = clothWidth - 1 - Math.floor(taperAmount)
-            if (x < minX || x > maxX) {
-              shouldCreateParticle = false
-            }
-          }
-
-          if (shouldCreateParticle) {
-            // Add much more random initial velocity for dramatic movement
-            const randomVelX = (Math.random() - 0.5) * 0.3 // Was 0.1, now 0.3
-            const randomVelY = (Math.random() - 0.5) * 0.2 // Was 0.1, now 0.2
-            const randomVelZ = (Math.random() - 0.5) * 0.3 // Was 0.1, now 0.3
-
-            // Add initial downward velocity to all particles
-            const initialDownwardVel = -0.1 // New: give everything a downward push
-
-            const particle = {
-              id: clothParticles.length,
-              position: {
-                x: position.x + (normalizedX - 0.5) * physicalWidth,
-                y: startY - normalizedY * physicalHeight,
-                z: position.z + (Math.random() - 0.5) * 0.2, // More Z variation
-              },
-              oldPosition: {
-                x: position.x + (normalizedX - 0.5) * physicalWidth + randomVelX,
-                y: startY - normalizedY * physicalHeight + randomVelY + initialDownwardVel,
-                z: position.z + randomVelZ,
-              },
-              pinned: y === 0 && (x === 2 || x === clothWidth - 3), // Pin fewer points
-              mass: 1.0,
-              gridX: x,
-              gridY: y,
-            }
-            clothParticles.push(particle)
-          }
+        if (x > 0 && y < height - 1) {
+          const restLength = Math.sqrt(2) / Math.max(width - 1, height - 1)
+          constraints.push({
+            p1: index,
+            p2: index + width - 1,
+            restLength: restLength,
+            stiffness: 0.4,
+          })
         }
       }
-
-      // Create constraints between particles
-      const getParticleAt = (gx, gy) => {
-        return clothParticles.find((p) => p.gridX === gx && p.gridY === gy)
-      }
-
-      // Structural constraints (horizontal and vertical) - more flexible
-      for (let y = 0; y < clothHeight; y++) {
-        for (let x = 0; x < clothWidth; x++) {
-          const particle = getParticleAt(x, y)
-          if (!particle) continue
-
-          // Right neighbor
-          if (x < clothWidth - 1) {
-            const rightParticle = getParticleAt(x + 1, y)
-            if (rightParticle) {
-              clothConstraints.push({
-                type: "structural",
-                p1: particle.id,
-                p2: rightParticle.id,
-                restLength: spacing,
-                stiffness: 0.15, // Was 0.3, now much more flexible
-              })
-            }
-          }
-
-          // Bottom neighbor
-          if (y < clothHeight - 1) {
-            const bottomParticle = getParticleAt(x, y + 1)
-            if (bottomParticle) {
-              clothConstraints.push({
-                type: "structural",
-                p1: particle.id,
-                p2: bottomParticle.id,
-                restLength: spacing,
-                stiffness: 0.15, // Was 0.3, now much more flexible
-              })
-            }
-          }
-
-          // Diagonal constraints (shear) - even more flexible
-          if (x < clothWidth - 1 && y < clothHeight - 1) {
-            const diagParticle = getParticleAt(x + 1, y + 1)
-            if (diagParticle) {
-              clothConstraints.push({
-                type: "shear",
-                p1: particle.id,
-                p2: diagParticle.id,
-                restLength: spacing * Math.sqrt(2),
-                stiffness: 0.08, // Was 0.2, now very flexible
-              })
-            }
-          }
-
-          if (x > 0 && y < clothHeight - 1) {
-            const diagParticle = getParticleAt(x - 1, y + 1)
-            if (diagParticle) {
-              clothConstraints.push({
-                type: "shear",
-                p1: particle.id,
-                p2: diagParticle.id,
-                restLength: spacing * Math.sqrt(2),
-                stiffness: 0.08, // Was 0.2, now very flexible
-              })
-            }
-          }
-
-          // Bend constraints (skip one particle) - minimal stiffness
-          if (x < clothWidth - 2) {
-            const bendParticle = getParticleAt(x + 2, y)
-            if (bendParticle) {
-              clothConstraints.push({
-                type: "bend",
-                p1: particle.id,
-                p2: bendParticle.id,
-                restLength: spacing * 2,
-                stiffness: 0.05, // Was 0.1, now minimal
-              })
-            }
-          }
-
-          if (y < clothHeight - 2) {
-            const bendParticle = getParticleAt(x, y + 2)
-            if (bendParticle) {
-              clothConstraints.push({
-                type: "bend",
-                p1: particle.id,
-                p2: bendParticle.id,
-                restLength: spacing * 2,
-                stiffness: 0.05, // Was 0.1, now minimal
-              })
-            }
-          }
-        }
-      }
-
-      const clothId = `cloth_${this.clothIdCounter++}`
-      this.clothMeshes.set(clothId, {
-        particles: clothParticles,
-        constraints: clothConstraints,
-        gridWidth: clothWidth,
-        gridHeight: clothHeight,
-        physicalWidth: physicalWidth,
-        physicalHeight: physicalHeight,
-      })
-
-      console.log(`✅ Simple Physics t-shirt cloth created:`)
-      console.log(`   • Cloth ID: ${clothId}`)
-      console.log(`   • Particles: ${clothParticles.length}`)
-      console.log(`   • Constraints: ${clothConstraints.length}`)
-      console.log(`   • Grid: ${clothWidth}x${clothHeight}`)
-      console.log(`   • Physical size: ${physicalWidth}m x ${physicalHeight}m`)
-      console.log(`   • Start position: Y=${startY}m (should fall due to gravity)`)
-      console.log(`   • Pinned particles: ${clothParticles.filter((p) => p.pinned).length}`)
-
-      return { id: clothId, particles: clothParticles, constraints: clothConstraints }
-    } catch (error) {
-      console.error("❌ Failed to create Simple Physics cloth body:", error)
-      return null
     }
+
+    const clothMesh = {
+      id: clothId,
+      particles: particles,
+      constraints: constraints,
+      width: width,
+      height: height,
+      lastUpdate: Date.now(),
+    }
+
+    this.clothMeshes.set(clothId, clothMesh)
+
+    console.log(
+      `✅ Cloth mesh created: ${clothId} with ${particles.length} particles and ${constraints.length} constraints`,
+    )
+
+    return { id: clothId, particleCount: particles.length, constraintCount: constraints.length }
   }
 
   updatePhysics(deltaTime) {
     if (!this.isInitialized) return
 
-    try {
-      const dt = Math.min(deltaTime, this.timeStep)
-      this.simulationTime += dt
+    const dt = Math.min(deltaTime, 1 / 60) // Cap deltaTime
+    this.simulationTime += dt
 
-      // Update all cloth meshes
-      this.clothMeshes.forEach((clothData) => {
-        this.updateClothPhysics(clothData, dt)
-      })
-
-      // Log movement every few seconds for debugging
-      if (Math.floor(this.simulationTime) % 3 === 0 && this.simulationTime % 1 < dt) {
-        this.logMovementDebug()
-      }
-    } catch (error) {
-      console.error("❌ Physics update error:", error)
-    }
+    // Update each cloth mesh
+    this.clothMeshes.forEach((clothMesh, clothId) => {
+      this.updateClothMesh(clothMesh, dt)
+    })
   }
 
-  updateClothPhysics(clothData, deltaTime) {
-    const { particles, constraints } = clothData
+  updateClothMesh(clothMesh, deltaTime) {
+    const { particles, constraints } = clothMesh
 
-    // Apply forces (gravity and wind)
-    particles.forEach((particle, index) => {
-      if (!particle.pinned) {
-        // Add some wind force for more dynamic movement
-        const windForce = {
-          x: Math.sin(this.simulationTime * 3 + index * 0.2) * 1.0, // Stronger wind
-          y: Math.sin(this.simulationTime * 2) * 0.2, // Vertical wind variation
-          z: Math.cos(this.simulationTime * 2.5 + index * 0.15) * 0.8,
-        }
+    // Apply forces (gravity, wind, etc.)
+    particles.forEach((particle) => {
+      if (particle.pinned) return
 
-        const acceleration = {
-          x: this.gravity.x + windForce.x,
-          y: this.gravity.y * 1.5 + windForce.y, // 1.5x gravity strength
-          z: this.gravity.z + windForce.z,
-        }
+      // Calculate velocity
+      particle.velocity.x = (particle.position.x - particle.oldPosition.x) / deltaTime
+      particle.velocity.y = (particle.position.y - particle.oldPosition.y) / deltaTime
+      particle.velocity.z = (particle.position.z - particle.oldPosition.z) / deltaTime
 
-        // Verlet integration with stronger forces
-        const newX =
-          particle.position.x +
-          (particle.position.x - particle.oldPosition.x) * this.damping +
-          acceleration.x * deltaTime * deltaTime
-        const newY =
-          particle.position.y +
-          (particle.position.y - particle.oldPosition.y) * this.damping +
-          acceleration.y * deltaTime * deltaTime
-        const newZ =
-          particle.position.z +
-          (particle.position.z - particle.oldPosition.z) * this.damping +
-          acceleration.z * deltaTime * deltaTime
+      // Store old position
+      const oldPos = { ...particle.position }
 
-        particle.oldPosition.x = particle.position.x
-        particle.oldPosition.y = particle.position.y
-        particle.oldPosition.z = particle.position.z
+      // Apply gravity
+      particle.position.x += particle.velocity.x * deltaTime
+      particle.position.y += particle.velocity.y * deltaTime + this.gravity.y * deltaTime * deltaTime
+      particle.position.z += particle.velocity.z * deltaTime
 
-        particle.position.x = newX
-        particle.position.y = newY
-        particle.position.z = newZ
-      }
+      // Apply damping
+      particle.position.x = particle.position.x * this.damping + particle.oldPosition.x * (1 - this.damping)
+      particle.position.z = particle.position.z * this.damping + particle.oldPosition.z * (1 - this.damping)
+
+      // Update old position
+      particle.oldPosition = oldPos
     })
 
-    // Satisfy constraints with fewer iterations for more flexibility
-    for (let iteration = 0; iteration < this.constraintIterations; iteration++) {
+    // Satisfy constraints (multiple iterations for stability)
+    for (let iteration = 0; iteration < 3; iteration++) {
       constraints.forEach((constraint) => {
         const p1 = particles[constraint.p1]
         const p2 = particles[constraint.p2]
 
-        if (!p1 || !p2) return
+        if (p1.pinned && p2.pinned) return
 
         const dx = p2.position.x - p1.position.x
         const dy = p2.position.y - p1.position.y
         const dz = p2.position.z - p1.position.z
+
         const distance = Math.sqrt(dx * dx + dy * dy + dz * dz)
+        if (distance === 0) return
 
-        if (distance > 0) {
-          const difference = (constraint.restLength - distance) / distance
-          const translate = {
-            x: dx * difference * constraint.stiffness * 0.5,
-            y: dy * difference * constraint.stiffness * 0.5,
-            z: dz * difference * constraint.stiffness * 0.5,
-          }
+        const difference = (constraint.restLength - distance) / distance
+        const translate = {
+          x: dx * difference * constraint.stiffness * 0.5,
+          y: dy * difference * constraint.stiffness * 0.5,
+          z: dz * difference * constraint.stiffness * 0.5,
+        }
 
-          if (!p1.pinned) {
-            p1.position.x -= translate.x
-            p1.position.y -= translate.y
-            p1.position.z -= translate.z
-          }
+        if (!p1.pinned) {
+          p1.position.x -= translate.x
+          p1.position.y -= translate.y
+          p1.position.z -= translate.z
+        }
 
-          if (!p2.pinned) {
-            p2.position.x += translate.x
-            p2.position.y += translate.y
-            p2.position.z += translate.z
-          }
+        if (!p2.pinned) {
+          p2.position.x += translate.x
+          p2.position.y += translate.y
+          p2.position.z += translate.z
         }
       })
     }
 
-    // Collision detection with avatar (less aggressive)
-    this.avatarColliders.forEach((colliders) => {
-      particles.forEach((particle) => {
-        if (particle.pinned) return
+    // Handle collisions with avatar
+    particles.forEach((particle) => {
+      if (particle.pinned) return
 
-        colliders.forEach((collider) => {
-          if (collider.type === "sphere") {
-            const dx = particle.position.x - collider.position.x
-            const dy = particle.position.y - collider.position.y
-            const dz = particle.position.z - collider.position.z
-            const distance = Math.sqrt(dx * dx + dy * dy + dz * dz)
-
-            if (distance < collider.radius + 0.02) {
-              // Small buffer
-              const normal = {
-                x: dx / distance,
-                y: dy / distance,
-                z: dz / distance,
-              }
-              const pushOut = collider.radius + 0.02
-              particle.position.x = collider.position.x + normal.x * pushOut
-              particle.position.y = collider.position.y + normal.y * pushOut
-              particle.position.z = collider.position.z + normal.z * pushOut
-
-              // Add some friction
-              particle.oldPosition.x = particle.position.x + normal.x * 0.01
-              particle.oldPosition.y = particle.position.y + normal.y * 0.01
-              particle.oldPosition.z = particle.position.z + normal.z * 0.01
-            }
-          } else if (collider.type === "capsule") {
-            // Simplified capsule collision
-            const dx = particle.position.x - collider.position.x
-            const dy = particle.position.y - collider.position.y
-            const dz = particle.position.z - collider.position.z
-            const distance = Math.sqrt(dx * dx + dy * dy + dz * dz)
-
-            if (distance < collider.radius + 0.02) {
-              // Small buffer
-              const normal = {
-                x: dx / distance,
-                y: dy / distance,
-                z: dz / distance,
-              }
-              const pushOut = collider.radius + 0.02
-              particle.position.x = collider.position.x + normal.x * pushOut
-              particle.position.y = collider.position.y + normal.y * pushOut
-              particle.position.z = collider.position.z + normal.z * pushOut
-
-              // Add some friction
-              particle.oldPosition.x = particle.position.x + normal.x * 0.01
-              particle.oldPosition.y = particle.position.y + normal.y * 0.01
-              particle.oldPosition.z = particle.position.z + normal.z * 0.01
-            }
-          }
-        })
-      })
+      this.handleParticleCollisions(particle)
     })
   }
 
-  logMovementDebug() {
-    this.clothMeshes.forEach((clothData, clothId) => {
-      const { particles } = clothData
+  handleParticleCollisions(particle) {
+    this.avatarColliders.forEach((collider) => {
+      if (!collider.active) return
 
-      let totalVelocity = 0
-      let maxVelocity = 0
-      let minY = Number.POSITIVE_INFINITY
-      let maxY = Number.NEGATIVE_INFINITY
+      // Check collision with box collider
+      if (collider.type === "box") {
+        const dx = particle.position.x - collider.position.x
+        const dy = particle.position.y - collider.position.y
+        const dz = particle.position.z - collider.position.z
 
-      particles.forEach((particle) => {
-        const velX = particle.position.x - particle.oldPosition.x
-        const velY = particle.position.y - particle.oldPosition.y
-        const velZ = particle.position.z - particle.oldPosition.z
-        const velocity = Math.sqrt(velX * velX + velY * velY + velZ * velZ)
+        // Check if particle is inside the collider
+        if (Math.abs(dx) < collider.size.x && Math.abs(dy) < collider.size.y && Math.abs(dz) < collider.size.z) {
+          // Find the closest face and push particle out
+          const penetrationX = collider.size.x - Math.abs(dx)
+          const penetrationY = collider.size.y - Math.abs(dy)
+          const penetrationZ = collider.size.z - Math.abs(dz)
 
-        totalVelocity += velocity
-        maxVelocity = Math.max(maxVelocity, velocity)
-        minY = Math.min(minY, particle.position.y)
-        maxY = Math.max(maxY, particle.position.y)
-      })
+          // Find minimum penetration (closest face)
+          const minPenetration = Math.min(penetrationX, penetrationY, penetrationZ)
 
-      const avgVelocity = totalVelocity / particles.length
+          if (minPenetration === penetrationX) {
+            // Push out along X axis
+            const direction = dx > 0 ? 1 : -1
+            particle.position.x = collider.position.x + direction * collider.size.x
+            particle.velocity.x *= -this.collisionResponse
+            particle.velocity.x *= 1 - this.friction // Apply friction
+          } else if (minPenetration === penetrationY) {
+            // Push out along Y axis
+            const direction = dy > 0 ? 1 : -1
+            particle.position.y = collider.position.y + direction * collider.size.y
+            particle.velocity.y *= -this.collisionResponse
+            particle.velocity.x *= 1 - this.friction // Apply friction
+            particle.velocity.z *= 1 - this.friction // Apply friction
+          } else {
+            // Push out along Z axis
+            const direction = dz > 0 ? 1 : -1
+            particle.position.z = collider.position.z + direction * collider.size.z
+            particle.velocity.z *= -this.collisionResponse
+            particle.velocity.x *= 1 - this.friction // Apply friction
+          }
 
-      console.log(`🔍 Movement Debug for ${clothId}:`)
-      console.log(`   • Average velocity: ${avgVelocity.toFixed(6)}m/frame`)
-      console.log(`   • Max velocity: ${maxVelocity.toFixed(6)}m/frame`)
-      console.log(`   • Y range: ${minY.toFixed(3)}m to ${maxY.toFixed(3)}m`)
-      console.log(`   • Simulation time: ${this.simulationTime.toFixed(1)}s`)
-      console.log(`   • Gravity: ${this.gravity.y}m/s²`)
+          // Update old position to prevent jittering
+          particle.oldPosition.x = particle.position.x - particle.velocity.x * 0.016
+          particle.oldPosition.y = particle.position.y - particle.velocity.y * 0.016
+          particle.oldPosition.z = particle.position.z - particle.velocity.z * 0.016
+        }
+      }
     })
   }
 
   getClothVertices(clothId) {
-    const clothData = this.clothMeshes.get(clothId)
-    if (!clothData) return null
+    const clothMesh = this.clothMeshes.get(clothId)
+    if (!clothMesh) return null
 
-    try {
-      const vertices = new Float32Array(clothData.particles.length * 3)
-      clothData.particles.forEach((particle, index) => {
-        vertices[index * 3] = particle.position.x
-        vertices[index * 3 + 1] = particle.position.y
-        vertices[index * 3 + 2] = particle.position.z
-      })
-      return vertices
-    } catch (error) {
-      console.error("❌ Failed to get cloth vertices:", error)
-      return null
-    }
+    const vertices = []
+    clothMesh.particles.forEach((particle) => {
+      vertices.push(particle.position.x, particle.position.y, particle.position.z)
+    })
+
+    return vertices
   }
 
   setGravity(x, y, z) {
     this.gravity = { x, y, z }
-    console.log(`🌍 Gravity set to: ${x}, ${y}, ${z}`)
+    console.log(`🌍 Gravity set to: (${x}, ${y}, ${z})`)
   }
 
   setClothStiffness(clothId, stiffness) {
-    const clothData = this.clothMeshes.get(clothId)
-    if (!clothData) return
+    const clothMesh = this.clothMeshes.get(clothId)
+    if (!clothMesh) return
 
-    try {
-      clothData.constraints.forEach((constraint) => {
-        if (constraint.type === "structural") {
-          constraint.stiffness = stiffness * 0.5 // Keep it flexible
-        } else if (constraint.type === "shear") {
-          constraint.stiffness = stiffness * 0.3
-        } else if (constraint.type === "bend") {
-          constraint.stiffness = stiffness * 0.1
-        }
-      })
-      console.log(`🧵 Cloth stiffness updated to: ${stiffness} (with flexibility adjustments)`)
-    } catch (error) {
-      console.error("❌ Failed to set cloth stiffness:", error)
-    }
+    clothMesh.constraints.forEach((constraint) => {
+      constraint.stiffness = stiffness
+    })
+
+    console.log(`🧵 Cloth stiffness set to: ${stiffness}`)
   }
 
-  removeCloth(clothId) {
-    this.clothMeshes.delete(clothId)
-    console.log(`🗑️ Cloth ${clothId} removed`)
-  }
-
-  cleanup() {
-    this.clothMeshes.clear()
-    this.avatarColliders.clear()
-    this.particles = []
-    this.constraints = []
-    this.isInitialized = false
-    this.simulationTime = 0
-    console.log("✅ Simple Physics cleanup complete")
-  }
-
-  // Additional methods for debugging and status
   getPhysicsType() {
-    return "Simple Physics (Verlet Integration)"
+    return "Simple Verlet Integration with Improved Collision"
   }
 
   getDetailedStatus() {
-    const totalParticles = Array.from(this.clothMeshes.values()).reduce((sum, cloth) => sum + cloth.particles.length, 0)
-    const totalConstraints = Array.from(this.clothMeshes.values()).reduce(
-      (sum, cloth) => sum + cloth.constraints.length,
-      0,
-    )
-
     return {
       engine: "Simple Physics",
       initialized: this.isInitialized,
       clothMeshes: this.clothMeshes.size,
       avatarColliders: this.avatarColliders.size,
-      simulationTime: this.simulationTime,
       physicsDetails: {
-        totalParticles,
-        totalConstraints,
-        gravity: this.gravity,
-        damping: this.damping,
-        timeStep: this.timeStep,
-        constraintIterations: this.constraintIterations,
+        totalParticles: Array.from(this.clothMeshes.values()).reduce((sum, cloth) => sum + cloth.particles.length, 0),
+        totalConstraints: Array.from(this.clothMeshes.values()).reduce(
+          (sum, cloth) => sum + cloth.constraints.length,
+          0,
+        ),
+        simulationTime: this.simulationTime.toFixed(2),
       },
     }
   }
 
   logFullStatus() {
-    const status = this.getDetailedStatus()
-    console.log("📊 Simple Physics Full Status:")
-    console.log("   Engine:", status.engine)
-    console.log("   Initialized:", status.initialized)
-    console.log("   Simulation Time:", status.simulationTime.toFixed(1) + "s")
-    console.log("   Cloth Meshes:", status.clothMeshes)
-    console.log("   Avatar Colliders:", status.avatarColliders)
-    console.log("   Total Particles:", status.physicsDetails.totalParticles)
-    console.log("   Total Constraints:", status.physicsDetails.totalConstraints)
-    console.log("   Gravity:", status.physicsDetails.gravity)
-    console.log("   Damping:", status.physicsDetails.damping)
-    console.log("   Time Step:", status.physicsDetails.timeStep)
-    console.log("   Constraint Iterations:", status.physicsDetails.constraintIterations)
+    console.log("📊 Simple Physics Engine Full Status:")
+    console.log(`   Initialized: ${this.isInitialized}`)
+    console.log(`   Cloth Meshes: ${this.clothMeshes.size}`)
+    console.log(`   Avatar Colliders: ${this.avatarColliders.size}`)
+    console.log(`   Gravity: (${this.gravity.x}, ${this.gravity.y}, ${this.gravity.z})`)
+    console.log(`   Simulation Time: ${this.simulationTime.toFixed(2)}s`)
+    console.log(`   Collision Response: ${this.collisionResponse}`)
+    console.log(`   Friction: ${this.friction}`)
 
-    // Log individual cloth details
-    this.clothMeshes.forEach((clothData, clothId) => {
-      const pinnedCount = clothData.particles.filter((p) => p.pinned).length
-      console.log(`   Cloth ${clothId}:`)
-      console.log(`     • Particles: ${clothData.particles.length} (${pinnedCount} pinned)`)
-      console.log(`     • Constraints: ${clothData.constraints.length}`)
-      console.log(`     • Grid: ${clothData.gridWidth}x${clothData.gridHeight}`)
-      console.log(`     • Size: ${clothData.physicalWidth}m x ${clothData.physicalHeight}m`)
+    // Log collider details
+    this.avatarColliders.forEach((collider, id) => {
+      console.log(
+        `   Collider ${id}: pos(${collider.position.x}, ${collider.position.y}, ${collider.position.z}) size(${collider.size.x}, ${collider.size.y}, ${collider.size.z})`,
+      )
     })
+
+    // Log cloth details
+    this.clothMeshes.forEach((cloth, id) => {
+      console.log(`   Cloth ${id}: ${cloth.particles.length} particles, ${cloth.constraints.length} constraints`)
+    })
+  }
+
+  cleanup() {
+    this.clothMeshes.clear()
+    this.avatarColliders.clear()
+    this.isInitialized = false
+    console.log("✅ Simple Physics cleanup complete")
   }
 }
 

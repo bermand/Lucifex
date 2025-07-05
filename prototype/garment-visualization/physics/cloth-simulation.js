@@ -14,6 +14,7 @@ class ClothSimulation {
     this.visualMeshes = new Map()
     this.updateCount = 0
     this.realModelViewers = new Map() // Store references to actual Model Viewer elements
+    this.initialModelStates = new Map() // Store initial model states
   }
 
   async initialize() {
@@ -67,15 +68,37 @@ class ClothSimulation {
       // Store reference to the real avatar model viewer
       this.realModelViewers.set("avatar", avatarModelViewer)
 
-      // Create avatar collider at center position
-      const colliderId = this.physicsEngine.createAvatarCollider({ x: 0, y: 0, z: 0 }, { x: 0.4, y: 0.9, z: 0.2 })
+      // Wait for model to load if not already loaded
+      await this.waitForModelLoad(avatarModelViewer)
 
-      if (colliderId) {
-        this.avatarColliders.set("main-avatar", colliderId)
-        console.log("✅ Avatar physics setup complete for real model")
+      // Create multiple avatar colliders for better collision detection
+      const colliders = [
+        // Torso
+        { pos: { x: 0, y: 0.6, z: 0 }, size: { x: 0.35, y: 0.4, z: 0.2 } },
+        // Head
+        { pos: { x: 0, y: 1.2, z: 0 }, size: { x: 0.15, y: 0.2, z: 0.15 } },
+        // Arms
+        { pos: { x: -0.4, y: 0.8, z: 0 }, size: { x: 0.1, y: 0.3, z: 0.1 } },
+        { pos: { x: 0.4, y: 0.8, z: 0 }, size: { x: 0.1, y: 0.3, z: 0.1 } },
+        // Legs
+        { pos: { x: -0.15, y: 0.2, z: 0 }, size: { x: 0.12, y: 0.4, z: 0.12 } },
+        { pos: { x: 0.15, y: 0.2, z: 0 }, size: { x: 0.12, y: 0.4, z: 0.12 } },
+      ]
+
+      let colliderCount = 0
+      for (const collider of colliders) {
+        const colliderId = this.physicsEngine.createAvatarCollider(collider.pos, collider.size)
+        if (colliderId) {
+          this.avatarColliders.set(`avatar-collider-${colliderCount}`, colliderId)
+          colliderCount++
+        }
+      }
+
+      if (colliderCount > 0) {
+        console.log(`✅ Avatar physics setup complete with ${colliderCount} colliders for real model`)
         return true
       } else {
-        throw new Error("Failed to create avatar collider")
+        throw new Error("Failed to create avatar colliders")
       }
     } catch (error) {
       console.error("❌ Failed to setup avatar physics:", error)
@@ -95,11 +118,17 @@ class ClothSimulation {
       // Store reference to the real garment model viewer
       this.realModelViewers.set("garment", garmentModelViewer)
 
-      // Create cloth mesh (we'll use a procedural t-shirt shape that will control the real model)
+      // Wait for model to load if not already loaded
+      await this.waitForModelLoad(garmentModelViewer)
+
+      // Store initial model state
+      this.storeInitialModelState(garmentModelViewer, "garment")
+
+      // Create cloth mesh positioned above the avatar
       const clothResult = this.physicsEngine.createClothFromGeometry(
         [], // vertices (will be generated procedurally)
         [], // indices (will be generated procedurally)
-        { x: 0, y: 1.5, z: 0 }, // starting position above avatar
+        { x: 0, y: 2.0, z: 0 }, // starting position well above avatar
       )
 
       if (clothResult && clothResult.id) {
@@ -121,6 +150,25 @@ class ClothSimulation {
       console.error("❌ Failed to setup garment physics:", error)
       return false
     }
+  }
+
+  async waitForModelLoad(modelViewer) {
+    return new Promise((resolve) => {
+      if (modelViewer.loaded) {
+        resolve()
+      } else {
+        modelViewer.addEventListener("load", resolve, { once: true })
+      }
+    })
+  }
+
+  storeInitialModelState(modelViewer, type) {
+    // Store the initial state of the model for reset purposes
+    this.initialModelStates.set(type, {
+      position: { x: 0, y: 0, z: 0 },
+      rotation: { x: 0, y: 0, z: 0 },
+      scale: { x: 1, y: 1, z: 1 },
+    })
   }
 
   createVisualClothMesh(modelViewer, clothId) {
@@ -210,30 +258,47 @@ class ClothSimulation {
           const normalizedX = gridX / 15 // 0 to 1
           const normalizedY = gridY / 19 // 0 to 1
 
-          // Reset to high starting position
+          // Reset to high starting position (higher than before)
           particle.position.x = (normalizedX - 0.5) * 1.0 // -0.5 to 0.5
-          particle.position.y = 2.5 - normalizedY * 1.2 // 2.5 to 1.3
+          particle.position.y = 3.0 - normalizedY * 0.5 // 3.0 to 2.5 (much higher)
           particle.position.z = (Math.random() - 0.5) * 0.1 // Small Z variation
 
           // Reset old position for initial velocity
-          particle.oldPosition.x = particle.position.x + (Math.random() - 0.5) * 0.05
-          particle.oldPosition.y = particle.position.y + 0.1 // Small upward velocity
-          particle.oldPosition.z = particle.position.z + (Math.random() - 0.5) * 0.05
+          particle.oldPosition.x = particle.position.x + (Math.random() - 0.5) * 0.02
+          particle.oldPosition.y = particle.position.y + 0.05 // Small upward velocity
+          particle.oldPosition.z = particle.position.z + (Math.random() - 0.5) * 0.02
         })
 
-        console.log(`✅ Cloth ${clothId} reset to starting position`)
+        console.log(`✅ Cloth ${clothId} reset to high starting position`)
       })
 
-      // Reset real model transformations
+      // Reset real model transformations using Model Viewer API
       const garmentViewer = this.realModelViewers.get("garment")
       if (garmentViewer) {
-        garmentViewer.style.transform = "translateY(0px) scaleY(1) scaleX(1) rotateX(0deg)"
-        garmentViewer.style.opacity = "1.0"
+        this.resetModelTransform(garmentViewer)
         console.log("✅ Real garment model reset to original position")
       }
 
       // Reset simulation time
       this.physicsEngine.simulationTime = 0
+    }
+  }
+
+  resetModelTransform(modelViewer) {
+    try {
+      // Reset using Model Viewer's built-in properties to avoid background movement
+      if (modelViewer.model) {
+        modelViewer.model.position.set(0, 0, 0)
+        modelViewer.model.rotation.set(0, 0, 0)
+        modelViewer.model.scale.set(1, 1, 1)
+      }
+
+      // Also reset any CSS transforms as fallback
+      modelViewer.style.transform = ""
+      modelViewer.style.filter = ""
+      modelViewer.style.opacity = "1.0"
+    } catch (error) {
+      console.error("❌ Failed to reset model transform:", error)
     }
   }
 
@@ -301,22 +366,35 @@ class ClothSimulation {
       let minY = Number.POSITIVE_INFINITY
       let maxY = Number.NEGATIVE_INFINITY
       let avgY = 0
+      let avgX = 0
+      let avgZ = 0
 
-      for (let i = 1; i < vertices.length; i += 3) {
-        const y = vertices[i]
+      for (let i = 0; i < vertices.length; i += 3) {
+        const x = vertices[i]
+        const y = vertices[i + 1]
+        const z = vertices[i + 2]
+
         minY = Math.min(minY, y)
         maxY = Math.max(maxY, y)
         avgY += y
+        avgX += x
+        avgZ += z
       }
-      avgY /= vertices.length / 3
+
+      const particleCount = vertices.length / 3
+      avgY /= particleCount
+      avgX /= particleCount
+      avgZ /= particleCount
 
       // Store cloth stats for status display
       const clothStats = {
         minY: minY.toFixed(3),
         maxY: maxY.toFixed(3),
         avgY: avgY.toFixed(3),
+        avgX: avgX.toFixed(3),
+        avgZ: avgZ.toFixed(3),
         heightRange: (maxY - minY).toFixed(3),
-        particleCount: vertices.length / 3,
+        particleCount: particleCount,
         lastUpdate: Date.now(),
       }
 
@@ -327,7 +405,7 @@ class ClothSimulation {
         clothData.lastUpdateTime = Date.now()
       }
 
-      // Apply dramatic physics-based transformations to the REAL Model Viewer
+      // Apply physics-based transformations to the REAL Model Viewer (without moving background)
       this.applyPhysicsToRealModel(modelViewer, vertices, clothStats)
     } catch (error) {
       console.error("❌ Failed to update real model viewer:", error)
@@ -338,49 +416,63 @@ class ClothSimulation {
     try {
       // Calculate physics-based transformations
       const avgY = Number.parseFloat(clothStats.avgY)
+      const avgX = Number.parseFloat(clothStats.avgX)
+      const avgZ = Number.parseFloat(clothStats.avgZ)
       const heightRange = Number.parseFloat(clothStats.heightRange)
 
-      // How much the cloth has dropped from starting position (2.5m)
-      const dropAmount = Math.max(0, 2.5 - avgY)
-      const dropProgress = Math.min(dropAmount / 2.5, 1.0) // 0 to 1
+      // How much the cloth has dropped from starting position (3.0m)
+      const dropAmount = Math.max(0, 3.0 - avgY)
+      const dropProgress = Math.min(dropAmount / 2.0, 1.0) // 0 to 1
 
       // Sagging effect based on height range
-      const sagAmount = Math.max(0, heightRange - 1.0) / 2.0 // How much it's stretched
+      const sagAmount = Math.max(0, heightRange - 0.5) / 1.5 // How much it's stretched
       const sagProgress = Math.min(sagAmount, 1.0)
 
-      // Apply DRAMATIC transformations to the REAL Model Viewer
-      const translateY = dropProgress * 200 // Move down as cloth falls (more dramatic)
-      const swayX = Math.sin(this.updateCount * 0.02) * dropProgress * 5
-      const swayZ = Math.cos(this.updateCount * 0.015) * dropProgress * 3
-      const scaleY = Math.max(0.6, 1 - sagProgress * 0.4) // Compress as it sags (more dramatic)
-      const scaleX = 1 + sagProgress * 0.2 // Slight horizontal expansion
-      const rotateX = sagProgress * 15 // Tilt as it drapes (more dramatic)
+      // Calculate transformations
+      const positionY = -dropProgress * 0.3 // Move model down as cloth falls
+      const positionX = avgX * 0.1 // Follow cloth center X
+      const positionZ = avgZ * 0.1 // Follow cloth center Z
 
-      // Apply to the REAL model viewer
-      if (modelViewer && modelViewer.style) {
-        modelViewer.style.transform = `
-          translateY(${translateY}px)
-          translateX(${swayX}px)
-          scaleY(${scaleY})
-          scaleX(${scaleX})
-          rotateX(${rotateX}deg)
-          rotateZ(${swayZ}deg)
+      const scaleY = Math.max(0.7, 1 - sagProgress * 0.3) // Compress as it sags
+      const scaleX = 1 + sagProgress * 0.1 // Slight horizontal expansion
+      const scaleZ = 1 + sagProgress * 0.05 // Slight depth expansion
+
+      const rotationX = sagProgress * 0.1 // Tilt as it drapes (in radians)
+      const rotationZ = Math.sin(this.updateCount * 0.01) * dropProgress * 0.05 // Subtle sway
+
+      // Apply transformations using Model Viewer's API to avoid background movement
+      if (modelViewer.model) {
+        // Set position
+        modelViewer.model.position.set(positionX, positionY, positionZ)
+
+        // Set rotation
+        modelViewer.model.rotation.set(rotationX, 0, rotationZ)
+
+        // Set scale
+        modelViewer.model.scale.set(scaleX, scaleY, scaleZ)
+
+        console.log(
+          `🎬 Model transform: pos(${positionX.toFixed(3)}, ${positionY.toFixed(3)}, ${positionZ.toFixed(3)}) scale(${scaleX.toFixed(3)}, ${scaleY.toFixed(3)}, ${scaleZ.toFixed(3)})`,
+        )
+      } else {
+        // Fallback to CSS transforms if Model Viewer API not available
+        console.log("⚠️ Using CSS transform fallback")
+        const transform = `
+          translate3d(${positionX * 100}px, ${positionY * 100}px, ${positionZ * 100}px)
+          scale3d(${scaleX}, ${scaleY}, ${scaleZ})
+          rotateX(${rotationX * 57.3}deg)
+          rotateZ(${rotationZ * 57.3}deg)
         `
 
-        // Add visual feedback through opacity changes
-        const opacity = Math.max(0.7, 1.0 - dropProgress * 0.1)
-        modelViewer.style.opacity = opacity.toString()
-
-        // Add physics-based filter effects
-        const blur = dropProgress * 0.5
-        const brightness = 1 + sagProgress * 0.2
-        modelViewer.style.filter = `blur(${blur}px) brightness(${brightness})`
+        if (modelViewer.style) {
+          modelViewer.style.transform = transform
+        }
       }
 
       // Log dramatic changes
       if (dropProgress > 0.1) {
         console.log(
-          `🎬 REAL MODEL PHYSICS EFFECT: Drop ${(dropProgress * 100).toFixed(0)}%, Sag ${(sagProgress * 100).toFixed(0)}%`,
+          `🎬 REAL MODEL PHYSICS: Drop ${(dropProgress * 100).toFixed(0)}%, Sag ${(sagProgress * 100).toFixed(0)}%, Y: ${avgY.toFixed(2)}m`,
         )
       }
     } catch (error) {
@@ -419,11 +511,9 @@ class ClothSimulation {
         console.log(`📊 REAL Model Movement Analysis:`)
         console.log(`   • Average movement: ${avgMovement.toFixed(6)}m`)
         console.log(`   • Max movement: ${maxMovement.toFixed(6)}m`)
-        console.log(`   • Total movement: ${totalMovement.toFixed(6)}m`)
         console.log(`   • Moving particles: ${movingParticles}/${vertices.length / 3}`)
-        console.log(`   • Movement threshold: 0.0001m`)
 
-        // Check if cloth is actually moving
+        // Check if cloth is actually moving and colliding
         if (avgMovement > 0.001) {
           console.log(`✅ REAL MODEL IS MOVING! Average: ${avgMovement.toFixed(6)}m/frame`)
         } else if (avgMovement > 0.0001) {
@@ -432,7 +522,7 @@ class ClothSimulation {
           console.log(`❌ Real model appears static: ${avgMovement.toFixed(6)}m/frame`)
         }
       } else {
-        console.log(`⚠️ No previous vertices to compare movement (first frame or data issue)`)
+        console.log(`⚠️ No previous vertices to compare movement (first frame)`)
 
         // Store current vertices for next comparison
         if (visualMesh) {
@@ -467,20 +557,9 @@ class ClothSimulation {
         console.log(`   Real Model ${clothName}:`)
         console.log(`     • Height range: ${clothData.stats.heightRange}m`)
         console.log(`     • Average Y: ${clothData.stats.avgY}m`)
+        console.log(`     • Average X: ${clothData.stats.avgX}m`)
+        console.log(`     • Average Z: ${clothData.stats.avgZ}m`)
         console.log(`     • Particles: ${clothData.stats.particleCount}`)
-        console.log(`     • Last update: ${new Date(clothData.stats.lastUpdate).toLocaleTimeString()}`)
-      }
-    })
-
-    // Force a movement analysis
-    this.clothMeshes.forEach((clothData, clothName) => {
-      const physicsId = clothData.physicsId
-      if (physicsId) {
-        const vertices = this.physicsEngine.getClothVertices(physicsId)
-        if (vertices) {
-          console.log(`🔍 Forced movement check for real model ${clothName}:`)
-          this.logClothMovement(vertices, physicsId)
-        }
       }
     })
   }
@@ -577,6 +656,7 @@ class ClothSimulation {
     this.avatarColliders.clear()
     this.visualMeshes.clear()
     this.realModelViewers.clear()
+    this.initialModelStates.clear()
     this.physicsEngine = null
     this.engineType = null
     this.isInitialized = false
