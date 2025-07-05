@@ -5,129 +5,132 @@ export class Utils {
     console.log("🔧 Utils initialized")
   }
 
-  async initialize() {
-    console.log("✅ Utils initialized")
-  }
-
   // Status updates
   updateStatus(message) {
-    console.log("Status:", message)
     const statusElement = document.getElementById("status")
     if (statusElement) {
       statusElement.textContent = message
-      statusElement.className = message.includes("❌") ? "status error" : "status"
     }
+    console.log("Status:", message)
   }
 
   updatePhysicsStatus(message) {
-    console.log("Physics Status:", message)
     const physicsStatusElement = document.getElementById("physics-status")
     if (physicsStatusElement) {
-      physicsStatusElement.textContent = message
-      physicsStatusElement.className = message.includes("❌") ? "status error" : "status"
+      physicsStatusElement.textContent = `Physics: ${message}`
     }
+    console.log("Physics Status:", message)
   }
 
-  showPhysicsEffect(message) {
-    console.log("Physics Effect:", message)
-    const effectElement = document.getElementById("physics-effect")
-    if (effectElement) {
-      effectElement.textContent = message
-      effectElement.style.display = "block"
-      setTimeout(() => {
-        effectElement.style.display = "none"
-      }, 3000)
-    }
-  }
-
-  updateCombinationStatus(hasAvatar, hasGarment) {
-    const combinationStatus = document.getElementById("combination-status")
-    if (combinationStatus) {
-      if (hasAvatar && hasGarment) {
-        combinationStatus.textContent = "✅ Ready to combine"
-        combinationStatus.className = "status success"
-      } else if (hasAvatar || hasGarment) {
-        combinationStatus.textContent = "⚠️ Need both models"
-        combinationStatus.className = "status warning"
-      } else {
-        combinationStatus.textContent = "❌ No models loaded"
-        combinationStatus.className = "status error"
-      }
-    }
-  }
-
-  // File handling
+  // File validation
   isValidModelFile(file) {
     const validExtensions = [".glb", ".gltf"]
     const fileName = file.name.toLowerCase()
     return validExtensions.some((ext) => fileName.endsWith(ext))
   }
 
-  createObjectURL(file) {
-    return URL.createObjectURL(file)
-  }
-
+  // File size formatting
   formatFileSize(bytes) {
     if (bytes === 0) return "0 Bytes"
     const k = 1024
     const sizes = ["Bytes", "KB", "MB", "GB"]
     const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i]
+    return Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i]
   }
 
+  // Object URL management
+  createObjectURL(file) {
+    return URL.createObjectURL(file)
+  }
+
+  revokeObjectURL(url) {
+    if (url && url.startsWith("blob:")) {
+      URL.revokeObjectURL(url)
+    }
+  }
+
+  // File info display
   updateFileInfo(elementId, file, type) {
-    const fileInfo = document.getElementById(elementId)
-    if (fileInfo) {
-      fileInfo.innerHTML = `
+    const element = document.getElementById(elementId)
+    if (element) {
+      element.innerHTML = `
         <strong>✅ Loaded:</strong> ${file.name}<br>
         <strong>📊 Size:</strong> ${this.formatFileSize(file.size)}<br>
         <strong>🏷️ Type:</strong> ${type}
       `
-      fileInfo.className = "file-info success"
+      element.className = "file-info success"
     }
   }
 
   // Button state management
   setActiveButtonByData(selector, dataAttribute, value) {
-    document.querySelectorAll(selector).forEach((btn) => btn.classList.remove("active"))
-    const targetButton = document.querySelector(`${selector}[${dataAttribute}="${value}"]`)
-    if (targetButton) {
-      targetButton.classList.add("active")
+    const buttons = document.querySelectorAll(selector)
+    buttons.forEach((button) => {
+      button.classList.remove("active")
+      if (button.getAttribute(dataAttribute) === value) {
+        button.classList.add("active")
+      }
+    })
+  }
+
+  // Model viewer helpers
+  async waitForModelLoad(viewer) {
+    return new Promise((resolve) => {
+      if (viewer.loaded) {
+        resolve()
+      } else {
+        viewer.addEventListener("load", resolve, { once: true })
+      }
+    })
+  }
+
+  // Physics effects
+  showPhysicsEffect(message) {
+    const effectElement = document.getElementById("physics-effect")
+    if (effectElement) {
+      effectElement.textContent = message
+      effectElement.classList.add("show")
+
+      setTimeout(() => {
+        effectElement.classList.remove("show")
+      }, 3000)
     }
   }
 
-  setButtonsActive(selector, activeButton) {
-    document.querySelectorAll(selector).forEach((btn) => btn.classList.remove("active"))
-    if (activeButton) {
-      activeButton.classList.add("active")
+  // Combination status
+  updateCombinationStatus(hasAvatar, hasGarment) {
+    if (hasAvatar && hasGarment) {
+      this.updateStatus("✅ Both models loaded - ready for combination")
+    } else if (hasAvatar) {
+      this.updateStatus("✅ Avatar loaded - need garment for combination")
+    } else if (hasGarment) {
+      this.updateStatus("✅ Garment loaded - need avatar for combination")
+    } else {
+      this.updateStatus("❌ Need both avatar and garment for combination")
     }
   }
 
   // Screenshot functionality
   takeScreenshot() {
-    const viewer = this.state.mainViewer || this.state.avatarViewer || this.state.garmentViewer
+    const viewer = this.getCurrentViewer()
     if (viewer) {
       try {
-        const canvas = viewer.querySelector("canvas")
-        if (canvas) {
-          const link = document.createElement("a")
-          link.download = `lucifex-screenshot-${Date.now()}.png`
-          link.href = canvas.toDataURL()
-          link.click()
-          this.updateStatus("📸 Screenshot saved")
-        } else {
-          this.updateStatus("❌ No canvas found for screenshot")
-        }
+        const canvas = viewer.toDataURL("image/png")
+        const link = document.createElement("a")
+        link.download = `lucifex-screenshot-${Date.now()}.png`
+        link.href = canvas
+        link.click()
+        this.updateStatus("📸 Screenshot saved")
       } catch (error) {
-        console.error("Screenshot error:", error)
+        console.error("Screenshot failed:", error)
         this.updateStatus("❌ Screenshot failed")
       }
     } else {
-      this.updateStatus("❌ No viewer available for screenshot")
+      this.updateStatus("❌ No model loaded for screenshot")
     }
   }
 
-  // Export functionality
+  // Scene export
   exportScene() {
     const sceneData = {
       timestamp: new Date().toISOString(),
@@ -137,37 +140,96 @@ export class Utils {
       environment: this.state.currentEnvironment,
       combinationMethod: this.state.currentCombinationMethod,
       physicsEnabled: this.state.isPhysicsEnabled,
-      settings: this.getControlValues(),
     }
 
-    const blob = new Blob([JSON.stringify(sceneData, null, 2)], { type: "application/json" })
+    const dataStr = JSON.stringify(sceneData, null, 2)
+    const dataBlob = new Blob([dataStr], { type: "application/json" })
+    const url = URL.createObjectURL(dataBlob)
+
     const link = document.createElement("a")
     link.download = `lucifex-scene-${Date.now()}.json`
-    link.href = URL.createObjectURL(blob)
+    link.href = url
     link.click()
 
+    URL.revokeObjectURL(url)
     this.updateStatus("💾 Scene exported")
   }
 
-  getControlValues() {
-    const controls = {}
-    const inputs = document.querySelectorAll("input[type='range']")
-    inputs.forEach((input) => {
-      if (input.id) {
-        controls[input.id] = input.value
+  // Get current active viewer
+  getCurrentViewer() {
+    switch (this.state.currentTab) {
+      case "avatar":
+        return this.state.currentModelType === "both" ? this.state.avatarViewer : this.state.mainViewer
+      case "garment":
+        return this.state.currentModelType === "both" ? this.state.garmentViewer : this.state.mainViewer
+      case "combined":
+        return this.state.avatarViewer
+      case "physics":
+        return this.state.physicsAvatarViewer
+      case "environment":
+        return this.state.environmentViewer
+      default:
+        return this.state.mainViewer
+    }
+  }
+
+  // Error handling
+  handleError(error, context = "Unknown") {
+    console.error(`❌ Error in ${context}:`, error)
+    this.updateStatus(`❌ Error: ${error.message || "Unknown error"}`)
+  }
+
+  // Loading states
+  setLoading(element, loading = true) {
+    if (element) {
+      if (loading) {
+        element.classList.add("loading")
+      } else {
+        element.classList.remove("loading")
       }
-    })
-    return controls
+    }
+  }
+
+  // Debounce utility
+  debounce(func, wait) {
+    let timeout
+    return function executedFunction(...args) {
+      const later = () => {
+        clearTimeout(timeout)
+        func(...args)
+      }
+      clearTimeout(timeout)
+      timeout = setTimeout(later, wait)
+    }
+  }
+
+  // Animation helpers
+  animateValue(start, end, duration, callback) {
+    const startTime = performance.now()
+
+    const animate = (currentTime) => {
+      const elapsed = currentTime - startTime
+      const progress = Math.min(elapsed / duration, 1)
+      const value = start + (end - start) * progress
+
+      callback(value)
+
+      if (progress < 1) {
+        requestAnimationFrame(animate)
+      }
+    }
+
+    requestAnimationFrame(animate)
   }
 
   // Cleanup
   cleanup() {
-    // Clean up any created object URLs
+    // Revoke any object URLs
     if (this.state.currentAvatarUrl && this.state.currentAvatarUrl.startsWith("blob:")) {
-      URL.revokeObjectURL(this.state.currentAvatarUrl)
+      this.revokeObjectURL(this.state.currentAvatarUrl)
     }
     if (this.state.currentGarmentUrl && this.state.currentGarmentUrl.startsWith("blob:")) {
-      URL.revokeObjectURL(this.state.currentGarmentUrl)
+      this.revokeObjectURL(this.state.currentGarmentUrl)
     }
   }
 }

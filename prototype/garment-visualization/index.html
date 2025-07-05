@@ -4,301 +4,337 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lucifex - Garment Visualization</title>
+    <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
     <link rel="stylesheet" href="styles.css">
-    
-    <!-- Model Viewer -->
-    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.3.0/model-viewer.min.js"></script>
 </head>
 <body>
-    <div class="app-container">
-        <!-- Header -->
+    <div class="container">
         <header class="header">
-            <div class="header-content">
-                <h1 class="app-title">🎭 Lucifex Garment Visualizer</h1>
-                <div class="status-bar">
-                    <div id="status" class="status">Ready</div>
-                    <div id="physics-status" class="physics-status">Physics: Disabled</div>
-                </div>
+            <h1>🎭 Lucifex Garment Visualizer</h1>
+            <div class="status-bar">
+                <div id="status" class="status">Ready</div>
+                <div id="physics-status" class="physics-status">Physics: Disabled</div>
             </div>
         </header>
 
-        <!-- Main Content -->
         <div class="main-content">
-            <!-- Sidebar -->
-            <aside class="sidebar">
-                <!-- Tabs -->
-                <div class="tabs">
-                    <button class="tab active" data-tab="avatar">👤 Avatar</button>
-                    <button class="tab" data-tab="garment">👕 Garment</button>
-                    <button class="tab" data-tab="combined">🎭 Combined</button>
-                    <button class="tab" data-tab="physics">🧬 Physics</button>
-                    <button class="tab" data-tab="environment">🌍 Environment</button>
-                </div>
+            <!-- Tab Navigation -->
+            <div class="tabs">
+                <button class="tab active" data-tab="avatar">👤 Avatar</button>
+                <button class="tab" data-tab="garment">👕 Garment</button>
+                <button class="tab" data-tab="combined">🎭 Combined</button>
+                <button class="tab" data-tab="physics">🧬 Physics</button>
+                <button class="tab" data-tab="environment">🌍 Environment</button>
+            </div>
 
-                <!-- Tab Content -->
-                <div class="tab-contents">
-                    <!-- Avatar Tab -->
-                    <div id="avatar-tab" class="tab-content active">
+            <!-- Tab Content -->
+            <div class="tab-contents">
+                <!-- Avatar Tab -->
+                <div id="avatar-tab" class="tab-content active">
+                    <div class="controls-section">
                         <h3>Avatar Selection</h3>
-                        
-                        <div class="preset-section">
-                            <h4>Presets</h4>
-                            <div class="preset-grid">
-                                <button class="avatar-option" data-avatar="male">👨 Male</button>
-                                <button class="avatar-option" data-avatar="female">👩 Female</button>
-                            </div>
+                        <div class="avatar-options">
+                            <button class="avatar-option" data-avatar="male">👨 Male</button>
+                            <button class="avatar-option" data-avatar="female">👩 Female</button>
                         </div>
-
-                        <div class="file-section">
-                            <h4>Custom Upload</h4>
-                            <input type="file" id="avatar-file" accept=".glb,.gltf" class="file-input">
-                            <label for="avatar-file" class="file-label">📁 Choose Avatar File</label>
+                        
+                        <div class="file-upload">
+                            <label for="avatar-file">Upload Custom Avatar:</label>
+                            <input type="file" id="avatar-file" accept=".glb,.gltf">
                             <div id="avatar-file-info" class="file-info"></div>
                         </div>
 
-                        <div class="controls-section">
-                            <h4>Avatar Controls</h4>
+                        <div class="controls">
                             <div class="control-group">
-                                <label for="avatar-scale">Scale: <span id="avatar-scale-value">1.0</span></label>
-                                <input type="range" id="avatar-scale" min="0.5" max="2.0" step="0.1" value="1.0">
+                                <label for="avatar-scale">Scale:</label>
+                                <input type="range" id="avatar-scale" min="0.1" max="3" step="0.1" value="1">
+                                <span id="avatar-scale-value">1</span>
+                            </div>
+                            <div class="control-group">
+                                <label for="avatar-opacity">Opacity:</label>
+                                <input type="range" id="avatar-opacity" min="0" max="1" step="0.1" value="1">
+                                <span id="avatar-opacity-value">1</span>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Garment Tab -->
-                    <div id="garment-tab" class="tab-content">
-                        <h3>Garment Selection</h3>
-                        
-                        <div class="preset-section">
-                            <h4>Sample Garments</h4>
-                            <div class="preset-grid">
-                                <button class="preset-btn" data-garment="tshirt">👕 T-Shirt</button>
-                                <button class="preset-btn" data-garment="tshirt-1">👔 T-Shirt 1</button>
-                                <button class="preset-btn" data-garment="thsirt">🎽 Tank Top</button>
-                            </div>
+                    <div class="viewer-section">
+                        <div class="model-type-selector">
+                            <button class="model-btn active" data-model-type="avatar">👤 Avatar Only</button>
+                            <button class="model-btn" data-model-type="garment">👕 Garment Only</button>
+                            <button class="model-btn" data-model-type="both">🎭 Combined View</button>
                         </div>
+                        <div class="viewer-container">
+                            <model-viewer id="main-viewer" 
+                                camera-controls 
+                                auto-rotate 
+                                environment-image="neutral"
+                                exposure="1"
+                                shadow-intensity="1"
+                                shadow-softness="0.5">
+                            </model-viewer>
+                        </div>
+                    </div>
+                </div>
 
-                        <div class="file-section">
-                            <h4>Custom Upload</h4>
-                            <input type="file" id="garment-file" accept=".glb,.gltf" class="file-input">
-                            <label for="garment-file" class="file-label">📁 Choose Garment File</label>
+                <!-- Garment Tab -->
+                <div id="garment-tab" class="tab-content">
+                    <div class="controls-section">
+                        <h3>Garment Selection</h3>
+                        <div class="garment-options">
+                            <button class="preset-btn" data-garment="tshirt">👕 T-Shirt</button>
+                            <button class="preset-btn" data-garment="tshirt-1">👔 Shirt</button>
+                            <button class="preset-btn" data-garment="dress">👗 Dress</button>
+                        </div>
+                        
+                        <div class="file-upload">
+                            <label for="garment-file">Upload Custom Garment:</label>
+                            <input type="file" id="garment-file" accept=".glb,.gltf">
                             <div id="garment-file-info" class="file-info"></div>
                         </div>
 
-                        <div class="controls-section">
-                            <h4>Garment Controls</h4>
+                        <div class="controls">
                             <div class="control-group">
-                                <label for="garment-scale">Scale: <span id="garment-scale-value">1.0</span></label>
-                                <input type="range" id="garment-scale" min="0.5" max="2.0" step="0.1" value="1.0">
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Combined Tab -->
-                    <div id="combined-tab" class="tab-content">
-                        <h3>Combined View</h3>
-                        
-                        <div class="combination-status">
-                            <div id="combination-status" class="status-indicator">
-                                <span class="status-dot"></span>
-                                <span class="status-text">Ready for combination</span>
-                            </div>
-                        </div>
-
-                        <div class="preset-section">
-                            <h4>Combination Method</h4>
-                            <div class="preset-grid">
-                                <button class="preset-btn active" data-combination="overlay">🎭 Overlay</button>
-                                <button class="preset-btn" data-combination="blend">🌈 Blend</button>
-                                <button class="preset-btn" data-combination="physics">🧬 Physics</button>
-                            </div>
-                        </div>
-
-                        <div class="controls-section">
-                            <h4>Combined Controls</h4>
-                            <div class="control-group">
-                                <label for="garment-scale-combined">Garment Scale: <span id="garment-scale-combined-value">1.0</span></label>
-                                <input type="range" id="garment-scale-combined" min="0.5" max="2.0" step="0.1" value="1.0">
+                                <label for="garment-scale">Scale:</label>
+                                <input type="range" id="garment-scale" min="0.1" max="3" step="0.1" value="1">
+                                <span id="garment-scale-value">1</span>
                             </div>
                             <div class="control-group">
-                                <label for="garment-offset-x">X Position: <span id="garment-offset-x-value">0</span></label>
+                                <label for="garment-opacity">Opacity:</label>
+                                <input type="range" id="garment-opacity" min="0" max="1" step="0.1" value="1">
+                                <span id="garment-opacity-value">1</span>
+                            </div>
+                            <div class="control-group">
+                                <label for="garment-offset-x">Position X:</label>
                                 <input type="range" id="garment-offset-x" min="-2" max="2" step="0.1" value="0">
+                                <span id="garment-offset-x-value">0</span>
                             </div>
                             <div class="control-group">
-                                <label for="garment-offset-y">Y Position: <span id="garment-offset-y-value">0</span></label>
+                                <label for="garment-offset-y">Position Y:</label>
                                 <input type="range" id="garment-offset-y" min="-2" max="2" step="0.1" value="0">
+                                <span id="garment-offset-y-value">0</span>
                             </div>
-                            <div class="control-group">
-                                <label for="avatar-opacity">Avatar Opacity: <span id="avatar-opacity-value">0.7</span></label>
-                                <input type="range" id="avatar-opacity" min="0" max="1" step="0.1" value="0.7">
-                            </div>
-                            <div class="control-group">
-                                <label for="garment-opacity">Garment Opacity: <span id="garment-opacity-value">1.0</span></label>
-                                <input type="range" id="garment-opacity" min="0" max="1" step="0.1" value="1.0">
-                            </div>
-                        </div>
-
-                        <div class="action-section">
-                            <button id="generate-combined" class="action-btn primary">🎭 Generate Combined</button>
-                            <button id="reset-combination" class="action-btn secondary">🔄 Reset</button>
                         </div>
                     </div>
 
-                    <!-- Physics Tab -->
-                    <div id="physics-tab" class="tab-content">
+                    <div class="viewer-section">
+                        <div class="model-type-selector">
+                            <button class="model-btn" data-model-type="avatar">👤 Avatar Only</button>
+                            <button class="model-btn active" data-model-type="garment">👕 Garment Only</button>
+                            <button class="model-btn" data-model-type="both">🎭 Combined View</button>
+                        </div>
+                        <div class="viewer-container">
+                            <model-viewer id="garment-viewer" 
+                                camera-controls 
+                                auto-rotate 
+                                environment-image="neutral"
+                                exposure="1"
+                                shadow-intensity="1"
+                                shadow-softness="0.5">
+                            </model-viewer>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Combined Tab -->
+                <div id="combined-tab" class="tab-content">
+                    <div class="controls-section">
+                        <h3>Combined View Controls</h3>
+                        
+                        <div class="combination-methods">
+                            <h4>Combination Method:</h4>
+                            <button class="preset-btn active" data-combination="overlay">🎭 Overlay</button>
+                            <button class="preset-btn" data-combination="blend">🌈 Blend</button>
+                            <button class="preset-btn" data-combination="physics">🧬 Physics</button>
+                        </div>
+
+                        <div class="controls">
+                            <div class="control-group">
+                                <label for="garment-scale-combined">Garment Scale:</label>
+                                <input type="range" id="garment-scale-combined" min="0.1" max="3" step="0.1" value="1">
+                                <span id="garment-scale-combined-value">1</span>
+                            </div>
+                        </div>
+
+                        <div class="action-buttons">
+                            <button id="generate-combined" class="action-btn">🎭 Generate Combined</button>
+                            <button id="reset-combination" class="action-btn">🔄 Reset</button>
+                        </div>
+                    </div>
+
+                    <div class="viewer-section">
+                        <div class="model-type-selector">
+                            <button class="model-btn" data-model-type="avatar">👤 Avatar Only</button>
+                            <button class="model-btn" data-model-type="garment">👕 Garment Only</button>
+                            <button class="model-btn active" data-model-type="both">🎭 Combined View</button>
+                        </div>
+                        <div class="viewer-container">
+                            <div class="combined-viewer">
+                                <model-viewer id="avatar-viewer" 
+                                    camera-controls 
+                                    auto-rotate 
+                                    environment-image="neutral"
+                                    exposure="1"
+                                    shadow-intensity="1"
+                                    shadow-softness="0.5">
+                                </model-viewer>
+                                <model-viewer id="combined-garment-viewer" 
+                                    camera-controls 
+                                    auto-rotate 
+                                    environment-image="neutral"
+                                    exposure="1"
+                                    shadow-intensity="1"
+                                    shadow-softness="0.5">
+                                </model-viewer>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Physics Tab -->
+                <div id="physics-tab" class="tab-content">
+                    <div class="controls-section">
                         <h3>Physics Simulation</h3>
                         
-                        <div class="physics-status">
-                            <div id="physics-indicator" class="status-indicator">
-                                <span class="status-dot"></span>
-                                <span class="status-text">Physics: Disabled</span>
-                            </div>
+                        <div class="physics-controls">
+                            <button id="physics-toggle" class="action-btn">🧬 Enable Physics</button>
+                            <button id="physics-reset" class="action-btn">🔄 Reset Physics</button>
+                            <button id="reset-cloth" class="action-btn">📍 Reset Cloth</button>
                         </div>
 
-                        <div class="action-section">
-                            <button id="physics-toggle" class="action-btn primary">🧬 Enable Physics</button>
-                            <button id="physics-reset" class="action-btn secondary">🔄 Reset Physics</button>
-                            <button id="reset-cloth" class="action-btn secondary">📍 Reset Cloth</button>
-                        </div>
-
-                        <div id="physics-controls" class="controls-section" style="display: none;">
-                            <h4>Physics Settings</h4>
+                        <div id="physics-controls" class="controls" style="display: none;">
                             <div class="control-group">
-                                <label for="cloth-stiffness">Cloth Stiffness: <span id="cloth-stiffness-value">0.3</span></label>
-                                <input type="range" id="cloth-stiffness" min="0.1" max="1.0" step="0.1" value="0.3">
+                                <label for="cloth-stiffness">Cloth Stiffness:</label>
+                                <input type="range" id="cloth-stiffness" min="0.1" max="1" step="0.1" value="0.4">
+                                <span id="cloth-stiffness-value">0.4</span>
                             </div>
                             <div class="control-group">
-                                <label for="gravity-strength">Gravity: <span id="gravity-strength-value">0.8</span></label>
-                                <input type="range" id="gravity-strength" min="0.1" max="2.0" step="0.1" value="0.8">
+                                <label for="gravity-strength">Gravity:</label>
+                                <input type="range" id="gravity-strength" min="0.1" max="2" step="0.1" value="0.98">
+                                <span id="gravity-strength-value">0.98</span>
                             </div>
                         </div>
 
-                        <div class="debug-section">
-                            <h4>Debug & Testing</h4>
-                            <button id="debug-toggle" class="action-btn secondary">🔍 Show Debug</button>
-                            <button id="debug-log" class="action-btn secondary">📊 Log Status</button>
-                            <button id="drop-test" class="action-btn secondary">🎬 Drop Test</button>
-                            <button id="basic-test" class="action-btn secondary">🧪 Basic Test</button>
+                        <div class="physics-debug">
+                            <h4>Debug & Testing:</h4>
+                            <button id="debug-toggle" class="action-btn">🔍 Show Debug</button>
+                            <button id="debug-log" class="action-btn">📊 Log Status</button>
+                            <button id="drop-test" class="action-btn">🎬 Drop Test</button>
+                            <button id="basic-test" class="action-btn">🧪 Basic Test</button>
                         </div>
+
+                        <div id="physics-effect" class="physics-effect"></div>
                     </div>
 
-                    <!-- Environment Tab -->
-                    <div id="environment-tab" class="tab-content">
+                    <div class="viewer-section">
+                        <div class="model-type-selector">
+                            <button class="model-btn" data-model-type="avatar">👤 Avatar Only</button>
+                            <button class="model-btn" data-model-type="garment">👕 Garment Only</button>
+                            <button class="model-btn active" data-model-type="both">🎭 Combined View</button>
+                        </div>
+                        <div class="viewer-container">
+                            <div class="combined-viewer">
+                                <model-viewer id="physics-avatar-viewer" 
+                                    camera-controls 
+                                    auto-rotate 
+                                    environment-image="neutral"
+                                    exposure="1"
+                                    shadow-intensity="1"
+                                    shadow-softness="0.5">
+                                </model-viewer>
+                                <model-viewer id="physics-garment-viewer" 
+                                    camera-controls 
+                                    auto-rotate 
+                                    environment-image="neutral"
+                                    exposure="1"
+                                    shadow-intensity="1"
+                                    shadow-softness="0.5">
+                                </model-viewer>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Environment Tab -->
+                <div id="environment-tab" class="tab-content">
+                    <div class="controls-section">
                         <h3>Environment & Lighting</h3>
                         
-                        <div class="preset-section">
-                            <h4>Environment Presets</h4>
-                            <div class="preset-grid">
-                                <button class="env-btn active" data-environment="studio">🏢 Studio</button>
-                                <button class="env-btn" data-environment="outdoor">🌳 Outdoor</button>
-                                <button class="env-btn" data-environment="neutral">⚪ Neutral</button>
-                            </div>
+                        <div class="environment-presets">
+                            <h4>Environment:</h4>
+                            <button class="env-btn active" data-environment="studio">🏢 Studio</button>
+                            <button class="env-btn" data-environment="outdoor">🌳 Outdoor</button>
+                            <button class="env-btn" data-environment="neutral">⚪ Neutral</button>
                         </div>
 
-                        <div class="preset-section">
-                            <h4>Tone Mapping</h4>
-                            <div class="preset-grid">
-                                <button class="preset-btn active" data-tone-mapping="aces">🎨 ACES</button>
-                                <button class="preset-btn" data-tone-mapping="neutral">⚪ Neutral</button>
-                                <button class="preset-btn" data-tone-mapping="commerce">🛍️ Commerce</button>
-                            </div>
+                        <div class="tone-mapping">
+                            <h4>Tone Mapping:</h4>
+                            <button class="preset-btn active" data-tone-mapping="aces">🎨 ACES</button>
+                            <button class="preset-btn" data-tone-mapping="linear">📏 Linear</button>
+                            <button class="preset-btn" data-tone-mapping="reinhard">🌈 Reinhard</button>
                         </div>
 
-                        <div class="controls-section">
-                            <h4>Lighting Controls</h4>
+                        <div class="controls">
                             <div class="control-group">
-                                <label for="exposure">Exposure: <span id="exposure-value">1.0</span></label>
-                                <input type="range" id="exposure" min="0.1" max="3.0" step="0.1" value="1.0">
+                                <label for="exposure">Exposure:</label>
+                                <input type="range" id="exposure" min="0.1" max="3" step="0.1" value="1">
+                                <span id="exposure-value">1</span>
                             </div>
                             <div class="control-group">
-                                <label for="shadow-intensity">Shadow Intensity: <span id="shadow-intensity-value">1.0</span></label>
-                                <input type="range" id="shadow-intensity" min="0" max="2" step="0.1" value="1.0">
+                                <label for="shadow-intensity">Shadow Intensity:</label>
+                                <input type="range" id="shadow-intensity" min="0" max="2" step="0.1" value="1">
+                                <span id="shadow-intensity-value">1</span>
                             </div>
                             <div class="control-group">
-                                <label for="shadow-softness">Shadow Softness: <span id="shadow-softness-value">0.5</span></label>
+                                <label for="shadow-softness">Shadow Softness:</label>
                                 <input type="range" id="shadow-softness" min="0" max="1" step="0.1" value="0.5">
+                                <span id="shadow-softness-value">0.5</span>
                             </div>
                         </div>
 
-                        <div class="action-section">
-                            <button id="auto-rotate-toggle" class="action-btn secondary active">🔄 Auto Rotate</button>
-                            <button id="camera-reset" class="action-btn secondary">📷 Reset Camera</button>
-                            <button id="focus-model" class="action-btn secondary">🎯 Focus Model</button>
+                        <div class="camera-controls">
+                            <h4>Camera:</h4>
+                            <button id="auto-rotate-toggle" class="action-btn">🔄 Auto Rotate</button>
+                            <button id="camera-reset" class="action-btn">📷 Reset Camera</button>
+                            <button id="focus-model" class="action-btn">🎯 Focus Model</button>
+                        </div>
+
+                        <div class="export-controls">
+                            <h4>Export:</h4>
+                            <button id="take-screenshot" class="action-btn">📸 Screenshot</button>
+                            <button id="export-scene" class="action-btn">💾 Export Scene</button>
+                        </div>
+                    </div>
+
+                    <div class="viewer-section">
+                        <div class="model-type-selector">
+                            <button class="model-btn" data-model-type="avatar">👤 Avatar Only</button>
+                            <button class="model-btn" data-model-type="garment">👕 Garment Only</button>
+                            <button class="model-btn active" data-model-type="both">🎭 Combined View</button>
+                        </div>
+                        <div class="viewer-container">
+                            <model-viewer id="environment-viewer" 
+                                camera-controls 
+                                auto-rotate 
+                                environment-image="neutral"
+                                exposure="1"
+                                shadow-intensity="1"
+                                shadow-softness="0.5">
+                            </model-viewer>
                         </div>
                     </div>
                 </div>
-            </aside>
-
-            <!-- Viewer Area -->
-            <main class="viewer-area">
-                <!-- Model Type Selector -->
-                <div class="model-selector">
-                    <button class="model-btn" data-model-type="avatar">👤 Avatar Only</button>
-                    <button class="model-btn" data-model-type="garment">👕 Garment Only</button>
-                    <button class="model-btn active" data-model-type="both">🎭 Combined View</button>
-                </div>
-
-                <!-- Viewer Container -->
-                <div class="viewer-container">
-                    <model-viewer 
-                        id="main-viewer"
-                        camera-controls 
-                        touch-action="pan-y"
-                        auto-rotate
-                        auto-rotate-delay="3000"
-                        rotation-per-second="30deg"
-                        shadow-intensity="1"
-                        shadow-softness="0.5"
-                        exposure="1"
-                        tone-mapping="aces"
-                        environment-image="https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/studio_small_03_1k.hdr"
-                        skybox-image="https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/studio_small_03_1k.hdr">
-                    </model-viewer>
-                </div>
-
-                <!-- Model Info -->
-                <div class="model-info">
-                    <div id="model-info-content" class="info-content">
-                        <div class="info-item">
-                            <span class="info-label">Model:</span>
-                            <span id="model-name" class="info-value">None loaded</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">Type:</span>
-                            <span id="model-type" class="info-value">-</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">Status:</span>
-                            <span id="model-status" class="info-value">Ready</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Action Bar -->
-                <div class="action-bar">
-                    <button id="take-screenshot" class="action-btn secondary">📸 Screenshot</button>
-                    <button id="export-scene" class="action-btn secondary">💾 Export</button>
-                </div>
-            </main>
+            </div>
         </div>
-
-        <!-- Physics Effect Overlay -->
-        <div id="physics-effect" class="physics-effect"></div>
     </div>
 
-    <!-- Scripts -->
     <script type="module" src="main.js"></script>
-    
-    <!-- Live Reload for Development -->
     <script>
+        // Live reload for development
         if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
             console.log('Live reload enabled.');
-            const ws = new WebSocket('ws://localhost:35729');
-            ws.onmessage = function(event) {
-                if (event.data === 'reload') {
-                    location.reload();
-                }
-            };
+            const ws = new WebSocket('ws://localhost:8080');
+            ws.onmessage = () => location.reload();
         }
     </script>
 </body>
