@@ -180,22 +180,51 @@ class PhysicsMeshUpdater {
       const fallAmount = Math.max(0, 1.5 - stats.centerY) // How much it has fallen
       const drapingFactor = Math.min(1, fallAmount / 1.0) // 0 to 1
 
-      // Apply subtle transformations that represent physics effects
-      const scaleY = 1.0 + stats.spread * 0.1 // Slight vertical stretching
-      const offsetY = -fallAmount * 20 // Move down as it falls
-      const rotation = Math.sin(stats.centerX * 2) * 2 // Slight swaying
-
-      // Get current transform and preserve user scaling
+      // Get current user-set transforms from the UI controls
       const currentTransform = this.garmentViewer.style.transform || ""
-      const userScaleMatch = currentTransform.match(/scale$$([^)]+)$$/)
-      const userScale = userScaleMatch ? Number.parseFloat(userScaleMatch[1]) : 1.0
 
-      // Apply combined transform with user scaling preserved
-      const combinedScale = userScale * scaleY
-      this.garmentViewer.style.transform = `scale(${combinedScale.toFixed(3)}) translateY(${offsetY.toFixed(1)}px) rotateZ(${rotation.toFixed(1)}deg)`
+      // Extract user-set scale from combined tab
+      const garmentScaleCombined = document.getElementById("garment-scale-combined")
+      const userScale = garmentScaleCombined ? Number.parseFloat(garmentScaleCombined.value) : 1.0
+
+      // Extract user-set position offsets
+      const garmentOffsetX = document.getElementById("garment-offset-x")
+      const garmentOffsetY = document.getElementById("garment-offset-y")
+      const userOffsetX = garmentOffsetX ? Number.parseFloat(garmentOffsetX.value) * 100 : 0
+      const userOffsetY = garmentOffsetY ? Number.parseFloat(garmentOffsetY.value) * 100 : 0
+
+      // Apply ONLY subtle physics effects without changing user scale
+      const physicsOffsetY = -fallAmount * 10 // Subtle downward movement as it falls
+      const physicsRotation = Math.sin(stats.centerX * 2) * 1 // Very subtle swaying
+      const physicsScaleY = 1.0 + stats.spread * 0.02 // Very subtle vertical stretching
+
+      // Combine user transforms with subtle physics effects
+      const finalScale = userScale * physicsScaleY
+      const finalOffsetX = userOffsetX
+      const finalOffsetY = userOffsetY + physicsOffsetY
+
+      // Apply combined transform preserving user settings
+      this.garmentViewer.style.transform = `
+        scale(${finalScale.toFixed(3)}) 
+        translate3d(${finalOffsetX.toFixed(1)}px, ${finalOffsetY.toFixed(1)}px, 0) 
+        rotateZ(${physicsRotation.toFixed(1)}deg)
+      `
+        .replace(/\s+/g, " ")
+        .trim()
 
       // Store current scale for reference
-      this.currentScale = combinedScale
+      this.currentScale = finalScale
+
+      // Update visual feedback occasionally
+      if (Math.random() < 0.005) {
+        // 0.5% chance per frame
+        console.log(`🎬 Physics transform applied:`)
+        console.log(`   • User Scale: ${userScale.toFixed(2)}x`)
+        console.log(`   • Physics Scale Y: ${physicsScaleY.toFixed(3)}x`)
+        console.log(`   • Final Scale: ${finalScale.toFixed(3)}x`)
+        console.log(`   • Fall Amount: ${fallAmount.toFixed(3)}m`)
+        console.log(`   • Physics Offset Y: ${physicsOffsetY.toFixed(1)}px`)
+      }
     } catch (error) {
       console.error("❌ Failed to apply transform to viewer:", error)
     }
@@ -205,16 +234,26 @@ class PhysicsMeshUpdater {
     try {
       console.log(`🔧 Setting garment scale to ${scale}x`)
 
-      // Update the current scale and apply immediately
-      const currentTransform = this.garmentViewer.style.transform || ""
+      // Don't directly modify the transform here - let the physics updater handle it
+      // Just trigger an update if physics is running
+      if (this.isUpdating) {
+        console.log(`✅ Garment scale will be applied with next physics update`)
+      } else {
+        // If physics is not running, apply scale directly
+        const garmentOffsetX = document.getElementById("garment-offset-x")
+        const garmentOffsetY = document.getElementById("garment-offset-y")
+        const userOffsetX = garmentOffsetX ? Number.parseFloat(garmentOffsetX.value) * 100 : 0
+        const userOffsetY = garmentOffsetY ? Number.parseFloat(garmentOffsetY.value) * 100 : 0
 
-      // Extract non-scale transforms
-      const nonScaleTransforms = currentTransform.replace(/scale$$[^)]*$$/g, "").trim()
+        this.garmentViewer.style.transform = `
+          scale(${scale}) 
+          translate3d(${userOffsetX.toFixed(1)}px, ${userOffsetY.toFixed(1)}px, 0)
+        `
+          .replace(/\s+/g, " ")
+          .trim()
 
-      // Apply new scale with existing transforms
-      this.garmentViewer.style.transform = `scale(${scale}) ${nonScaleTransforms}`.trim()
-
-      console.log(`✅ Garment scale updated to ${scale}x`)
+        console.log(`✅ Garment scale updated to ${scale}x (physics not running)`)
+      }
     } catch (error) {
       console.error("❌ Failed to set garment scale:", error)
     }

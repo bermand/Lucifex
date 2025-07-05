@@ -10,7 +10,7 @@ class SimpleClothPhysics {
     this.clothMeshes = new Map()
     this.avatarColliders = new Map()
     this.gravity = { x: 0, y: -9.81, z: 0 }
-    this.damping = 0.98 // Was 0.995, now less damping for more movement
+    this.damping = 0.95 // Reduced from 0.98 for more movement
     this.timeStep = 1 / 60
     this.constraintIterations = 2 // Increased back to 2 for better collision
     this.simulationTime = 0
@@ -149,7 +149,7 @@ class SimpleClothPhysics {
       const spacing = physicalWidth / (clothWidth - 1)
 
       // Start higher up so gravity has more effect
-      const startY = position.y + 1.5 // Higher starting position
+      const startY = position.y + 2.0 // Even higher starting position for better fall effect
 
       // Create particles in t-shirt shape
       for (let y = 0; y < clothHeight; y++) {
@@ -359,11 +359,11 @@ class SimpleClothPhysics {
     // Apply forces (gravity and wind)
     particles.forEach((particle, index) => {
       if (!particle.pinned) {
-        // Add some wind force for more dynamic movement
+        // Add stronger wind force for more dramatic movement
         const windForce = {
-          x: Math.sin(this.simulationTime * 2 + index * 0.1) * 0.5,
-          y: Math.sin(this.simulationTime * 1.5) * 0.1,
-          z: Math.cos(this.simulationTime * 2.2 + index * 0.12) * 0.3,
+          x: Math.sin(this.simulationTime * 2 + index * 0.1) * 1.0, // Increased from 0.5
+          y: Math.sin(this.simulationTime * 1.5) * 0.2, // Increased from 0.1
+          z: Math.cos(this.simulationTime * 2.2 + index * 0.12) * 0.6, // Increased from 0.3
         }
 
         const acceleration = {

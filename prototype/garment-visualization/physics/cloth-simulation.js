@@ -179,7 +179,7 @@ class ClothSimulation {
         const clothResult = this.physicsEngine.createClothFromGeometry(
           null,
           null,
-          { x: 0, y: 1.5, z: 0 }, // Reset to starting position
+          { x: 0, y: 2.0, z: 0 }, // Higher reset position for better fall effect
         )
 
         if (clothResult && clothResult.id) {
